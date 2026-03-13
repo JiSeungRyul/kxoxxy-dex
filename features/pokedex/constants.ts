@@ -7,28 +7,22 @@ export const DEFAULT_SORT_KEY: PokemonSortKey = "nationalDexNumber";
 export const DEFAULT_SORT_DIRECTION: SortDirection = "asc";
 export const POKEMON_PER_PAGE = 50;
 
-export const SORT_OPTIONS: Array<{ value: PokemonSortKey; label: string }> = [
-  { value: "nationalDexNumber", label: "전국 도감 번호" },
-  { value: "name", label: "이름" },
-  { value: "hp", label: "HP" },
-  { value: "attack", label: "공격" },
-  { value: "defense", label: "방어" },
-  { value: "specialAttack", label: "특수공격" },
-  { value: "specialDefense", label: "특수방어" },
-  { value: "speed", label: "스피드" },
+export const TABLE_COLUMNS: Array<{
+  key: "nationalDexNumber" | "name" | "types" | "hp" | "attack" | "defense" | "specialAttack" | "specialDefense" | "speed";
+  label: string;
+  sortable: boolean;
+  sortKey?: PokemonSortKey;
+}> = [
+  { key: "nationalDexNumber", label: "도감 번호", sortable: true, sortKey: "nationalDexNumber" },
+  { key: "name", label: "이름", sortable: true, sortKey: "name" },
+  { key: "types", label: "타입", sortable: false },
+  { key: "hp", label: "HP", sortable: true, sortKey: "hp" },
+  { key: "attack", label: "공격", sortable: true, sortKey: "attack" },
+  { key: "defense", label: "방어", sortable: true, sortKey: "defense" },
+  { key: "specialAttack", label: "특수공격", sortable: true, sortKey: "specialAttack" },
+  { key: "specialDefense", label: "특수방어", sortable: true, sortKey: "specialDefense" },
+  { key: "speed", label: "스피드", sortable: true, sortKey: "speed" },
 ];
-
-export const TABLE_COLUMNS = [
-  "도감 번호",
-  "이름",
-  "타입",
-  "HP",
-  "공격",
-  "방어",
-  "특수공격",
-  "특수방어",
-  "스피드",
-] as const;
 
 export const POKEMON_TYPE_LABELS: Record<PokemonTypeName, string> = {
   bug: "벌레",

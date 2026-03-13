@@ -1,11 +1,14 @@
 import Image from "next/image";
 
 import { TABLE_COLUMNS, TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import type { PokemonSummary } from "@/features/pokedex/types";
+import type { PokemonSortKey, PokemonSummary, SortDirection } from "@/features/pokedex/types";
 import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
 
 type PokedexTableProps = {
   pokemon: PokemonSummary[];
+  sortKey: PokemonSortKey;
+  sortDirection: SortDirection;
+  onSortChange: (sortKey: PokemonSortKey) => void;
 };
 
 function TypeBadge({ name, label }: { name: PokemonSummary["types"][number]["name"]; label: string }) {
@@ -27,7 +30,15 @@ function EmptyState() {
   );
 }
 
-export function PokedexTable({ pokemon }: PokedexTableProps) {
+function SortIndicator({ active, direction }: { active: boolean; direction: SortDirection }) {
+  if (!active) {
+    return <span className="text-smoke/50">↕</span>;
+  }
+
+  return <span className="text-ember">{direction === "asc" ? "↑" : "↓"}</span>;
+}
+
+export function PokedexTable({ pokemon, sortKey, sortDirection, onSortChange }: PokedexTableProps) {
   if (pokemon.length === 0) {
     return <EmptyState />;
   }
@@ -39,8 +50,19 @@ export function PokedexTable({ pokemon }: PokedexTableProps) {
           <thead>
             <tr className="text-left text-xs uppercase tracking-[0.18em] text-smoke">
               {TABLE_COLUMNS.map((column) => (
-                <th key={column} className={column === "이름" ? "px-6 pb-3 pt-2" : "px-5 pb-3 pt-2"}>
-                  {column}
+                <th key={column.key} className={column.key === "name" ? "px-6 pb-3 pt-2" : "px-5 pb-3 pt-2"}>
+                  {column.sortable && column.sortKey ? (
+                    <button
+                      type="button"
+                      onClick={() => onSortChange(column.sortKey!)}
+                      className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg leading-none transition hover:text-ember"
+                    >
+                      <span className="whitespace-nowrap">{column.label}</span>
+                      <SortIndicator active={sortKey === column.sortKey} direction={sortDirection} />
+                    </button>
+                  ) : (
+                    <span className="whitespace-nowrap">{column.label}</span>
+                  )}
                 </th>
               ))}
             </tr>

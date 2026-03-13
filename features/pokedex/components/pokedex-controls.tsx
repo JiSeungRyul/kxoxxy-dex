@@ -3,12 +3,9 @@
 import Image from "next/image";
 import type { ChangeEvent, ReactNode } from "react";
 
-import { SORT_OPTIONS } from "@/features/pokedex/constants";
 import type {
   GenerationFilterValue,
   PokedexFilterOptions,
-  PokemonSortKey,
-  SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
 import { formatGenerationLabel, formatTypeLabel } from "@/features/pokedex/utils";
@@ -18,15 +15,11 @@ type PokedexControlsProps = {
   searchTerm: string;
   selectedType: TypeFilterValue;
   selectedGeneration: GenerationFilterValue;
-  sortKey: PokemonSortKey;
-  sortDirection: SortDirection;
   resultCount: number;
   totalCount: number;
   onSearchChange: (value: string) => void;
   onTypeChange: (value: TypeFilterValue) => void;
   onGenerationChange: (value: GenerationFilterValue) => void;
-  onSortKeyChange: (value: PokemonSortKey) => void;
-  onSortDirectionChange: (value: SortDirection) => void;
   onReset: () => void;
 };
 
@@ -56,15 +49,11 @@ export function PokedexControls({
   searchTerm,
   selectedType,
   selectedGeneration,
-  sortKey,
-  sortDirection,
   resultCount,
   totalCount,
   onSearchChange,
   onTypeChange,
   onGenerationChange,
-  onSortKeyChange,
-  onSortDirectionChange,
   onReset,
 }: PokedexControlsProps) {
   return (
@@ -88,7 +77,7 @@ export function PokedexControls({
               데스크톱 중심 포켓몬 도감
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-smoke">
-              이름 검색, 타입 및 세대 필터, 전국 도감 번호와 주요 배틀 스탯 정렬을 한 화면에서 사용할 수 있습니다.
+              이름 검색과 타입, 세대 필터를 사용하고, 테이블 헤더를 눌러 원하는 기준으로 정렬할 수 있습니다.
             </p>
           </div>
         </div>
@@ -105,7 +94,7 @@ export function PokedexControls({
           <input
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="예: Pikachu"
+            placeholder="예: 이상해씨"
             className={`w-full ${fieldClassName}`}
           />
         </ControlRow>
@@ -137,31 +126,6 @@ export function PokedexControls({
                 {formatGenerationLabel(generation.id)}
               </option>
             ))}
-          </select>
-        </ControlRow>
-
-        <ControlRow label="정렬 기준" className="min-w-[260px] flex-[1.1]">
-          <select
-            value={sortKey}
-            onChange={(event) => handleSelectChange(event, onSortKeyChange)}
-            className={`w-full ${fieldClassName}`}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </ControlRow>
-
-        <ControlRow label="정렬 방향" className="min-w-[220px] flex-[0.9]">
-          <select
-            value={sortDirection}
-            onChange={(event) => handleSelectChange(event, onSortDirectionChange)}
-            className={`w-full ${fieldClassName}`}
-          >
-            <option value="asc">오름차순</option>
-            <option value="desc">내림차순</option>
           </select>
         </ControlRow>
 

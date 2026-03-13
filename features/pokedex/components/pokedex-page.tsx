@@ -78,19 +78,28 @@ export function PokedexPage({ pokemon, filterOptions }: PokedexPageProps) {
           searchTerm={searchTerm}
           selectedType={selectedType}
           selectedGeneration={selectedGeneration}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
           resultCount={filteredPokemon.length}
           totalCount={pokemon.length}
           onSearchChange={setSearchTerm}
           onTypeChange={setSelectedType}
           onGenerationChange={setSelectedGeneration}
-          onSortKeyChange={setSortKey}
-          onSortDirectionChange={setSortDirection}
           onReset={resetFilters}
         />
         <div className="mx-auto w-full max-w-[1320px] space-y-6">
-          <PokedexTable pokemon={paginatedPokemon} />
+          <PokedexTable
+            pokemon={paginatedPokemon}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSortChange={(nextSortKey) => {
+              if (sortKey === nextSortKey) {
+                setSortDirection((currentDirection) => (currentDirection === "asc" ? "desc" : "asc"));
+                return;
+              }
+
+              setSortKey(nextSortKey);
+              setSortDirection("asc");
+            }}
+          />
           <PokedexPagination
             currentPage={normalizedCurrentPage}
             totalPages={totalPages}
