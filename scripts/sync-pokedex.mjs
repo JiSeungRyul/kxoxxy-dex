@@ -48,6 +48,16 @@ function getLocalizedPokemonName(speciesNames, fallbackName) {
   );
 }
 
+function getPreferredImageUrl(entry, nationalDexNumber) {
+  return (
+    entry.sprites.versions?.["generation-v"]?.["black-white"]?.animated?.front_default ??
+    entry.sprites.other?.showdown?.front_default ??
+    entry.sprites.other?.["official-artwork"]?.front_default ??
+    entry.sprites.front_default ??
+    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${nationalDexNumber}.png`
+  );
+}
+
 async function fetchFromPokeApi(pathname) {
   const response = await fetch(`${POKE_API_BASE_URL}${pathname}`, {
     headers: {
@@ -110,10 +120,7 @@ async function buildSnapshot() {
           nationalDexNumber,
           slug: entry.name,
           name: getLocalizedPokemonName(species.names, entry.name),
-          imageUrl:
-            entry.sprites.other?.["official-artwork"]?.front_default ??
-            entry.sprites.front_default ??
-            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${nationalDexNumber}.png`,
+          imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
           generation,
           types,
           stats: {

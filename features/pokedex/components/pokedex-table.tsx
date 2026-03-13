@@ -34,12 +34,12 @@ export function PokedexTable({ pokemon }: PokedexTableProps) {
 
   return (
     <section className="mx-auto w-full overflow-hidden rounded-[2rem] border border-ink/10 bg-panel shadow-card">
-      <div className="overflow-x-auto px-4 py-4 sm:px-6">
-        <table className="mx-auto min-w-[1080px] border-separate border-spacing-y-3">
+      <div className="overflow-x-auto px-5 py-5 sm:px-8">
+        <table className="mx-auto min-w-[1200px] border-separate border-spacing-y-4">
           <thead>
             <tr className="text-left text-xs uppercase tracking-[0.18em] text-smoke">
               {TABLE_COLUMNS.map((column) => (
-                <th key={column} className={column === "이름" ? "px-5 pb-2 pt-1" : "px-4 pb-2 pt-1"}>
+                <th key={column} className={column === "이름" ? "px-6 pb-3 pt-2" : "px-5 pb-3 pt-2"}>
                   {column}
                 </th>
               ))}
@@ -48,27 +48,27 @@ export function PokedexTable({ pokemon }: PokedexTableProps) {
           <tbody>
             {pokemon.map((entry) => (
               <tr key={entry.nationalDexNumber} className="rounded-2xl bg-white shadow-sm">
-                <td className="rounded-l-2xl border-y border-l border-ink/5 px-4 py-4 font-display text-lg font-semibold tracking-[-0.03em] text-ember">
+                <td className="rounded-l-2xl border-y border-l border-ink/5 px-5 py-5 font-display text-lg font-semibold tracking-[-0.03em] text-ember">
                   {formatDexNumber(entry.nationalDexNumber)}
                 </td>
-                <td className="border-y border-ink/5 px-5 py-4">
-                  <div className="flex min-w-[240px] items-center gap-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-canvas">
+                <td className="border-y border-ink/5 px-6 py-5">
+                  <div className="flex min-w-[320px] items-center gap-5">
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] bg-canvas">
                       <Image
                         src={entry.imageUrl}
                         alt={entry.name}
-                        width={56}
-                        height={56}
-                        sizes="56px"
-                        className="h-14 w-14 object-contain"
+                        width={84}
+                        height={84}
+                        sizes="84px"
+                        className="h-[5.25rem] w-[5.25rem] object-contain"
                         unoptimized
                       />
                     </div>
-                    <p className="text-base font-semibold text-ink">{entry.name}</p>
+                    <p className="text-lg font-semibold text-ink">{entry.name}</p>
                   </div>
                 </td>
-                <td className="border-y border-ink/5 px-4 py-4">
-                  <div className="flex min-w-[160px] flex-wrap gap-2">
+                <td className="border-y border-ink/5 px-5 py-5">
+                  <div className="flex min-w-[190px] flex-wrap gap-2.5">
                     {entry.types.map((type) => (
                       <TypeBadge
                         key={`${entry.nationalDexNumber}-${type.name}`}
@@ -78,12 +78,12 @@ export function PokedexTable({ pokemon }: PokedexTableProps) {
                     ))}
                   </div>
                 </td>
-                <td className="border-y border-ink/5 px-4 py-4 text-sm font-medium text-ink">{entry.stats.hp}</td>
-                <td className="border-y border-ink/5 px-4 py-4 text-sm font-medium text-ink">{entry.stats.attack}</td>
-                <td className="border-y border-ink/5 px-4 py-4 text-sm font-medium text-ink">{entry.stats.defense}</td>
-                <td className="border-y border-ink/5 px-4 py-4 text-sm font-medium text-ink">{entry.stats.specialAttack}</td>
-                <td className="border-y border-ink/5 px-4 py-4 text-sm font-medium text-ink">{entry.stats.specialDefense}</td>
-                <td className="rounded-r-2xl border-y border-r border-ink/5 px-4 py-4 text-sm font-medium text-ink">
+                <td className="border-y border-ink/5 px-5 py-5 text-sm font-medium text-ink">{entry.stats.hp}</td>
+                <td className="border-y border-ink/5 px-5 py-5 text-sm font-medium text-ink">{entry.stats.attack}</td>
+                <td className="border-y border-ink/5 px-5 py-5 text-sm font-medium text-ink">{entry.stats.defense}</td>
+                <td className="border-y border-ink/5 px-5 py-5 text-sm font-medium text-ink">{entry.stats.specialAttack}</td>
+                <td className="border-y border-ink/5 px-5 py-5 text-sm font-medium text-ink">{entry.stats.specialDefense}</td>
+                <td className="rounded-r-2xl border-y border-r border-ink/5 px-5 py-5 text-sm font-medium text-ink">
                   {entry.stats.speed}
                 </td>
               </tr>

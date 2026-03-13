@@ -16,7 +16,14 @@ async function readPokedexSnapshot(): Promise<PokedexSnapshot> {
   return JSON.parse(snapshotText) as PokedexSnapshot;
 }
 
-export const getPokedexSnapshot = unstable_cache(readPokedexSnapshot, ["pokedex-snapshot"], {
+const getCachedPokedexSnapshot = unstable_cache(readPokedexSnapshot, ["pokedex-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
+export function getPokedexSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexSnapshot();
+  }
+
+  return getCachedPokedexSnapshot();
+}
