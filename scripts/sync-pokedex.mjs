@@ -3,6 +3,7 @@ import path from "node:path";
 
 const POKE_API_BASE_URL = "https://pokeapi.co/api/v2";
 const BATCH_SIZE = 40;
+const KOREAN_LANGUAGE_CODE = "ko";
 const GENERATIONS = [
   { id: 1, label: "Generation I" },
   { id: 2, label: "Generation II" },
@@ -38,6 +39,13 @@ function getIdFromResourceUrl(resourceUrl) {
 
 function getStatValue(stats, statName) {
   return stats.find((entry) => entry.stat.name === statName)?.base_stat ?? 0;
+}
+
+function getLocalizedPokemonName(speciesNames, fallbackName) {
+  return (
+    speciesNames.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name ??
+    formatLabel(fallbackName)
+  );
 }
 
 async function fetchFromPokeApi(pathname) {
@@ -81,7 +89,10 @@ async function buildSnapshot() {
   for (const batch of chunk(nationalDexNumbers, BATCH_SIZE)) {
     const batchResults = await Promise.all(
       batch.map(async (nationalDexNumber) => {
-        const entry = await fetchFromPokeApi(`/pokemon/${nationalDexNumber}`);
+        const [entry, species] = await Promise.all([
+          fetchFromPokeApi(`/pokemon/${nationalDexNumber}`),
+          fetchFromPokeApi(`/pokemon-species/${nationalDexNumber}`),
+        ]);
         const generation = generationByDexNumber.get(nationalDexNumber);
         const types = entry.types
           .sort((left, right) => left.slot - right.slot)
@@ -98,7 +109,7 @@ async function buildSnapshot() {
         return {
           nationalDexNumber,
           slug: entry.name,
-          name: formatLabel(entry.name),
+          name: getLocalizedPokemonName(species.names, entry.name),
           imageUrl:
             entry.sprites.other?.["official-artwork"]?.front_default ??
             entry.sprites.front_default ??
@@ -149,4 +160,3 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
-

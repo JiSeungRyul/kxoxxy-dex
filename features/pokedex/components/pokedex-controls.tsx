@@ -1,6 +1,7 @@
 "use client";
 
-import type { ChangeEvent } from "react";
+import Image from "next/image";
+import type { ChangeEvent, ReactNode } from "react";
 
 import { SORT_OPTIONS } from "@/features/pokedex/constants";
 import type {
@@ -10,6 +11,7 @@ import type {
   SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
+import { formatGenerationLabel, formatTypeLabel } from "@/features/pokedex/utils";
 
 type PokedexControlsProps = {
   filterOptions: PokedexFilterOptions;
@@ -29,13 +31,24 @@ type PokedexControlsProps = {
 };
 
 const fieldClassName =
-  "h-12 rounded-2xl border border-ink/10 bg-white px-4 text-sm outline-none transition focus:border-ember focus:ring-2 focus:ring-ember/20";
+  "h-12 min-w-0 rounded-2xl border border-ink/10 bg-white px-4 text-sm outline-none transition focus:border-ember focus:ring-2 focus:ring-ember/20";
 
 function handleSelectChange<T extends string>(
   event: ChangeEvent<HTMLSelectElement>,
   callback: (value: T) => void,
 ) {
   callback(event.target.value as T);
+}
+
+function ControlRow({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <label
+      className={`flex min-w-[220px] items-center gap-3 rounded-2xl border border-ink/10 bg-white/60 px-4 py-3 ${className}`}
+    >
+      <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-smoke">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </label>
+  );
 }
 
 export function PokedexControls({
@@ -57,72 +70,81 @@ export function PokedexControls({
   return (
     <section className="rounded-[2rem] border border-ink/10 bg-panel p-6 shadow-card">
       <div className="flex items-start justify-between gap-6">
-        <div>
-          <p className="font-display text-xs uppercase tracking-[0.3em] text-ember">KxoxxyDex MVP</p>
-          <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.04em] text-ink">
-            Desktop-first Pokedex
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-smoke">
-            Search by name, filter by type or generation, and sort across National Dex and core battle
-            stats.
-          </p>
+        <div className="flex items-start gap-4">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] border border-ink/10 bg-white shadow-sm">
+            <Image
+              src="/brand/kxoxxy.jpg"
+              alt="KxoxxyDex 로고"
+              width={80}
+              height={80}
+              className="h-full w-full object-cover"
+              priority
+            />
+          </div>
+
+          <div>
+            <p className="font-display text-xs uppercase tracking-[0.3em] text-ember">KxoxxyDex MVP</p>
+            <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.04em] text-ink">
+              데스크톱 중심 포켓몬 도감
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-smoke">
+              이름 검색, 타입 및 세대 필터, 전국 도감 번호와 주요 배틀 스탯 정렬을 한 화면에서 사용할 수 있습니다.
+            </p>
+          </div>
         </div>
+
         <div className="rounded-2xl border border-ink/10 bg-canvas px-5 py-4 text-right">
           <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-ink">{resultCount}</p>
-          <p className="text-sm text-smoke">matching Pokemon</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-smoke">Total dataset: {totalCount}</p>
+          <p className="text-sm text-smoke">조건에 맞는 포켓몬</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-smoke">전체 데이터: {totalCount}</p>
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-[2.2fr_1fr_1fr_1.2fr_auto_auto] gap-4">
-        <label className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-smoke">Search name</span>
+      <div className="mt-8 flex flex-wrap items-center gap-4">
+        <ControlRow label="이름 검색" className="min-w-[320px] flex-[1.5]">
           <input
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="e.g. Pikachu"
-            className={fieldClassName}
+            placeholder="예: Pikachu"
+            className={`w-full ${fieldClassName}`}
           />
-        </label>
+        </ControlRow>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-smoke">Type</span>
+        <ControlRow label="타입" className="flex-1">
           <select
             value={selectedType}
             onChange={(event) => handleSelectChange(event, onTypeChange)}
-            className={fieldClassName}
+            className={`w-full ${fieldClassName}`}
           >
-            <option value="all">All types</option>
+            <option value="all">전체 타입</option>
             {filterOptions.types.map((type) => (
               <option key={type.name} value={type.name}>
-                {type.label}
+                {formatTypeLabel(type.name)}
               </option>
             ))}
           </select>
-        </label>
+        </ControlRow>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-smoke">Generation</span>
+        <ControlRow label="세대" className="flex-1">
           <select
             value={selectedGeneration}
             onChange={(event) => handleSelectChange(event, onGenerationChange)}
-            className={fieldClassName}
+            className={`w-full ${fieldClassName}`}
           >
-            <option value="all">All generations</option>
+            <option value="all">전체 세대</option>
             {filterOptions.generations.map((generation) => (
               <option key={generation.id} value={String(generation.id)}>
-                {generation.label}
+                {formatGenerationLabel(generation.id)}
               </option>
             ))}
           </select>
-        </label>
+        </ControlRow>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-smoke">Sort by</span>
+        <ControlRow label="정렬 기준" className="min-w-[260px] flex-[1.1]">
           <select
             value={sortKey}
             onChange={(event) => handleSelectChange(event, onSortKeyChange)}
-            className={fieldClassName}
+            className={`w-full ${fieldClassName}`}
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -130,31 +152,27 @@ export function PokedexControls({
               </option>
             ))}
           </select>
-        </label>
+        </ControlRow>
 
-        <label className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-smoke">Direction</span>
+        <ControlRow label="정렬 방향" className="min-w-[220px] flex-[0.9]">
           <select
             value={sortDirection}
             onChange={(event) => handleSelectChange(event, onSortDirectionChange)}
-            className={fieldClassName}
+            className={`w-full ${fieldClassName}`}
           >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
+            <option value="asc">오름차순</option>
+            <option value="desc">내림차순</option>
           </select>
-        </label>
+        </ControlRow>
 
-        <div className="flex flex-col justify-end">
-          <button
-            type="button"
-            onClick={onReset}
-            className="h-12 rounded-2xl bg-ink px-5 text-sm font-semibold text-white transition hover:bg-emberDark"
-          >
-            Reset filters
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="h-[74px] shrink-0 rounded-2xl bg-ink px-6 text-sm font-semibold text-white transition hover:bg-emberDark"
+        >
+          필터 초기화
+        </button>
       </div>
     </section>
   );
 }
-

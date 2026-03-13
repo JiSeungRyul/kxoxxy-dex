@@ -1,56 +1,85 @@
-import type {
-  PokemonSortKey,
-  PokemonTypeName,
-  SortDirection,
-} from "@/features/pokedex/types";
+import type { PokemonSortKey, PokemonTypeName, SortDirection } from "@/features/pokedex/types";
 
 export const ALL_TYPE_FILTER = "all";
 export const ALL_GENERATION_FILTER = "all";
 
 export const DEFAULT_SORT_KEY: PokemonSortKey = "nationalDexNumber";
 export const DEFAULT_SORT_DIRECTION: SortDirection = "asc";
+export const POKEMON_PER_PAGE = 50;
 
 export const SORT_OPTIONS: Array<{ value: PokemonSortKey; label: string }> = [
-  { value: "nationalDexNumber", label: "National Dex Number" },
-  { value: "name", label: "Name" },
+  { value: "nationalDexNumber", label: "전국 도감 번호" },
+  { value: "name", label: "이름" },
   { value: "hp", label: "HP" },
-  { value: "attack", label: "Attack" },
-  { value: "defense", label: "Defense" },
-  { value: "specialAttack", label: "Special Attack" },
-  { value: "specialDefense", label: "Special Defense" },
-  { value: "speed", label: "Speed" },
+  { value: "attack", label: "공격" },
+  { value: "defense", label: "방어" },
+  { value: "specialAttack", label: "특수공격" },
+  { value: "specialDefense", label: "특수방어" },
+  { value: "speed", label: "스피드" },
 ];
 
 export const TABLE_COLUMNS = [
-  "Pokemon",
-  "Dex #",
-  "Name",
-  "Type",
+  "도감 번호",
+  "이름",
+  "타입",
   "HP",
-  "Attack",
-  "Defense",
-  "Sp. Atk",
-  "Sp. Def",
-  "Speed",
+  "공격",
+  "방어",
+  "특수공격",
+  "특수방어",
+  "스피드",
 ] as const;
 
+export const POKEMON_TYPE_LABELS: Record<PokemonTypeName, string> = {
+  bug: "벌레",
+  dark: "악",
+  dragon: "드래곤",
+  electric: "전기",
+  fairy: "페어리",
+  fighting: "격투",
+  fire: "불꽃",
+  flying: "비행",
+  ghost: "고스트",
+  grass: "풀",
+  ground: "땅",
+  ice: "얼음",
+  normal: "노말",
+  poison: "독",
+  psychic: "에스퍼",
+  rock: "바위",
+  steel: "강철",
+  water: "물",
+};
+
+export const GENERATION_LABELS = {
+  1: "1세대",
+  2: "2세대",
+  3: "3세대",
+  4: "4세대",
+  5: "5세대",
+  6: "6세대",
+  7: "7세대",
+  8: "8세대",
+  9: "9세대",
+} as const;
+
 export const TYPE_BADGE_STYLES: Record<PokemonTypeName, string> = {
-  bug: "bg-green-200 text-green-900",
-  dark: "bg-neutral-300 text-neutral-950",
-  dragon: "bg-blue-200 text-blue-900",
-  electric: "bg-yellow-200 text-yellow-900",
-  fairy: "bg-rose-200 text-rose-900",
-  fighting: "bg-red-200 text-red-900",
-  fire: "bg-orange-200 text-orange-900",
-  flying: "bg-indigo-200 text-indigo-900",
-  ghost: "bg-violet-200 text-violet-900",
-  grass: "bg-lime-200 text-lime-900",
-  ground: "bg-amber-200 text-amber-900",
-  ice: "bg-cyan-200 text-cyan-900",
-  normal: "bg-stone-200 text-stone-800",
-  poison: "bg-fuchsia-200 text-fuchsia-900",
-  psychic: "bg-pink-200 text-pink-900",
-  rock: "bg-yellow-300 text-yellow-950",
-  steel: "bg-slate-200 text-slate-900",
-  water: "bg-sky-200 text-sky-900",
+  bug: "border-green-300 bg-green-100 text-green-900",
+  dark: "border-neutral-400 bg-neutral-200 text-neutral-950",
+  dragon: "border-blue-300 bg-blue-100 text-blue-900",
+  electric: "border-yellow-300 bg-yellow-100 text-yellow-900",
+  fairy: "border-rose-300 bg-rose-100 text-rose-900",
+  fighting: "border-red-300 bg-red-100 text-red-900",
+  fire: "border-orange-300 bg-orange-100 text-orange-900",
+  flying: "border-indigo-300 bg-indigo-100 text-indigo-900",
+  ghost: "border-violet-300 bg-violet-100 text-violet-900",
+  grass: "border-lime-300 bg-lime-100 text-lime-900",
+  ground: "border-amber-300 bg-amber-100 text-amber-900",
+  ice: "border-cyan-300 bg-cyan-100 text-cyan-900",
+  normal: "border-stone-300 bg-stone-100 text-stone-800",
+  poison: "border-fuchsia-300 bg-fuchsia-100 text-fuchsia-900",
+  psychic: "border-pink-300 bg-pink-100 text-pink-900",
+  rock: "border-yellow-400 bg-yellow-200 text-yellow-950",
+  steel: "border-slate-300 bg-slate-100 text-slate-900",
+  water: "border-sky-300 bg-sky-100 text-sky-900",
 };

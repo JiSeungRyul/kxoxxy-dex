@@ -3,12 +3,16 @@ import {
   ALL_TYPE_FILTER,
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_KEY,
+  GENERATION_LABELS,
+  POKEMON_TYPE_LABELS,
 } from "@/features/pokedex/constants";
 import type {
   GenerationFilterValue,
+  PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
   SortDirection,
+  PokemonTypeName,
   TypeFilterValue,
 } from "@/features/pokedex/types";
 
@@ -21,6 +25,14 @@ export function formatLabel(value: string) {
 
 export function formatDexNumber(nationalDexNumber: number) {
   return `#${String(nationalDexNumber).padStart(4, "0")}`;
+}
+
+export function formatTypeLabel(typeName: PokemonTypeName) {
+  return POKEMON_TYPE_LABELS[typeName];
+}
+
+export function formatGenerationLabel(generationId: PokemonGenerationId) {
+  return GENERATION_LABELS[generationId];
 }
 
 export function getSortValue(entry: PokemonSummary, sortKey: PokemonSortKey) {
@@ -90,4 +102,3 @@ export function filterAndSortPokemon({
       return sortDirection === "asc" ? comparison : comparison * -1;
     });
 }
-
