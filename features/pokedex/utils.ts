@@ -5,6 +5,7 @@ import {
   DEFAULT_SORT_KEY,
   GENERATION_LABELS,
   POKEMON_TYPE_LABELS,
+  TYPE_EFFECTIVENESS,
 } from "@/features/pokedex/constants";
 import type {
   GenerationFilterValue,
@@ -71,12 +72,46 @@ export function formatGenderRate(genderRate: number) {
   return `수컷 ${maleRate.toFixed(1)}% / 암컷 ${femaleRate.toFixed(1)}%`;
 }
 
-export function formatHatchCounter(hatchCounter: number) {
-  return `${hatchCounter}`;
-}
-
 export function formatMaxExperience(maxExperience: number) {
   return `${maxExperience.toLocaleString("ko-KR")} EXP`;
+}
+
+export function getDefensiveTypeMatchups(defendingTypes: PokemonTypeName[]) {
+  const attackTypes = Object.keys(POKEMON_TYPE_LABELS) as PokemonTypeName[];
+  const buckets: Record<string, PokemonTypeName[]> = {
+    "4": [],
+    "2": [],
+    "1": [],
+    "0.5": [],
+    "0": [],
+  };
+
+  for (const attackType of attackTypes) {
+    const multiplier = defendingTypes.reduce((total, defendingType) => {
+      const effectiveness = TYPE_EFFECTIVENESS[attackType][defendingType] ?? 1;
+      return total * effectiveness;
+    }, 1);
+
+    if (multiplier === 4) {
+      buckets["4"].push(attackType);
+    } else if (multiplier === 2) {
+      buckets["2"].push(attackType);
+    } else if (multiplier === 1) {
+      buckets["1"].push(attackType);
+    } else if (multiplier === 0.5) {
+      buckets["0.5"].push(attackType);
+    } else if (multiplier === 0) {
+      buckets["0"].push(attackType);
+    }
+  }
+
+  return [
+    { label: "4배", multiplier: "4배", types: buckets["4"] },
+    { label: "2배", multiplier: "2배", types: buckets["2"] },
+    { label: "1배", multiplier: "1배", types: buckets["1"] },
+    { label: "0.5배", multiplier: "0.5배", types: buckets["0.5"] },
+    { label: "0배", multiplier: "0배", types: buckets["0"] },
+  ];
 }
 
 export function getSortValue(entry: PokemonSummary, sortKey: PokemonSortKey) {
@@ -155,6 +190,16 @@ export function getLocalDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function hashString(value: string) {
+  let hash = 0;
+
+  for (const character of value) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return hash;
+}
+
 export function getInitialCollectionState(): PokedexCollectionState {
   return {
     capturedDexNumbers: [],
@@ -190,18 +235,18 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
 export function selectDailyEncounterPokemon({
   pokemon,
   capturedDexNumbers,
-  excludedDexNumbers = [],
+  dateKey,
 }: {
   pokemon: PokemonSummary[];
   capturedDexNumbers: number[];
-  excludedDexNumbers?: number[];
+  dateKey: string;
 }) {
-  const blockedDexNumberSet = new Set([...capturedDexNumbers, ...excludedDexNumbers]);
-  const candidates = pokemon.filter((entry) => !blockedDexNumberSet.has(entry.nationalDexNumber));
+  const capturedDexNumberSet = new Set(capturedDexNumbers);
+  const candidates = pokemon.filter((entry) => !capturedDexNumberSet.has(entry.nationalDexNumber));
 
   if (candidates.length === 0) {
     return null;
   }
 
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return candidates[hashString(dateKey) % candidates.length];
 }

@@ -6,6 +6,78 @@ const BATCH_SIZE = 40;
 const KOREAN_LANGUAGE_CODE = "ko";
 const ENGLISH_LANGUAGE_CODE = "en";
 const JAPANESE_LANGUAGE_CODES = ["ja-Hrkt", "ja"];
+const FORM_LABELS = {
+  alola: "알로라",
+  galar: "가라르",
+  hisui: "히스이",
+  paldea: "팔데아",
+  origin: "오리진",
+  attack: "어택",
+  defense: "디펜스",
+  speed: "스피드",
+  incarnate: "화신",
+  therian: "영물",
+  ordinary: "보통",
+  resolute: "각오",
+  aria: "아리아",
+  pirouette: "스텝",
+  zen: "달마",
+  standard: "기본",
+  school: "군집",
+  solo: "단독",
+  busted: "변장해제",
+  disguise: "변장",
+  blade: "블레이드",
+  shield: "실드",
+  full: "풀",
+  complete: "퍼펙트",
+  midday: "한낮",
+  midnight: "한밤중",
+  dusk: "황혼",
+  baile: "열정",
+  "pom-pom": "파칙",
+  pau: "훌라",
+  sensu: "하늘하늘",
+  heat: "히트",
+  wash: "워시",
+  frost: "프로스트",
+  fan: "스핀",
+  mow: "커트",
+  average: "보통",
+  small: "소형",
+  large: "대형",
+  super: "슈퍼",
+  red: "레드",
+  blue: "블루",
+  yellow: "옐로",
+  green: "그린",
+  indigo: "인디고",
+  violet: "바이올렛",
+  combat: "컴뱃",
+  blaze: "블레이즈",
+  aqua: "아쿠아",
+  white: "화이트",
+  black: "블랙",
+};
+const EXCLUDED_FORM_KEYS = new Set([
+  "totem",
+  "totem-alola",
+  "cosplay",
+  "rock-star",
+  "belle",
+  "pop-star",
+  "phd",
+  "libre",
+  "original-cap",
+  "hoenn-cap",
+  "sinnoh-cap",
+  "unova-cap",
+  "kalos-cap",
+  "alola-cap",
+  "partner-cap",
+  "world-cap",
+  "starter",
+]);
 const GENERATIONS = [
   { id: 1, label: "Generation I" },
   { id: 2, label: "Generation II" },
@@ -37,6 +109,204 @@ function formatLabel(value) {
 
 function getIdFromResourceUrl(resourceUrl) {
   return Number(resourceUrl.split("/").filter(Boolean).at(-1));
+}
+
+function collectEvolutionDexNumbers(chain, values = []) {
+  values.push(getIdFromResourceUrl(chain.species.url));
+
+  for (const evolvesTo of chain.evolves_to) {
+    collectEvolutionDexNumbers(evolvesTo, values);
+  }
+
+  return values;
+}
+
+function describeRelativeStats(relativePhysicalStats) {
+  if (relativePhysicalStats === 1) {
+    return "공격 > 방어";
+  }
+
+  if (relativePhysicalStats === -1) {
+    return "공격 < 방어";
+  }
+
+  if (relativePhysicalStats === 0) {
+    return "공격 = 방어";
+  }
+
+  return null;
+}
+
+function formatResourceName(value) {
+  return formatLabel(value).replaceAll(" ", "");
+}
+
+function getFormKey(baseSlug, formSlug) {
+  if (formSlug === baseSlug) {
+    return "default";
+  }
+
+  return formSlug.replace(`${baseSlug}-`, "");
+}
+
+function getFormLabel(baseSlug, formSlug) {
+  const formKey = getFormKey(baseSlug, formSlug);
+
+  if (formKey === "default") {
+    return "기본";
+  }
+
+  return FORM_LABELS[formKey] ?? formatLabel(formKey);
+}
+
+function buildFormSummary({
+  baseSlug,
+  formSlug,
+  entry,
+  types,
+  abilities,
+  hiddenAbility,
+}) {
+  const nationalDexNumber = getIdFromResourceUrl(entry.species.url);
+
+  return {
+    key: getFormKey(baseSlug, formSlug),
+    slug: formSlug,
+    label: getFormLabel(baseSlug, formSlug),
+    isDefault: formSlug === baseSlug,
+    imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
+    artworkImageUrl: getPreferredArtworkImageUrl(entry, nationalDexNumber),
+    types,
+    stats: {
+      hp: getStatValue(entry.stats, "hp"),
+      attack: getStatValue(entry.stats, "attack"),
+      defense: getStatValue(entry.stats, "defense"),
+      specialAttack: getStatValue(entry.stats, "special-attack"),
+      specialDefense: getStatValue(entry.stats, "special-defense"),
+      speed: getStatValue(entry.stats, "speed"),
+    },
+    abilities,
+    hiddenAbility,
+    height: entry.height,
+    weight: entry.weight,
+  };
+}
+
+function isSpecialEvolutionForm(formKey) {
+  return formKey === "mega" || formKey === "mega-x" || formKey === "mega-y" || formKey === "gmax";
+}
+
+function formatEvolutionCondition(detail) {
+  const parts = [];
+
+  if (detail.trigger?.name === "trade") {
+    parts.push("교환");
+  } else if (detail.trigger?.name === "use-item") {
+    parts.push("아이템 사용");
+  } else if (detail.trigger?.name === "shed") {
+    parts.push("분기 진화");
+  } else {
+    parts.push("레벨업");
+  }
+
+  if (detail.min_level) {
+    parts.push(`Lv.${detail.min_level}`);
+  }
+
+  if (detail.item?.name) {
+    parts.push("진화 아이템 사용");
+  }
+
+  if (detail.held_item?.name) {
+    parts.push("특정 아이템 지닌 상태");
+  }
+
+  if (detail.min_happiness) {
+    parts.push(`친밀도 ${detail.min_happiness}+`);
+  }
+
+  if (detail.min_affection) {
+    parts.push(`애정도 ${detail.min_affection}+`);
+  }
+
+  if (detail.min_beauty) {
+    parts.push(`아름다움 ${detail.min_beauty}+`);
+  }
+
+  if (detail.time_of_day) {
+    parts.push(`${detail.time_of_day === "day" ? "낮" : detail.time_of_day === "night" ? "밤" : formatResourceName(detail.time_of_day)}`);
+  }
+
+  if (detail.location?.name) {
+    parts.push(`${formatResourceName(detail.location.name)}에서`);
+  }
+
+  if (detail.known_move?.name) {
+    parts.push(`${formatResourceName(detail.known_move.name)} 습득`);
+  }
+
+  if (detail.known_move_type?.name) {
+    parts.push(`${formatResourceName(detail.known_move_type.name)} 타입 기술 습득`);
+  }
+
+  if (detail.party_species?.name) {
+    parts.push(`${formatResourceName(detail.party_species.name)} 동행`);
+  }
+
+  if (detail.party_type?.name) {
+    parts.push(`${formatResourceName(detail.party_type.name)} 타입 파티`);
+  }
+
+  const relativeStats = describeRelativeStats(detail.relative_physical_stats);
+
+  if (relativeStats) {
+    parts.push(relativeStats);
+  }
+
+  if (detail.gender === 1) {
+    parts.push("암컷");
+  } else if (detail.gender === 2) {
+    parts.push("수컷");
+  }
+
+  if (detail.trade_species?.name) {
+    parts.push(`${formatResourceName(detail.trade_species.name)}와 교환`);
+  }
+
+  if (detail.needs_overworld_rain) {
+    parts.push("비 오는 필드");
+  }
+
+  if (detail.turn_upside_down) {
+    parts.push("기기 거꾸로");
+  }
+
+  return parts.join(" · ");
+}
+
+function getItemImageUrl(itemDetail) {
+  return itemDetail.sprites?.default ?? "";
+}
+
+function collectEvolutionLinks(chain, values = []) {
+  const fromNationalDexNumber = getIdFromResourceUrl(chain.species.url);
+
+  for (const evolvesTo of chain.evolves_to) {
+    const toNationalDexNumber = getIdFromResourceUrl(evolvesTo.species.url);
+    const detail = evolvesTo.evolution_details[0] ?? {};
+
+    values.push({
+      fromNationalDexNumber,
+      toNationalDexNumber,
+      condition: formatEvolutionCondition(detail),
+      itemUrl: detail.item?.url ?? null,
+      heldItemUrl: detail.held_item?.url ?? null,
+    });
+
+    collectEvolutionLinks(evolvesTo, values);
+  }
+
+  return values;
 }
 
 function getStatValue(stats, statName) {
@@ -79,6 +349,16 @@ function getPreferredImageUrl(entry, nationalDexNumber) {
     entry.sprites.other?.["official-artwork"]?.front_default ??
     entry.sprites.front_default ??
     `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${nationalDexNumber}.png`
+  );
+}
+
+function getPreferredArtworkImageUrl(entry, nationalDexNumber) {
+  return (
+    entry.sprites.other?.["official-artwork"]?.front_default ??
+    entry.sprites.other?.home?.front_default ??
+    entry.sprites.other?.showdown?.front_default ??
+    entry.sprites.front_default ??
+    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${nationalDexNumber}.png`
   );
 }
 
@@ -136,6 +416,8 @@ async function buildSnapshot() {
   const abilityCache = new Map();
   const eggGroupCache = new Map();
   const growthRateCache = new Map();
+  const evolutionChainCache = new Map();
+  const itemCache = new Map();
 
   for (const batch of chunk(nationalDexNumbers, BATCH_SIZE)) {
     const batchResults = await Promise.all(
@@ -206,8 +488,110 @@ async function buildSnapshot() {
           growthRateCache.set(species.growth_rate.url, await fetchFromResourceUrl(species.growth_rate.url));
         }
 
+        if (!evolutionChainCache.has(species.evolution_chain.url)) {
+          evolutionChainCache.set(species.evolution_chain.url, await fetchFromResourceUrl(species.evolution_chain.url));
+        }
+
         const growthRate = growthRateCache.get(species.growth_rate.url);
         const localizedNames = getLocalizedText(species.names, entry.name);
+        const evolutionChain = evolutionChainCache.get(species.evolution_chain.url);
+
+        const evolutionLinks = await Promise.all(
+          collectEvolutionLinks(evolutionChain.chain).map(async (link) => {
+            const itemUrl = link.itemUrl ?? link.heldItemUrl;
+
+            if (!itemUrl) {
+              return {
+                fromNationalDexNumber: link.fromNationalDexNumber,
+                toNationalDexNumber: link.toNationalDexNumber,
+                condition: link.condition,
+                evolutionItem: null,
+              };
+            }
+
+            if (!itemCache.has(itemUrl)) {
+              itemCache.set(itemUrl, await fetchFromResourceUrl(itemUrl));
+            }
+
+            const itemDetail = itemCache.get(itemUrl);
+
+            return {
+              fromNationalDexNumber: link.fromNationalDexNumber,
+              toNationalDexNumber: link.toNationalDexNumber,
+              condition: link.condition,
+              evolutionItem: {
+                name: getLocalizedResourceName(itemDetail.names, itemDetail.name),
+                imageUrl: getItemImageUrl(itemDetail),
+              },
+            };
+          }),
+        );
+
+        const formEntries = await Promise.all(
+          species.varieties.map(async ({ pokemon }) => {
+            if (pokemon.name === entry.name) {
+              return buildFormSummary({
+                baseSlug: entry.name,
+                formSlug: entry.name,
+                entry,
+                types,
+                abilities,
+                hiddenAbility,
+              });
+            }
+
+            const formEntry = await fetchFromPokeApi(`/pokemon/${pokemon.name}`);
+            const formTypes = formEntry.types
+              .sort((left, right) => left.slot - right.slot)
+              .map(({ type }) => ({
+                name: type.name,
+                label: formatLabel(type.name),
+              }));
+
+            const formAbilities = await Promise.all(
+              formEntry.abilities
+                .filter((abilityEntry) => !abilityEntry.is_hidden)
+                .sort((left, right) => left.slot - right.slot)
+                .map(async ({ ability }) => {
+                  if (!abilityCache.has(ability.url)) {
+                    abilityCache.set(ability.url, await fetchFromResourceUrl(ability.url));
+                  }
+
+                  const abilityDetail = abilityCache.get(ability.url);
+
+                  return {
+                    slug: ability.name,
+                    name: getLocalizedResourceName(abilityDetail.names, ability.name),
+                  };
+                }),
+            );
+
+            const hiddenFormAbilityEntry = formEntry.abilities.find((abilityEntry) => abilityEntry.is_hidden);
+            let hiddenFormAbility = null;
+
+            if (hiddenFormAbilityEntry) {
+              if (!abilityCache.has(hiddenFormAbilityEntry.ability.url)) {
+                abilityCache.set(hiddenFormAbilityEntry.ability.url, await fetchFromResourceUrl(hiddenFormAbilityEntry.ability.url));
+              }
+
+              const abilityDetail = abilityCache.get(hiddenFormAbilityEntry.ability.url);
+
+              hiddenFormAbility = {
+                slug: hiddenFormAbilityEntry.ability.name,
+                name: getLocalizedResourceName(abilityDetail.names, hiddenFormAbilityEntry.ability.name),
+              };
+            }
+
+            return buildFormSummary({
+              baseSlug: entry.name,
+              formSlug: pokemon.name,
+              entry: formEntry,
+              types: formTypes,
+              abilities: formAbilities,
+              hiddenAbility: hiddenFormAbility,
+            });
+          }),
+        );
 
         return {
           nationalDexNumber,
@@ -215,6 +599,7 @@ async function buildSnapshot() {
           name: getLocalizedPokemonName(species.names, entry.name),
           names: localizedNames,
           imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
+          artworkImageUrl: getPreferredArtworkImageUrl(entry, nationalDexNumber),
           generation,
           types,
           stats: {
@@ -234,6 +619,11 @@ async function buildSnapshot() {
           eggGroups,
           hatchCounter: species.hatch_counter,
           maxExperience: getMaxExperienceAmount(growthRate),
+          evolutionDexNumbers: [...new Set(collectEvolutionDexNumbers(evolutionChain.chain))],
+          evolutionLinks,
+          forms: formEntries
+            .filter((form) => !EXCLUDED_FORM_KEYS.has(form.key))
+            .sort((left, right) => Number(right.isDefault) - Number(left.isDefault)),
         };
       }),
     );
@@ -241,13 +631,34 @@ async function buildSnapshot() {
     pokemon.push(...batchResults);
   }
 
+  const pokemonByDexNumber = new Map(pokemon.map((entry) => [entry.nationalDexNumber, entry]));
+  const hydratedPokemon = pokemon.map((entry) => ({
+    ...entry,
+    evolutionChain: entry.evolutionDexNumbers
+      .map((dexNumber) => pokemonByDexNumber.get(dexNumber))
+      .filter(Boolean)
+      .map((pokemonEntry) => ({
+        nationalDexNumber: pokemonEntry.nationalDexNumber,
+        slug: pokemonEntry.slug,
+        name: pokemonEntry.name,
+        artworkImageUrl: pokemonEntry.artworkImageUrl,
+        forms: pokemonEntry.forms.map((form) => ({
+          key: form.key,
+          label: form.label,
+          slug: form.slug,
+          artworkImageUrl: form.artworkImageUrl,
+        })),
+      })),
+    evolutionLinks: entry.evolutionLinks,
+  }));
+
   return {
     metadata: {
       source: "pokeapi",
       syncedAt: new Date().toISOString(),
-      totalPokemon: pokemon.length,
+      totalPokemon: hydratedPokemon.length,
     },
-    pokemon,
+    pokemon: hydratedPokemon,
     filterOptions: {
       generations: GENERATIONS,
       types: [...typeMap.values()].sort((left, right) => left.label.localeCompare(right.label)),
