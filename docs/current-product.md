@@ -14,9 +14,18 @@
 - `/`
   - Main Pokedex page
   - Search, filter, sort, pagination
+- `/pokedex`
+  - Dedicated Pokedex route
+  - Same core browsing experience as the main route
+- `/daily`
+  - Daily encounter view
+  - Local collection-state interaction
+- `/my-pokemon`
+  - Captured Pokemon gallery view
+  - Local collection-state interaction
 - `/pokemon/[slug]`
   - Pokemon detail page
-  - Form switching, evolution path, type matchup, media sections
+  - Form switching, shiny toggle, evolution path, type matchup, media sections
 - `/contact`
   - Contact / inquiry page
 - `/terms`
@@ -33,6 +42,9 @@
 - Sort by dex number, name, and base stats
 - Paginated table view
 - Detail page per Pokemon
+- Form-aware detail page with regional / mega / gigantamax switching
+- Hero artwork toggle for normal / shiny presentation
+- Ability table with temporary frontend-held Korean description support
 - Light / dark theme toggle
 - Footer with service / policy / resource links
 
@@ -40,10 +52,11 @@
 - Client-side Pokedex interaction lives in `features/pokedex/components/pokedex-page.tsx`
 - Data loading is snapshot-based and file-backed
 - Pokemon detail data is read from the same snapshot, not from live API calls
-- Collection-related utility types still exist in code:
+- Collection-related utility types and routes are active:
   - `capturedDexNumbers`
   - `encountersByDate`
-- However, daily encounter / my-pokemon routes are not present in the current workspace
+  - `/daily`
+  - `/my-pokemon`
 
 ## Out Of Scope In Current Workspace
 - Database
@@ -55,6 +68,7 @@
 ## Planned Next Features
 - Login
 - Database integration
+- Move temporary frontend-held Korean ability description data into the database
 - Team maker
 - Random team picker
 

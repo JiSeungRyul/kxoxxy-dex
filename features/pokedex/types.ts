@@ -34,6 +34,7 @@ export type PokemonLocalizedName = {
 export type PokemonAbility = {
   slug: string;
   name: string;
+  description: string;
 };
 
 export type PokemonForm = {
@@ -43,6 +44,7 @@ export type PokemonForm = {
   isDefault: boolean;
   imageUrl: string;
   artworkImageUrl: string;
+  shinyArtworkImageUrl: string;
   types: PokemonType[];
   stats: PokemonBaseStats;
   abilities: PokemonAbility[];

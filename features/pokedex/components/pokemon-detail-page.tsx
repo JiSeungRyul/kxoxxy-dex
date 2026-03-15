@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { PokemonArtworkToggle } from "@/features/pokedex/components/pokemon-artwork-toggle";
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
+import { getAbilityDescriptionKo } from "@/features/pokedex/data/ability-description-ko";
 import type { PokemonSummary } from "@/features/pokedex/types";
 import {
   formatCaptureRate,
@@ -182,9 +184,47 @@ function DetailAudioItem({
 
 function BaseStatItem({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
+    <div className="w-[132px] rounded-[1.5rem] border border-border bg-background px-5 py-4 text-center shadow-card">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
       <p className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function AbilityTable({
+  abilities,
+  hiddenAbility,
+}: {
+  abilities: PokemonSummary["abilities"];
+  hiddenAbility: PokemonSummary["hiddenAbility"];
+}) {
+  const getAbilityDescription = (ability: PokemonSummary["abilities"][number] | PokemonSummary["hiddenAbility"]) =>
+    ability ? getAbilityDescriptionKo(ability.slug, ability.description) : "-";
+
+  return (
+    <div className="overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-card">
+      <div className="grid grid-cols-[120px_180px_minmax(0,1fr)] border-b border-border bg-muted/40 px-5 py-3 text-center text-sm font-semibold text-foreground">
+        <p>구분</p>
+        <p>이름</p>
+        <p>설명</p>
+      </div>
+
+      {abilities.map((ability) => (
+        <div
+          key={ability.slug}
+          className="grid grid-cols-[120px_180px_minmax(0,1fr)] items-start gap-4 border-b border-border px-5 py-4 text-sm last:border-b-0"
+        >
+          <p className="font-semibold text-foreground">특성</p>
+          <p className="font-semibold text-foreground">{ability.name}</p>
+          <p className="leading-6 text-muted-foreground">{getAbilityDescription(ability)}</p>
+        </div>
+      ))}
+
+      <div className="grid grid-cols-[120px_180px_minmax(0,1fr)] items-start gap-4 px-5 py-4 text-sm">
+        <p className="font-semibold text-foreground">숨겨진 특성</p>
+        <p className="font-semibold text-foreground">{hiddenAbility?.name ?? "없음"}</p>
+        <p className="leading-6 text-muted-foreground">{getAbilityDescription(hiddenAbility)}</p>
+      </div>
     </div>
   );
 }
@@ -197,9 +237,9 @@ function DefensiveMatchupRow({
   types: PokemonSummary["types"][number]["name"][];
 }) {
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-4 rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
-      <p className="text-sm font-semibold text-foreground">{label}</p>
-      <div className="flex flex-wrap gap-2">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
+      <p className="text-center text-sm font-semibold text-foreground">{label}</p>
+      <div className="flex flex-wrap justify-center gap-2">
         {types.length > 0 ? (
           types.map((type) => <TypeBadge key={`${label}-${type}`} name={type} label={formatTypeLabel(type)} />)
         ) : (
@@ -466,14 +506,14 @@ function SpecialEvolutionSection({
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid min-w-max justify-center gap-4 lg:grid-cols-[180px_minmax(220px,1fr)] lg:items-center">
-        <div className="flex justify-center">
+      <div className="flex min-w-max justify-center gap-4 pb-2">
+        <div className="flex shrink-0 items-center justify-center">
           <EvolutionStageCard stage={stage} isCurrent={false} selectedFormKey="default" />
         </div>
 
-        <div className="space-y-4">
+        <div className="flex min-w-[360px] flex-col justify-center gap-4">
           {specialForms.map((form) => (
-            <div key={`${stage.slug}-${form.key}`} className="flex items-center justify-center gap-3">
+            <div key={`${stage.slug}-${form.key}`} className="flex items-center gap-3">
               <div className="flex min-w-[180px] flex-col items-center gap-2 px-2 text-center">
                 <p className="text-sm font-semibold leading-6 text-foreground">
                   {form.label === "기본" ? "진화" : form.label === "거다이맥스" ? "거다이맥스" : `${form.label} 진화`}
@@ -558,24 +598,17 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
               </div>
             </div>
 
-            <div className="flex min-h-[280px] min-w-[280px] items-center justify-center rounded-[2rem] border border-border bg-background p-6 shadow-card sm:min-h-[340px] sm:min-w-[340px]">
-              <Image
-                src={selectedForm.artworkImageUrl}
-                alt={pokemon.names.ko}
-                width={480}
-                height={480}
-                sizes="(min-width: 1024px) 340px, 280px"
-                className="h-full max-h-[320px] w-full max-w-[320px] object-contain sm:max-h-[380px] sm:max-w-[380px]"
-                unoptimized
-                priority
-              />
-            </div>
+            <PokemonArtworkToggle
+              name={pokemon.names.ko}
+              artworkImageUrl={selectedForm.artworkImageUrl}
+              shinyArtworkImageUrl={selectedForm.shinyArtworkImageUrl}
+            />
           </div>
         </section>
 
         <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
           <div className="space-y-4">
-            <div>
+            <div className="text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Base Stats</p>
               <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
                 종족치
@@ -583,7 +616,7 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
             </div>
 
             <div className="overflow-x-auto">
-              <div className="flex min-w-max gap-4 pb-2">
+              <div className="flex min-w-max justify-center gap-4 pb-2">
                 <BaseStatItem label="HP" value={selectedForm.stats.hp} />
                 <BaseStatItem label="공격" value={selectedForm.stats.attack} />
                 <BaseStatItem label="방어" value={selectedForm.stats.defense} />
@@ -597,10 +630,21 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
         </section>
 
         <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-4">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Abilities</p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+                특성
+              </h2>
+            </div>
+
+            <AbilityTable abilities={selectedForm.abilities} hiddenAbility={selectedForm.hiddenAbility} />
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DetailItem label="타입 분류" value={selectedForm.types.map((type) => formatTypeLabel(type.name)).join(" / ")} />
-            <DetailItem label="특성" value={selectedForm.abilities.map((ability) => ability.name).join(", ")} />
-            <DetailItem label="숨겨진 특성" value={selectedForm.hiddenAbility?.name ?? "없음"} />
             <DetailItem label="신장" value={formatHeight(selectedForm.height)} />
             <DetailItem label="체중" value={formatWeight(selectedForm.weight)} />
             <DetailItem label="포획률" value={formatCaptureRate(pokemon.captureRate)} />
@@ -674,10 +718,10 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
               </h2>
             </div>
 
-            <div className="space-y-3">
-              {defensiveTypeMatchups.map((entry) => (
-                <DefensiveMatchupRow key={entry.label} label={entry.multiplier} types={entry.types} />
-              ))}
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {defensiveTypeMatchups.map((entry) => (
+                  <DefensiveMatchupRow key={entry.label} label={entry.multiplier} types={entry.types} />
+                ))}
             </div>
           </div>
         </section>
