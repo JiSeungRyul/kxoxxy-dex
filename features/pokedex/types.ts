@@ -83,6 +83,12 @@ export type PokemonGeneration = {
   label: string;
 };
 
+export type PokemonPokedexEntry = {
+  name: string;
+  entryNumber: number;
+  description: string;
+};
+
 export type PokemonBaseStats = {
   hp: number;
   attack: number;
@@ -113,9 +119,12 @@ export type PokemonSummary = {
   weight: number;
   captureRate: number;
   genderRate: number;
+  genus: string;
+  color: string;
   eggGroups: string[];
   hatchCounter: number;
   maxExperience: number;
+  pokedexEntries: PokemonPokedexEntry[];
   evolutionChain: PokemonEvolutionStage[];
   evolutionLinks: PokemonEvolutionLink[];
   forms: PokemonForm[];

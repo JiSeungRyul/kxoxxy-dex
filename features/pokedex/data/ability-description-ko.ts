@@ -32,6 +32,7 @@ const MANUAL_ABILITY_DESCRIPTION_KO: Record<string, string> = {
   "vital-spirit": "잠듦 상태가 되지 않는다.",
   "clear-body": "상대에 의해 능력이 내려가지 않는다.",
   "rock-head": "반동 피해를 받지 않는다.",
+  "beast-boost": "상대를 쓰러뜨리면 자신의 가장 높은 능력이 1랭크 오른다.",
 };
 
 const TYPE_LABELS: Record<string, string> = {

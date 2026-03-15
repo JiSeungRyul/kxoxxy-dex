@@ -19,6 +19,8 @@ import {
 type PokemonDetailPageProps = {
   pokemon: PokemonSummary;
   selectedFormKey?: string;
+  previousPokemon?: PokemonSummary | null;
+  nextPokemon?: PokemonSummary | null;
 };
 
 type EvolutionPathNode = {
@@ -32,7 +34,60 @@ type EvolutionSplit = {
   branchPaths: EvolutionPathNode[][];
 };
 
+type DisplayPokedexEntry = {
+  label: string;
+  entryNumber: number;
+  description: string;
+};
+
 const SPECIAL_EVOLUTION_FORM_KEYS = new Set(["mega", "mega-x", "mega-y", "gmax"]);
+const POKEDEX_DISPLAY_GROUPS: Array<{ label: string; names: string[] }> = [
+  { label: "관동도감", names: ["관동도감", "레츠고관동도감"] },
+  { label: "성도도감", names: ["성도도감(확장)", "성도도감(초기)"] },
+  { label: "호연도감", names: ["호연도감", "호연도감(비노출)"] },
+  { label: "신오도감", names: ["신오도감(확장)", "신오도감(초기)"] },
+  { label: "하나도감", names: ["하나도감(확장)", "하나도감(초기)"] },
+  { label: "칼로스도감", names: ["칼로스중앙도감", "칼로스해안도감", "칼로스산악도감"] },
+  {
+    label: "알로라도감",
+    names: [
+      "알로라도감",
+      "알로라도감(미분류)",
+      "멜레멜레도감",
+      "멜레멜레도감(확장)",
+      "아칼라도감",
+      "아칼라도감(확장)",
+      "울라우라도감",
+      "울라우라도감(확장)",
+      "포니도감",
+      "포니도감(확장)",
+    ],
+  },
+  { label: "가라르도감", names: ["가라도감", "갑옷섬도감", "왕관설원도감"] },
+  { label: "히스이도감", names: ["히스이도감"] },
+  { label: "팔데아도감", names: ["팔데아도감", "북신도감", "블루베리도감"] },
+  { label: "미르도감", names: ["미르도감"] },
+];
+
+function getDisplayPokedexEntries(entries: PokemonSummary["pokedexEntries"]): DisplayPokedexEntry[] {
+  const normalizedEntries = new Map(entries.map((entry) => [entry.name, entry]));
+
+  return POKEDEX_DISPLAY_GROUPS.map((group) => {
+    const representativeEntry = group.names
+      .map((name) => normalizedEntries.get(name))
+      .find((entry): entry is PokemonSummary["pokedexEntries"][number] => typeof entry !== "undefined");
+
+    if (!representativeEntry) {
+      return null;
+    }
+
+    return {
+      label: group.label,
+      entryNumber: representativeEntry.entryNumber,
+      description: representativeEntry.description,
+    };
+  }).filter((entry): entry is DisplayPokedexEntry => entry !== null);
+}
 
 function getStageArtworkForForm(
   stage: PokemonSummary["evolutionChain"][number],
@@ -149,13 +204,13 @@ function DetailImageItem({
   return (
     <div className="rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <div className="mt-3 flex min-h-[56px] items-center justify-center">
+      <div className="mt-2 flex min-h-[36px] items-center justify-center">
         <Image
           src={imageUrl}
           alt={alt}
-          width={64}
-          height={64}
-          className="h-12 w-12 object-contain"
+          width={40}
+          height={40}
+          className="h-8 w-8 object-contain"
           unoptimized
         />
       </div>
@@ -173,8 +228,8 @@ function DetailAudioItem({
   return (
     <div className="rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <div className="mt-3">
-        <audio controls preload="none" className="w-full">
+      <div className="mt-2">
+        <audio controls preload="none" className="h-9 w-full">
           <source src={audioUrl} type="audio/ogg" />
         </audio>
       </div>
@@ -246,6 +301,26 @@ function DefensiveMatchupRow({
           <span className="text-sm font-medium text-muted-foreground">없음</span>
         )}
       </div>
+    </div>
+  );
+}
+
+function PokedexEntryItem({
+  label,
+  entryNumber,
+  description,
+}: {
+  label: string;
+  entryNumber: number;
+  description: string;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-border bg-background px-5 py-4 shadow-card">
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {`No.${String(entryNumber).padStart(3, "0")}`}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -554,8 +629,9 @@ function SpecialEvolutionSection({
   );
 }
 
-export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPageProps) {
+export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, nextPokemon }: PokemonDetailPageProps) {
   const selectedForm = pokemon.forms.find((form) => form.key === selectedFormKey) ?? pokemon.forms[0];
+  const displayPokedexEntries = getDisplayPokedexEntries(pokemon.pokedexEntries);
   const specialEvolutionStages = pokemon.evolutionChain.filter((stage) => getSpecialEvolutionForms(stage).length > 0);
   const evolutionPaths = buildEvolutionPaths(pokemon);
   const evolutionSplit = splitEvolutionPaths(evolutionPaths);
@@ -571,15 +647,51 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
     selectedForm.stats.speed;
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <main className="min-h-full w-full">
       <div className="space-y-6">
         <Link href="/" className="inline-flex text-sm font-semibold text-foreground transition hover:opacity-70">
           포켓몬 도감으로 돌아가기
         </Link>
 
+        <div className="grid gap-3 sm:grid-cols-2">
+          {previousPokemon ? (
+            <Link
+              href={`/pokemon/${previousPokemon.slug}`}
+              className="rounded-[1.5rem] border border-border bg-card px-5 py-4 text-left shadow-card transition hover:bg-muted/50"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Previous Pokemon</p>
+              <p className="mt-2 text-base font-semibold text-foreground">
+                ← {formatPokemonNumber(previousPokemon.nationalDexNumber)} {previousPokemon.names.ko}
+              </p>
+            </Link>
+          ) : (
+            <div className="rounded-[1.5rem] border border-border bg-card px-5 py-4 text-left shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Previous Pokemon</p>
+              <p className="mt-2 text-base font-semibold text-muted-foreground">없음</p>
+            </div>
+          )}
+
+          {nextPokemon ? (
+            <Link
+              href={`/pokemon/${nextPokemon.slug}`}
+              className="rounded-[1.5rem] border border-border bg-card px-5 py-4 text-left shadow-card transition hover:bg-muted/50 sm:text-right"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Next Pokemon</p>
+              <p className="mt-2 text-base font-semibold text-foreground">
+                {formatPokemonNumber(nextPokemon.nationalDexNumber)} {nextPokemon.names.ko} →
+              </p>
+            </Link>
+          ) : (
+            <div className="rounded-[1.5rem] border border-border bg-card px-5 py-4 text-left shadow-card sm:text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Next Pokemon</p>
+              <p className="mt-2 text-base font-semibold text-muted-foreground">없음</p>
+            </div>
+          )}
+        </div>
+
         <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-4">
+            <div className="space-y-4 lg:pl-6 xl:pl-8">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {formatPokemonNumber(pokemon.nationalDexNumber)}
               </p>
@@ -599,6 +711,7 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
             </div>
 
             <PokemonArtworkToggle
+              className="lg:pr-6 xl:pr-8"
               name={pokemon.names.ko}
               artworkImageUrl={selectedForm.artworkImageUrl}
               shinyArtworkImageUrl={selectedForm.shinyArtworkImageUrl}
@@ -643,17 +756,28 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
         </section>
 
         <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <DetailItem label="타입 분류" value={selectedForm.types.map((type) => formatTypeLabel(type.name)).join(" / ")} />
-            <DetailItem label="신장" value={formatHeight(selectedForm.height)} />
-            <DetailItem label="체중" value={formatWeight(selectedForm.weight)} />
-            <DetailItem label="포획률" value={formatCaptureRate(pokemon.captureRate)} />
-            <DetailItem label="성비" value={formatGenderRate(pokemon.genderRate)} />
-            <DetailItem label="알 그룹" value={pokemon.eggGroups.join(", ")} />
-            <DetailItem label="부화 카운트" value={String(pokemon.hatchCounter)} />
-            <DetailItem label="최대 경험치량" value={formatMaxExperience(pokemon.maxExperience)} />
-            <DetailImageItem label="발자국" imageUrl={footprintImageUrl} alt={`${pokemon.names.ko} 발자국`} />
-            <DetailAudioItem label="울음소리" audioUrl={cryAudioUrl} />
+          <div className="space-y-4">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Basic Info</p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+                기본 정보
+              </h2>
+            </div>
+
+            <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <DetailItem label="타입 분류" value={selectedForm.types.map((type) => formatTypeLabel(type.name)).join(" / ")} />
+              <DetailItem label="분류" value={pokemon.genus} />
+              <DetailItem label="도감 색" value={pokemon.color} />
+              <DetailItem label="신장" value={formatHeight(selectedForm.height)} />
+              <DetailItem label="체중" value={formatWeight(selectedForm.weight)} />
+              <DetailItem label="포획률" value={formatCaptureRate(pokemon.captureRate)} />
+              <DetailItem label="성비" value={formatGenderRate(pokemon.genderRate)} />
+              <DetailItem label="알 그룹" value={pokemon.eggGroups.join(", ")} />
+              <DetailItem label="부화 카운트" value={String(pokemon.hatchCounter)} />
+              <DetailItem label="최대 경험치량" value={formatMaxExperience(pokemon.maxExperience)} />
+              <DetailImageItem label="발자국" imageUrl={footprintImageUrl} alt={`${pokemon.names.ko} 발자국`} />
+              <DetailAudioItem label="울음소리" audioUrl={cryAudioUrl} />
+            </div>
           </div>
         </section>
 
@@ -722,6 +846,34 @@ export function PokemonDetailPage({ pokemon, selectedFormKey }: PokemonDetailPag
                 {defensiveTypeMatchups.map((entry) => (
                   <DefensiveMatchupRow key={entry.label} label={entry.multiplier} types={entry.types} />
                 ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
+          <div className="space-y-4">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Pokedex No.</p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+                등장 도감
+              </h2>
+            </div>
+
+            <div
+              className={
+                displayPokedexEntries.length === 1
+                  ? "flex justify-center"
+                  : "grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+              }
+            >
+              {displayPokedexEntries.map((entry) => (
+                <PokedexEntryItem
+                  key={entry.label}
+                  label={entry.label}
+                  entryNumber={entry.entryNumber}
+                  description={entry.description}
+                />
+              ))}
             </div>
           </div>
         </section>

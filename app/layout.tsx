@@ -109,6 +109,22 @@ export default function RootLayout({
                     Data Source
                   </a>
                   <a
+                    href="https://pokeapi.co/docs/v2#pokemon-species"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="transition hover:text-foreground"
+                  >
+                    Pokedex Flavor Text
+                  </a>
+                  <a
+                    href="https://github.com/PokeAPI/cries"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="transition hover:text-foreground"
+                  >
+                    Pokemon Cries
+                  </a>
+                  <a
                     href="https://github.com/Kxoxxy"
                     target="_blank"
                     rel="noreferrer"
