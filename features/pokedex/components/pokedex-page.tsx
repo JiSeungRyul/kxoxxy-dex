@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import {
@@ -9,7 +10,6 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
-import { DailyEncounter } from "@/features/pokedex/components/daily-encounter";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
@@ -31,10 +31,19 @@ import {
   selectDailyEncounterPokemon,
 } from "@/features/pokedex/utils";
 
+const DailyEncounter = dynamic(
+  () => import("@/features/pokedex/components/daily-encounter").then((module) => module.DailyEncounter),
+  { ssr: false },
+);
+const MyPokemonGallery = dynamic(
+  () => import("@/features/pokedex/components/my-pokemon-gallery").then((module) => module.MyPokemonGallery),
+  { ssr: false },
+);
+
 type PokedexPageProps = {
   pokemon: PokemonSummary[];
   filterOptions: PokedexFilterOptions;
-  view?: "daily" | "pokedex";
+  view?: "daily" | "pokedex" | "my-pokemon";
 };
 
 const POKEDEX_COLLECTION_STORAGE_KEY = "kxoxxy-pokedex-collection";
@@ -51,8 +60,12 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const todayKey = getLocalDateKey();
+  const sourcePokemon =
+    view === "my-pokemon"
+      ? pokemon.filter((entry) => collectionState.capturedDexNumbers.includes(entry.nationalDexNumber))
+      : pokemon;
   const filteredPokemon = filterAndSortPokemon({
-    pokemon,
+    pokemon: sourcePokemon,
     searchTerm: deferredSearchTerm,
     selectedType,
     selectedGeneration,
@@ -216,16 +229,21 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
 
         {view === "daily" ? (
           <DailyEncounter
-            encounter={todayEncounter}
+            encounter={isCollectionReady ? todayEncounter : null}
             capturedCount={collectionState.capturedDexNumbers.length}
             totalCount={pokemon.length}
             recentCaptures={recentCaptures}
             isCaptured={isTodayEncounterCaptured}
+            isReady={isCollectionReady}
             onCapture={captureTodayEncounter}
             onResetToday={resetTodayEncounter}
             onRerollToday={rerollTodayEncounter}
             canRerollToday={canRerollTodayEncounter}
           />
+        ) : null}
+
+        {view === "my-pokemon" ? (
+          <MyPokemonGallery pokemon={sourcePokemon} />
         ) : null}
 
         {view === "pokedex" ? (
@@ -236,7 +254,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
               selectedType={selectedType}
               selectedGeneration={selectedGeneration}
               resultCount={filteredPokemon.length}
-              totalCount={pokemon.length}
+              totalCount={sourcePokemon.length}
               onSearchChange={setSearchTerm}
               onTypeChange={setSelectedType}
               onGenerationChange={setSelectedGeneration}

@@ -13,6 +13,7 @@ type DailyEncounterProps = {
   totalCount: number;
   recentCaptures: PokemonSummary[];
   isCaptured: boolean;
+  isReady: boolean;
   onCapture: () => void;
   onResetToday: () => void;
   onRerollToday: () => void;
@@ -282,6 +283,7 @@ export function DailyEncounter({
   totalCount,
   recentCaptures,
   isCaptured,
+  isReady,
   onCapture,
   onResetToday,
   onRerollToday,
@@ -358,7 +360,17 @@ export function DailyEncounter({
             </div>
           </div>
 
-          {encounter ? (
+          {!isReady ? (
+            <div className="space-y-4 rounded-[1.75rem] border border-white/60 bg-white/60 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-5">
+              <div className={`relative min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border ${sceneStyle.scene}`}>
+                <div aria-hidden="true" className={`absolute inset-x-0 top-0 h-[58%] ${sceneStyle.sky}`} />
+                <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[42%] ${sceneStyle.ground}`} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className={`text-sm font-semibold ${sceneStyle.text}`}>오늘의 포켓몬을 불러오는 중...</p>
+                </div>
+              </div>
+            </div>
+          ) : encounter ? (
             <div className="w-full space-y-4 rounded-[1.75rem] border border-white/60 bg-white/60 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-5">
               <div className="w-full">
                 <button
