@@ -63,6 +63,89 @@ const FORM_LABELS = {
   white: "화이트",
   black: "블랙",
 };
+const POKEDEX_LABELS = {
+  national: "전국도감",
+  kanto: "관동도감",
+  "original-johto": "성도도감(초기)",
+  "updated-johto": "성도도감(확장)",
+  hoenn: "호연도감",
+  "updated-hoenn": "호연도감(비노출)",
+  "original-sinnoh": "신오도감(초기)",
+  "extended-sinnoh": "신오도감(확장)",
+  "updated-unova": "하나도감(확장)",
+  "original-unova": "하나도감(초기)",
+  "conquest-gallery": "컨퀘스트 갤러리",
+  "kalos-central": "칼로스중앙도감",
+  "kalos-coastal": "칼로스해안도감",
+  "kalos-mountain": "칼로스산악도감",
+  "updated-melemele": "멜레멜레도감(확장)",
+  "updated-akala": "아칼라도감(확장)",
+  "updated-ulaula": "울라우라도감(확장)",
+  "updated-poni": "포니도감(확장)",
+  "original-alola": "알로라도감",
+  "updated-alola": "알로라도감(미분류)",
+  "original-melemele": "멜레멜레도감",
+  "original-akala": "아칼라도감",
+  "original-ulaula": "울라우라도감",
+  "original-poni": "포니도감",
+  "letsgo-kanto": "레츠고관동도감",
+  galar: "가라도감",
+  "isle-of-armor": "갑옷섬도감",
+  "crown-tundra": "왕관설원도감",
+  hisui: "히스이도감",
+  paldea: "팔데아도감",
+  kitakami: "북신도감",
+  blueberry: "블루베리도감",
+  "lumiose-city": "미르도감",
+  hyperspace: "미등장",
+};
+const POKEDEX_DESCRIPTION_VERSION_PRIORITIES = {
+  national: ["scarlet", "violet", "sword", "shield", "ultra-sun", "ultra-moon"],
+  kanto: ["firered", "leafgreen", "yellow", "red", "blue"],
+  "letsgo-kanto": ["lets-go-pikachu", "lets-go-eevee"],
+  "original-johto": ["gold", "silver"],
+  "updated-johto": ["heartgold", "soulsilver", "crystal"],
+  hoenn: ["omega-ruby", "alpha-sapphire", "emerald", "ruby", "sapphire"],
+  "updated-hoenn": ["omega-ruby", "alpha-sapphire", "emerald"],
+  "original-sinnoh": ["diamond", "pearl"],
+  "extended-sinnoh": ["platinum", "brilliant-diamond", "shining-pearl"],
+  "original-unova": ["black", "white"],
+  "updated-unova": ["black-2", "white-2"],
+  "kalos-central": ["x", "y"],
+  "kalos-coastal": ["x", "y"],
+  "kalos-mountain": ["x", "y"],
+  "original-alola": ["sun", "moon"],
+  "updated-alola": ["ultra-sun", "ultra-moon"],
+  "original-melemele": ["sun", "moon"],
+  "original-akala": ["sun", "moon"],
+  "original-ulaula": ["sun", "moon"],
+  "original-poni": ["sun", "moon"],
+  "updated-melemele": ["ultra-sun", "ultra-moon"],
+  "updated-akala": ["ultra-sun", "ultra-moon"],
+  "updated-ulaula": ["ultra-sun", "ultra-moon"],
+  "updated-poni": ["ultra-sun", "ultra-moon"],
+  galar: ["sword", "shield"],
+  "isle-of-armor": ["sword", "shield"],
+  "crown-tundra": ["sword", "shield"],
+  hisui: ["legends-arceus"],
+  paldea: ["scarlet", "violet"],
+  kitakami: ["scarlet", "violet"],
+  blueberry: ["scarlet", "violet"],
+  "lumiose-city": ["legends-z-a", "x", "y"],
+};
+const EXCLUDED_POKEDEX_NAMES = new Set(["미분류", "체험판", "비노출", "미등장"]);
+const POKEMON_COLOR_LABELS = {
+  black: "검정",
+  blue: "파랑",
+  brown: "갈색",
+  gray: "회색",
+  green: "초록",
+  pink: "분홍",
+  purple: "보라",
+  red: "빨강",
+  white: "하양",
+  yellow: "노랑",
+};
 const EXCLUDED_FORM_KEYS = new Set([
   "totem",
   "totem-alola",
@@ -143,6 +226,20 @@ function describeRelativeStats(relativePhysicalStats) {
 
 function formatResourceName(value) {
   return formatLabel(value).replaceAll(" ", "");
+}
+
+function getLocalizedPokedexName(pokedexNames, fallbackName) {
+  const koreanName = pokedexNames.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name;
+
+  if (koreanName) {
+    return koreanName;
+  }
+
+  return (
+    POKEDEX_LABELS[fallbackName] ??
+    pokedexNames.find((entry) => entry.language.name === ENGLISH_LANGUAGE_CODE)?.name ??
+    formatLabel(fallbackName)
+  );
 }
 
 function getFormKey(baseSlug, formSlug) {
@@ -355,6 +452,81 @@ function getLocalizedAbilityDescription(effectEntries) {
   return localizedEntry.short_effect.replaceAll("\n", " ").trim();
 }
 
+function normalizeFlavorText(value) {
+  return value.replaceAll("\n", " ").replaceAll("\f", " ").replace(/\s+/g, " ").trim();
+}
+
+function getFlavorTextByVersion(flavorTextEntries) {
+  const versionMap = new Map();
+
+  for (const entry of flavorTextEntries) {
+    const versionName = entry.version.name;
+
+    if (!versionMap.has(versionName)) {
+      versionMap.set(versionName, { ko: null, en: null });
+    }
+
+    const localizedEntry = versionMap.get(versionName);
+    const normalizedText = normalizeFlavorText(entry.flavor_text);
+
+    if (entry.language.name === KOREAN_LANGUAGE_CODE && !localizedEntry.ko) {
+      localizedEntry.ko = normalizedText;
+    }
+
+    if (entry.language.name === ENGLISH_LANGUAGE_CODE && !localizedEntry.en) {
+      localizedEntry.en = normalizedText;
+    }
+  }
+
+  return versionMap;
+}
+
+function getPokedexDescription(pokedexName, flavorTextByVersion) {
+  const versionPriorities = POKEDEX_DESCRIPTION_VERSION_PRIORITIES[pokedexName] ?? [];
+
+  for (const versionName of versionPriorities) {
+    const localizedEntry = flavorTextByVersion.get(versionName);
+
+    if (localizedEntry?.ko) {
+      return localizedEntry.ko;
+    }
+  }
+
+  for (const localizedEntry of flavorTextByVersion.values()) {
+    if (localizedEntry.ko) {
+      return localizedEntry.ko;
+    }
+  }
+
+  for (const versionName of versionPriorities) {
+    const localizedEntry = flavorTextByVersion.get(versionName);
+
+    if (localizedEntry?.en) {
+      return localizedEntry.en;
+    }
+  }
+
+  for (const localizedEntry of flavorTextByVersion.values()) {
+    if (localizedEntry.en) {
+      return localizedEntry.en;
+    }
+  }
+
+  return "설명 없음";
+}
+
+function getLocalizedGenus(genera, fallbackName) {
+  return (
+    genera.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.genus ??
+    genera.find((entry) => entry.language.name === ENGLISH_LANGUAGE_CODE)?.genus ??
+    fallbackName
+  );
+}
+
+function getLocalizedPokemonColor(colorName) {
+  return POKEMON_COLOR_LABELS[colorName] ?? formatLabel(colorName);
+}
+
 function getMaxExperienceAmount(growthRate) {
   return growthRate.levels.at(-1)?.experience ?? 0;
 }
@@ -444,6 +616,7 @@ async function buildSnapshot() {
   const growthRateCache = new Map();
   const evolutionChainCache = new Map();
   const itemCache = new Map();
+  const pokedexCache = new Map();
 
   for (const batch of chunk(nationalDexNumbers, BATCH_SIZE)) {
     const batchResults = await Promise.all(
@@ -511,6 +684,24 @@ async function buildSnapshot() {
             return getLocalizedResourceName(eggGroupDetail.names, eggGroup.name);
           }),
         );
+
+        const flavorTextByVersion = getFlavorTextByVersion(species.flavor_text_entries);
+
+        const pokedexEntries = await Promise.all(
+          species.pokedex_numbers.map(async (pokedexEntry) => {
+            if (!pokedexCache.has(pokedexEntry.pokedex.url)) {
+              pokedexCache.set(pokedexEntry.pokedex.url, await fetchFromResourceUrl(pokedexEntry.pokedex.url));
+            }
+
+            const pokedexDetail = pokedexCache.get(pokedexEntry.pokedex.url);
+
+            return {
+              name: getLocalizedPokedexName(pokedexDetail.names, pokedexEntry.pokedex.name),
+              entryNumber: pokedexEntry.entry_number,
+              description: getPokedexDescription(pokedexEntry.pokedex.name, flavorTextByVersion),
+            };
+          }),
+        ).then((entries) => entries.filter((entry) => !EXCLUDED_POKEDEX_NAMES.has(entry.name)));
 
         if (!growthRateCache.has(species.growth_rate.url)) {
           growthRateCache.set(species.growth_rate.url, await fetchFromResourceUrl(species.growth_rate.url));
@@ -647,9 +838,12 @@ async function buildSnapshot() {
           weight: entry.weight,
           captureRate: species.capture_rate,
           genderRate: species.gender_rate,
+          genus: getLocalizedGenus(species.genera, species.name),
+          color: getLocalizedPokemonColor(species.color.name),
           eggGroups,
           hatchCounter: species.hatch_counter,
           maxExperience: getMaxExperienceAmount(growthRate),
+          pokedexEntries,
           evolutionDexNumbers: [...new Set(collectEvolutionDexNumbers(evolutionChain.chain))],
           evolutionLinks,
           forms: formEntries

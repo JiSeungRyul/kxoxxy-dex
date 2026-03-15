@@ -8,18 +8,22 @@ type PokemonArtworkToggleProps = {
   name: string;
   artworkImageUrl: string;
   shinyArtworkImageUrl: string;
+  className?: string;
 };
 
 export function PokemonArtworkToggle({
   name,
   artworkImageUrl,
   shinyArtworkImageUrl,
+  className,
 }: PokemonArtworkToggleProps) {
   const [isShiny, setIsShiny] = useState(false);
   const currentImageUrl = isShiny ? shinyArtworkImageUrl : artworkImageUrl;
 
   return (
-    <div className="flex min-h-[280px] min-w-[280px] flex-col rounded-[2rem] border border-border bg-background p-6 shadow-card sm:min-h-[340px] sm:min-w-[340px]">
+    <div
+      className={`flex min-h-[280px] min-w-[280px] flex-col rounded-[2rem] border border-border bg-background p-6 shadow-card sm:min-h-[340px] sm:min-w-[340px] ${className ?? ""}`}
+    >
       <div className="mb-4 flex justify-center">
         <div className="inline-flex rounded-full border border-border bg-card p-1">
           <button
