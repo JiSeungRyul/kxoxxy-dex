@@ -25,7 +25,7 @@
   - Local collection-state interaction
 - `/pokemon/[slug]`
   - Pokemon detail page
-  - Form switching, shiny toggle, evolution path, type matchup, media sections
+  - Form switching, shiny toggle, previous/next navigation, evolution path, type matchup, media sections, grouped Pokedex references
 - `/contact`
   - Contact / inquiry page
 - `/terms`
@@ -45,6 +45,7 @@
 - Form-aware detail page with regional / mega / gigantamax switching
 - Hero artwork toggle for normal / shiny presentation
 - Ability table with temporary frontend-held Korean description support
+- Grouped regional Pokedex number display with representative Pokedex flavor text
 - Light / dark theme toggle
 - Footer with service / policy / resource links
 

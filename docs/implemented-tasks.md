@@ -35,6 +35,7 @@
 - Displays official artwork and main identity fields
 - Shows height, weight, capture rate, gender rate, max experience, and other species metadata
 - Supports normal / shiny artwork switching in the hero image area
+- Supports previous / next Pokemon navigation above the hero section
 
 ### 2.3 Form support
 - Supports alternate forms through form tabs
@@ -56,6 +57,7 @@
 ### 2.6 Media blocks
 - Supports image-based detail blocks
 - Supports audio playback blocks when audio data exists in the snapshot
+- Includes footprint image and cry playback in the basic info area
 
 ### 2.7 Ability information
 - Shows ability and hidden ability information in a table below base stats
@@ -68,6 +70,7 @@
 - Implemented `scripts/sync-pokedex.mjs`
 - Builds `data/pokedex.json` from PokeAPI
 - Korean names are included in the generated snapshot
+- Includes grouped Pokedex number data and representative Pokedex flavor text descriptions
 
 ### 3.2 Runtime snapshot repository
 - Added a dedicated server repository for reading the generated snapshot
@@ -88,6 +91,19 @@
 - Added `/contact`
 - Added `/terms`
 - Added `/privacy`
+- Footer resources include data and media attribution links
+
+## Task Group 6. Pokedex Reference Enrichment
+
+### 6.1 Pokedex number reference display
+- Shows grouped regional Pokedex references on the detail page
+- Uses representative regional labels such as 관동도감, 성도도감, 호연도감, 신오도감, 하나도감, 칼로스도감, 알로라도감, 가라르도감, 히스이도감, 팔데아도감, 미르도감
+- Prefers expanded regional dex numbers when both original and expanded variants exist
+
+### 6.2 Pokedex flavor text display
+- Shows one representative Pokedex description per displayed Pokedex group
+- Prefers Korean flavor text when available
+- Falls back to English source text only when Korean text is unavailable
 
 ## Task Group 5. Carry-over / Partial Foundations
 
