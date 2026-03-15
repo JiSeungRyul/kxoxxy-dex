@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Do_Hyeon, Noto_Sans_KR } from "next/font/google";
 import Link from "next/link";
 
+import { SiteHeroHeader } from "@/features/site/components/site-hero-header";
+
 import "./globals.css";
 
 const themeScript = `
@@ -52,7 +54,10 @@ export default function RootLayout({
       </head>
       <body className={`${displayFont.variable} ${bodyFont.variable} bg-background text-foreground`}>
         <div className="flex min-h-screen flex-col">
-          <div className="flex-1">{children}</div>
+          <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+            <SiteHeroHeader />
+            <div className="mt-6 flex-1">{children}</div>
+          </div>
           <footer className="mt-10 border-t border-border bg-card/70 backdrop-blur-sm">
             <div className="mx-auto grid w-full max-w-[1600px] gap-10 px-4 py-8 text-sm text-muted-foreground sm:px-6 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,0.7fr))] lg:px-8">
               <div className="space-y-4">
