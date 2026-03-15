@@ -4,26 +4,90 @@
 
 :root {
   color-scheme: light;
+  --background: 248 245 239;
+  --foreground: 27 24 21;
+  --card: 255 255 255;
+  --border: 215 210 202;
+  --muted: 239 233 224;
+  --muted-foreground: 113 104 97;
+  --input: 255 255 255;
+  --accent: 33 30 28;
+  --accent-foreground: 250 247 242;
+  --ring: 27 24 21;
+  --toggle: 241 235 227;
+  --toggle-foreground: 98 90 84;
+  --toggle-active: 20 18 16;
+  --toggle-active-foreground: 255 252 248;
+  --toggle-ring: 20 18 16;
+  --toggle-active-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --toggle-idle-shadow: 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --shadow-card: 0 18px 40px rgba(32, 23, 20, 0.08);
 }
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(217, 75, 49, 0.16), transparent 28%),
-    radial-gradient(circle at top right, rgba(29, 77, 69, 0.12), transparent 22%),
-    #f4efe6;
+    radial-gradient(circle at top left, rgba(208, 102, 73, 0.14), transparent 28%),
+    radial-gradient(circle at top right, rgba(112, 135, 124, 0.12), transparent 22%),
+    rgb(var(--background));
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 9 9 11;
+  --foreground: 245 245 247;
+  --card: 18 18 22;
+  --border: 52 52 60;
+  --muted: 27 27 33;
+  --muted-foreground: 166 166 176;
+  --input: 15 15 19;
+  --accent: 245 245 247;
+  --accent-foreground: 11 11 14;
+  --ring: 245 245 247;
+  --toggle: 22 22 28;
+  --toggle-foreground: 176 176 186;
+  --toggle-active: 255 255 255;
+  --toggle-active-foreground: 8 8 10;
+  --toggle-ring: 255 255 255;
+  --toggle-active-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --toggle-idle-shadow: 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-card: 0 28px 64px rgba(0, 0, 0, 0.55);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.05), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.03), transparent 22%),
+    rgb(var(--background));
 }
 
 body {
   min-height: 100vh;
-  color: #201714;
+  color: rgb(var(--foreground));
   font-family: var(--font-ibm-plex-sans), sans-serif;
+  background: transparent;
 }
 
 * {
-  border-color: rgba(32, 23, 20, 0.1);
+  border-color: rgb(var(--border));
 }
 
 ::selection {
-  background: rgba(217, 75, 49, 0.2);
+  background: rgb(var(--foreground) / 0.18);
 }
 
+input,
+select,
+textarea,
+button {
+  color: inherit;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button:focus,
+button:focus-visible {
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--muted-foreground));
+}

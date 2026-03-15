@@ -10,17 +10,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        canvas: "#f4efe6",
-        ink: "#201714",
-        ember: "#d94b31",
-        emberDark: "#9f2f1b",
-        pine: "#1d4d45",
-        sand: "#d9cbb7",
-        smoke: "#7d6f67",
-        panel: "#fffaf2",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        card: "rgb(var(--card) / <alpha-value>)",
+        border: "rgb(var(--border) / <alpha-value>)",
+        muted: "rgb(var(--muted) / <alpha-value>)",
+        "muted-foreground": "rgb(var(--muted-foreground) / <alpha-value>)",
+        input: "rgb(var(--input) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
+        "accent-foreground": "rgb(var(--accent-foreground) / <alpha-value>)",
+        ring: "rgb(var(--ring) / <alpha-value>)",
+        toggle: "rgb(var(--toggle) / <alpha-value>)",
+        "toggle-foreground": "rgb(var(--toggle-foreground) / <alpha-value>)",
+        "toggle-active": "rgb(var(--toggle-active) / <alpha-value>)",
+        "toggle-active-foreground": "rgb(var(--toggle-active-foreground) / <alpha-value>)",
+        "toggle-ring": "rgb(var(--toggle-ring) / <alpha-value>)",
       },
       boxShadow: {
-        card: "0 18px 40px rgba(32, 23, 20, 0.08)",
+        card: "var(--shadow-card)",
       },
       fontFamily: {
         display: ["var(--font-space-grotesk)"],

@@ -71,7 +71,7 @@ export function PokedexPage({ pokemon, filterOptions }: PokedexPageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-[1600px] px-8 py-10">
+    <main className="mx-auto min-h-screen w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="space-y-6">
         <PokedexControls
           filterOptions={filterOptions}
@@ -85,7 +85,7 @@ export function PokedexPage({ pokemon, filterOptions }: PokedexPageProps) {
           onGenerationChange={setSelectedGeneration}
           onReset={resetFilters}
         />
-        <div className="mx-auto w-full max-w-[1320px] space-y-6">
+        <div className="w-full space-y-6">
           <PokedexTable
             pokemon={paginatedPokemon}
             sortKey={sortKey}
