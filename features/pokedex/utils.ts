@@ -155,16 +155,6 @@ export function getLocalDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function hashString(value: string) {
-  let hash = 0;
-
-  for (const character of value) {
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  }
-
-  return hash;
-}
-
 export function getInitialCollectionState(): PokedexCollectionState {
   return {
     capturedDexNumbers: [],
@@ -200,18 +190,18 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
 export function selectDailyEncounterPokemon({
   pokemon,
   capturedDexNumbers,
-  dateKey,
+  excludedDexNumbers = [],
 }: {
   pokemon: PokemonSummary[];
   capturedDexNumbers: number[];
-  dateKey: string;
+  excludedDexNumbers?: number[];
 }) {
-  const capturedDexNumberSet = new Set(capturedDexNumbers);
-  const candidates = pokemon.filter((entry) => !capturedDexNumberSet.has(entry.nationalDexNumber));
+  const blockedDexNumberSet = new Set([...capturedDexNumbers, ...excludedDexNumbers]);
+  const candidates = pokemon.filter((entry) => !blockedDexNumberSet.has(entry.nationalDexNumber));
 
   if (candidates.length === 0) {
     return null;
   }
 
-  return candidates[hashString(dateKey) % candidates.length];
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }

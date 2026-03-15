@@ -13,6 +13,7 @@ import { DailyEncounter } from "@/features/pokedex/components/daily-encounter";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
+import { SiteHeroHeader } from "@/features/site/components/site-hero-header";
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
@@ -65,17 +66,21 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
   const pageStart = filteredPokemon.length === 0 ? 0 : pageStartIndex + 1;
   const pageEnd = filteredPokemon.length === 0 ? 0 : pageStartIndex + paginatedPokemon.length;
   const todayEncounterDexNumber = collectionState.encountersByDate[todayKey];
-  const todayEncounter =
-    pokemon.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ??
-    selectDailyEncounterPokemon({
-      pokemon,
-      capturedDexNumbers: collectionState.capturedDexNumbers,
-      dateKey: todayKey,
-    });
+  const todayEncounter = todayEncounterDexNumber
+    ? pokemon.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ?? null
+    : null;
   const capturedDexNumberSet = new Set(collectionState.capturedDexNumbers);
   const isTodayEncounterCaptured = todayEncounter
     ? capturedDexNumberSet.has(todayEncounter.nationalDexNumber)
     : false;
+  const rerolledEncounter = isCollectionReady && todayEncounter
+    ? selectDailyEncounterPokemon({
+        pokemon,
+        capturedDexNumbers: collectionState.capturedDexNumbers,
+        excludedDexNumbers: [todayEncounter.nationalDexNumber],
+      })
+    : null;
+  const canRerollTodayEncounter = Boolean(todayEncounter && !isTodayEncounterCaptured && rerolledEncounter);
   const recentCaptures = [...collectionState.capturedDexNumbers]
     .slice(-6)
     .reverse()
@@ -120,7 +125,6 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     const encounter = selectDailyEncounterPokemon({
       pokemon,
       capturedDexNumbers: collectionState.capturedDexNumbers,
-      dateKey: todayKey,
     });
 
     if (!encounter) {
@@ -178,9 +182,38 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     });
   }
 
+  function resetTodayEncounter() {
+    if (!todayEncounter) {
+      return;
+    }
+
+    setCollectionState((currentState) => ({
+      ...currentState,
+      capturedDexNumbers: currentState.capturedDexNumbers.filter(
+        (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
+      ),
+    }));
+  }
+
+  function rerollTodayEncounter() {
+    if (!todayEncounter || isTodayEncounterCaptured || !rerolledEncounter) {
+      return;
+    }
+
+    setCollectionState((currentState) => ({
+      ...currentState,
+      encountersByDate: {
+        ...currentState.encountersByDate,
+        [todayKey]: rerolledEncounter.nationalDexNumber,
+      },
+    }));
+  }
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="space-y-6">
+        <SiteHeroHeader />
+
         {view === "daily" ? (
           <DailyEncounter
             encounter={todayEncounter}
@@ -189,6 +222,9 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
             recentCaptures={recentCaptures}
             isCaptured={isTodayEncounterCaptured}
             onCapture={captureTodayEncounter}
+            onResetToday={resetTodayEncounter}
+            onRerollToday={rerollTodayEncounter}
+            canRerollToday={canRerollTodayEncounter}
           />
         ) : null}
 

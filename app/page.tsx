@@ -4,5 +4,5 @@ import { getPokedexSnapshot } from "@/features/pokedex/server/repository";
 export default async function HomePage() {
   const dataset = await getPokedexSnapshot();
 
-  return <PokedexPage pokemon={dataset.pokemon} filterOptions={dataset.filterOptions} />;
+  return <PokedexPage pokemon={dataset.pokemon} filterOptions={dataset.filterOptions} view="daily" />;
 }
