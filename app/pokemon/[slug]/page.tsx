@@ -7,15 +7,19 @@ type PokemonDetailRouteProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<{
+    form?: string;
+  }>;
 };
 
-export default async function PokemonDetailRoute({ params }: PokemonDetailRouteProps) {
+export default async function PokemonDetailRoute({ params, searchParams }: PokemonDetailRouteProps) {
   const { slug } = await params;
+  const { form } = (await searchParams) ?? {};
   const pokemon = await getPokemonBySlug(slug);
 
   if (!pokemon) {
     notFound();
   }
 
-  return <PokemonDetailPage pokemon={pokemon} />;
+  return <PokemonDetailPage pokemon={pokemon} selectedFormKey={form} />;
 }

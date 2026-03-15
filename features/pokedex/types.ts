@@ -36,6 +36,46 @@ export type PokemonAbility = {
   name: string;
 };
 
+export type PokemonForm = {
+  key: string;
+  slug: string;
+  label: string;
+  isDefault: boolean;
+  imageUrl: string;
+  artworkImageUrl: string;
+  types: PokemonType[];
+  stats: PokemonBaseStats;
+  abilities: PokemonAbility[];
+  hiddenAbility: PokemonAbility | null;
+  height: number;
+  weight: number;
+};
+
+export type PokemonEvolutionStageForm = {
+  key: string;
+  label: string;
+  slug: string;
+  artworkImageUrl: string;
+};
+
+export type PokemonEvolutionStage = {
+  nationalDexNumber: number;
+  slug: string;
+  name: string;
+  artworkImageUrl: string;
+  forms: PokemonEvolutionStageForm[];
+};
+
+export type PokemonEvolutionLink = {
+  fromNationalDexNumber: number;
+  toNationalDexNumber: number;
+  condition: string;
+  evolutionItem?: {
+    name: string;
+    imageUrl: string;
+  } | null;
+};
+
 export type PokemonGeneration = {
   id: PokemonGenerationId;
   label: string;
@@ -61,6 +101,7 @@ export type PokemonSummary = {
   name: string;
   names: PokemonLocalizedName;
   imageUrl: string;
+  artworkImageUrl: string;
   generation: PokemonGeneration;
   types: PokemonType[];
   stats: PokemonBaseStats;
@@ -73,6 +114,9 @@ export type PokemonSummary = {
   eggGroups: string[];
   hatchCounter: number;
   maxExperience: number;
+  evolutionChain: PokemonEvolutionStage[];
+  evolutionLinks: PokemonEvolutionLink[];
+  forms: PokemonForm[];
 };
 
 export type PokedexFilterOptions = {
