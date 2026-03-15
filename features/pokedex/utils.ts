@@ -235,14 +235,21 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
 export function selectDailyEncounterPokemon({
   pokemon,
   capturedDexNumbers,
-  dateKey,
+  dateKey = getLocalDateKey(),
+  excludedDexNumbers = [],
 }: {
   pokemon: PokemonSummary[];
   capturedDexNumbers: number[];
-  dateKey: string;
+  dateKey?: string;
+  excludedDexNumbers?: number[];
 }) {
   const capturedDexNumberSet = new Set(capturedDexNumbers);
-  const candidates = pokemon.filter((entry) => !capturedDexNumberSet.has(entry.nationalDexNumber));
+  const excludedDexNumberSet = new Set(excludedDexNumbers);
+  const candidates = pokemon.filter(
+    (entry) =>
+      !capturedDexNumberSet.has(entry.nationalDexNumber) &&
+      !excludedDexNumberSet.has(entry.nationalDexNumber),
+  );
 
   if (candidates.length === 0) {
     return null;
