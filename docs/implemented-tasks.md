@@ -34,15 +34,19 @@
 ### 2.2 Core profile display
 - Displays official artwork and main identity fields
 - Shows height, weight, capture rate, gender rate, max experience, and other species metadata
+- Supports normal / shiny artwork switching in the hero image area
 
 ### 2.3 Form support
 - Supports alternate forms through form tabs
 - Keeps default and non-default form navigation separated by query parameter
+- Includes regional forms as well as mega and gigantamax forms where present
 
 ### 2.4 Evolution visualization
 - Builds evolution paths from the stored evolution chain and links
 - Handles branching evolution structures
 - Renders evolution conditions and evolution-item context
+- Applies form-aware evolution artwork where matching form variants exist
+- Shows mega / gigantamax branches as special evolution follow-ups where applicable
 
 ### 2.5 Battle-related reference information
 - Shows base stats
@@ -52,6 +56,11 @@
 ### 2.6 Media blocks
 - Supports image-based detail blocks
 - Supports audio playback blocks when audio data exists in the snapshot
+
+### 2.7 Ability information
+- Shows ability and hidden ability information in a table below base stats
+- Supports temporary frontend-held Korean ability description data
+- Falls back to generated Koreanized text or source English text when no local manual translation exists
 
 ## Task Group 3. Data Pipeline
 
@@ -82,11 +91,10 @@
 
 ## Task Group 5. Carry-over / Partial Foundations
 
-### 5.1 Collection state model exists but is not currently surfaced
-- `PokedexCollectionState` exists in types
-- Collection sanitization helpers exist in utilities
-- Date-key helper and daily-selection helper exist in utilities
-- This indicates gameplay-related work existed or was planned, but it is not currently exposed by active routes in this workspace
+### 5.1 Collection state model is now surfaced through dedicated pages
+- `/daily` exists and uses daily encounter helpers
+- `/my-pokemon` exists and uses local captured-state storage
+- Collection sanitization and date-key helpers are active parts of the current workspace
 
 ## Recommended Reading Order For A New Session
 1. `docs/current-product.md`
@@ -96,5 +104,8 @@
 ## Planned Future Tasks
 - Add login
 - Add database integration
+- Move frontend-held Korean translation data for ability descriptions into the database
+- Add item descriptions
+- Add character / NPC descriptions
 - Add team maker feature
 - Add random team selection feature

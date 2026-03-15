@@ -11,6 +11,10 @@ const FORM_LABELS = {
   galar: "가라르",
   hisui: "히스이",
   paldea: "팔데아",
+  mega: "메가진화",
+  "mega-x": "메가진화 X",
+  "mega-y": "메가진화 Y",
+  gmax: "거다이맥스",
   origin: "오리진",
   attack: "어택",
   defense: "디펜스",
@@ -176,6 +180,7 @@ function buildFormSummary({
     isDefault: formSlug === baseSlug,
     imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
     artworkImageUrl: getPreferredArtworkImageUrl(entry, nationalDexNumber),
+    shinyArtworkImageUrl: getPreferredShinyArtworkImageUrl(entry, nationalDexNumber),
     types,
     stats: {
       hp: getStatValue(entry.stats, "hp"),
@@ -338,6 +343,18 @@ function getLocalizedResourceName(names, fallbackName) {
   );
 }
 
+function getLocalizedAbilityDescription(effectEntries) {
+  const localizedEntry =
+    effectEntries.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE) ??
+    effectEntries.find((entry) => entry.language.name === ENGLISH_LANGUAGE_CODE);
+
+  if (!localizedEntry) {
+    return "";
+  }
+
+  return localizedEntry.short_effect.replaceAll("\n", " ").trim();
+}
+
 function getMaxExperienceAmount(growthRate) {
   return growthRate.levels.at(-1)?.experience ?? 0;
 }
@@ -359,6 +376,15 @@ function getPreferredArtworkImageUrl(entry, nationalDexNumber) {
     entry.sprites.other?.showdown?.front_default ??
     entry.sprites.front_default ??
     `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${nationalDexNumber}.png`
+  );
+}
+
+function getPreferredShinyArtworkImageUrl(entry, nationalDexNumber) {
+  return (
+    entry.sprites.other?.["official-artwork"]?.front_shiny ??
+    entry.sprites.other?.home?.front_shiny ??
+    entry.sprites.front_shiny ??
+    `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${nationalDexNumber}.png`
   );
 }
 
@@ -453,6 +479,7 @@ async function buildSnapshot() {
               return {
                 slug: ability.name,
                 name: getLocalizedResourceName(abilityDetail.names, ability.name),
+                description: getLocalizedAbilityDescription(abilityDetail.effect_entries),
               };
             }),
         );
@@ -470,6 +497,7 @@ async function buildSnapshot() {
           hiddenAbility = {
             slug: hiddenAbilityEntry.ability.name,
             name: getLocalizedResourceName(abilityDetail.names, hiddenAbilityEntry.ability.name),
+            description: getLocalizedAbilityDescription(abilityDetail.effect_entries),
           };
         }
 
@@ -562,6 +590,7 @@ async function buildSnapshot() {
                   return {
                     slug: ability.name,
                     name: getLocalizedResourceName(abilityDetail.names, ability.name),
+                    description: getLocalizedAbilityDescription(abilityDetail.effect_entries),
                   };
                 }),
             );
@@ -579,6 +608,7 @@ async function buildSnapshot() {
               hiddenFormAbility = {
                 slug: hiddenFormAbilityEntry.ability.name,
                 name: getLocalizedResourceName(abilityDetail.names, hiddenFormAbilityEntry.ability.name),
+                description: getLocalizedAbilityDescription(abilityDetail.effect_entries),
               };
             }
 
@@ -600,6 +630,7 @@ async function buildSnapshot() {
           names: localizedNames,
           imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
           artworkImageUrl: getPreferredArtworkImageUrl(entry, nationalDexNumber),
+          shinyArtworkImageUrl: getPreferredShinyArtworkImageUrl(entry, nationalDexNumber),
           generation,
           types,
           stats: {
