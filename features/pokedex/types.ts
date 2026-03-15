@@ -25,6 +25,17 @@ export type PokemonType = {
   label: string;
 };
 
+export type PokemonLocalizedName = {
+  ko: string;
+  ja: string;
+  en: string;
+};
+
+export type PokemonAbility = {
+  slug: string;
+  name: string;
+};
+
 export type PokemonGeneration = {
   id: PokemonGenerationId;
   label: string;
@@ -48,10 +59,20 @@ export type PokemonSummary = {
   nationalDexNumber: number;
   slug: string;
   name: string;
+  names: PokemonLocalizedName;
   imageUrl: string;
   generation: PokemonGeneration;
   types: PokemonType[];
   stats: PokemonBaseStats;
+  abilities: PokemonAbility[];
+  hiddenAbility: PokemonAbility | null;
+  height: number;
+  weight: number;
+  captureRate: number;
+  genderRate: number;
+  eggGroups: string[];
+  hatchCounter: number;
+  maxExperience: number;
 };
 
 export type PokedexFilterOptions = {
@@ -69,3 +90,7 @@ export type PokedexSnapshot = {
   filterOptions: PokedexFilterOptions;
 };
 
+export type PokedexCollectionState = {
+  capturedDexNumbers: number[];
+  encountersByDate: Record<string, number>;
+};

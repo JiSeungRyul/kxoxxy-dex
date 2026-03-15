@@ -27,3 +27,9 @@ export function getPokedexSnapshot() {
 
   return getCachedPokedexSnapshot();
 }
+
+export async function getPokemonBySlug(slug: string) {
+  const snapshot = await getPokedexSnapshot();
+
+  return snapshot.pokemon.find((entry) => entry.slug === slug) ?? null;
+}
