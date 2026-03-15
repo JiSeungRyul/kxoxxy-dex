@@ -4,6 +4,8 @@ import path from "node:path";
 const POKE_API_BASE_URL = "https://pokeapi.co/api/v2";
 const BATCH_SIZE = 40;
 const KOREAN_LANGUAGE_CODE = "ko";
+const ENGLISH_LANGUAGE_CODE = "en";
+const JAPANESE_LANGUAGE_CODES = ["ja-Hrkt", "ja"];
 const GENERATIONS = [
   { id: 1, label: "Generation I" },
   { id: 2, label: "Generation II" },
@@ -48,6 +50,28 @@ function getLocalizedPokemonName(speciesNames, fallbackName) {
   );
 }
 
+function getLocalizedText(names, fallbackName) {
+  return {
+    ko: names.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name ?? formatLabel(fallbackName),
+    ja:
+      names.find((entry) => JAPANESE_LANGUAGE_CODES.includes(entry.language.name))?.name ??
+      formatLabel(fallbackName),
+    en: names.find((entry) => entry.language.name === ENGLISH_LANGUAGE_CODE)?.name ?? formatLabel(fallbackName),
+  };
+}
+
+function getLocalizedResourceName(names, fallbackName) {
+  return (
+    names.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name ??
+    names.find((entry) => entry.language.name === ENGLISH_LANGUAGE_CODE)?.name ??
+    formatLabel(fallbackName)
+  );
+}
+
+function getMaxExperienceAmount(growthRate) {
+  return growthRate.levels.at(-1)?.experience ?? 0;
+}
+
 function getPreferredImageUrl(entry, nationalDexNumber) {
   return (
     entry.sprites.versions?.["generation-v"]?.["black-white"]?.animated?.front_default ??
@@ -67,6 +91,20 @@ async function fetchFromPokeApi(pathname) {
 
   if (!response.ok) {
     throw new Error(`PokeAPI request failed for ${pathname} with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function fetchFromResourceUrl(resourceUrl) {
+  const response = await fetch(resourceUrl, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`PokeAPI request failed for ${resourceUrl} with status ${response.status}`);
   }
 
   return response.json();
@@ -95,6 +133,9 @@ async function buildSnapshot() {
   const nationalDexNumbers = [...generationByDexNumber.keys()].sort((left, right) => left - right);
   const pokemon = [];
   const typeMap = new Map();
+  const abilityCache = new Map();
+  const eggGroupCache = new Map();
+  const growthRateCache = new Map();
 
   for (const batch of chunk(nationalDexNumbers, BATCH_SIZE)) {
     const batchResults = await Promise.all(
@@ -116,10 +157,63 @@ async function buildSnapshot() {
             return normalizedType;
           });
 
+        const abilities = await Promise.all(
+          entry.abilities
+            .filter((abilityEntry) => !abilityEntry.is_hidden)
+            .sort((left, right) => left.slot - right.slot)
+            .map(async ({ ability }) => {
+              if (!abilityCache.has(ability.url)) {
+                abilityCache.set(ability.url, await fetchFromResourceUrl(ability.url));
+              }
+
+              const abilityDetail = abilityCache.get(ability.url);
+
+              return {
+                slug: ability.name,
+                name: getLocalizedResourceName(abilityDetail.names, ability.name),
+              };
+            }),
+        );
+
+        const hiddenAbilityEntry = entry.abilities.find((abilityEntry) => abilityEntry.is_hidden);
+        let hiddenAbility = null;
+
+        if (hiddenAbilityEntry) {
+          if (!abilityCache.has(hiddenAbilityEntry.ability.url)) {
+            abilityCache.set(hiddenAbilityEntry.ability.url, await fetchFromResourceUrl(hiddenAbilityEntry.ability.url));
+          }
+
+          const abilityDetail = abilityCache.get(hiddenAbilityEntry.ability.url);
+
+          hiddenAbility = {
+            slug: hiddenAbilityEntry.ability.name,
+            name: getLocalizedResourceName(abilityDetail.names, hiddenAbilityEntry.ability.name),
+          };
+        }
+
+        const eggGroups = await Promise.all(
+          species.egg_groups.map(async (eggGroup) => {
+            if (!eggGroupCache.has(eggGroup.url)) {
+              eggGroupCache.set(eggGroup.url, await fetchFromResourceUrl(eggGroup.url));
+            }
+
+            const eggGroupDetail = eggGroupCache.get(eggGroup.url);
+            return getLocalizedResourceName(eggGroupDetail.names, eggGroup.name);
+          }),
+        );
+
+        if (!growthRateCache.has(species.growth_rate.url)) {
+          growthRateCache.set(species.growth_rate.url, await fetchFromResourceUrl(species.growth_rate.url));
+        }
+
+        const growthRate = growthRateCache.get(species.growth_rate.url);
+        const localizedNames = getLocalizedText(species.names, entry.name);
+
         return {
           nationalDexNumber,
           slug: entry.name,
           name: getLocalizedPokemonName(species.names, entry.name),
+          names: localizedNames,
           imageUrl: getPreferredImageUrl(entry, nationalDexNumber),
           generation,
           types,
@@ -131,6 +225,15 @@ async function buildSnapshot() {
             specialDefense: getStatValue(entry.stats, "special-defense"),
             speed: getStatValue(entry.stats, "speed"),
           },
+          abilities,
+          hiddenAbility,
+          height: entry.height,
+          weight: entry.weight,
+          captureRate: species.capture_rate,
+          genderRate: species.gender_rate,
+          eggGroups,
+          hatchCounter: species.hatch_counter,
+          maxExperience: getMaxExperienceAmount(growthRate),
         };
       }),
     );

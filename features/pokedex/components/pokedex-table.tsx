@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 import { TABLE_COLUMNS, TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import type { PokemonSortKey, PokemonSummary, SortDirection } from "@/features/pokedex/types";
@@ -8,6 +9,7 @@ type PokedexTableProps = {
   pokemon: PokemonSummary[];
   sortKey: PokemonSortKey;
   sortDirection: SortDirection;
+  capturedDexNumbers?: number[];
   onSortChange: (sortKey: PokemonSortKey) => void;
 };
 
@@ -38,7 +40,16 @@ function SortIndicator({ active, direction }: { active: boolean; direction: Sort
   return <span className="text-foreground">{direction === "asc" ? "↑" : "↓"}</span>;
 }
 
-export function PokedexTable({ pokemon, sortKey, sortDirection, onSortChange }: PokedexTableProps) {
+export function PokedexTable({
+  pokemon,
+  sortKey,
+  sortDirection,
+  capturedDexNumbers = [],
+  onSortChange,
+}: PokedexTableProps) {
+  const router = useRouter();
+  const capturedDexNumberSet = new Set(capturedDexNumbers);
+
   if (pokemon.length === 0) {
     return <EmptyState />;
   }
@@ -71,7 +82,20 @@ export function PokedexTable({ pokemon, sortKey, sortDirection, onSortChange }: 
             {pokemon.map((entry) => (
               <tr
                 key={entry.nationalDexNumber}
-                className="group cursor-pointer rounded-2xl bg-background shadow-card"
+                className={`group cursor-pointer rounded-2xl shadow-card outline-none ${
+                  capturedDexNumberSet.has(entry.nationalDexNumber)
+                    ? "bg-emerald-50/70 dark:bg-emerald-950/20"
+                    : "bg-background"
+                }`}
+                onClick={() => router.push(`/pokemon/${entry.slug}`)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    router.push(`/pokemon/${entry.slug}`);
+                  }
+                }}
+                tabIndex={0}
+                aria-label={`${entry.name} 상세 페이지로 이동`}
               >
                 <td className="rounded-l-2xl border-y border-l border-border px-5 py-5 font-display text-lg font-semibold tracking-[-0.03em] text-foreground transition-colors group-hover:bg-muted/70">
                   {formatDexNumber(entry.nationalDexNumber)}
@@ -89,7 +113,14 @@ export function PokedexTable({ pokemon, sortKey, sortDirection, onSortChange }: 
                         unoptimized
                       />
                     </div>
-                    <p className="min-w-0 text-lg font-semibold text-foreground">{entry.name}</p>
+                    <div className="min-w-0">
+                      <p className="min-w-0 text-lg font-semibold text-foreground">{entry.name}</p>
+                      {capturedDexNumberSet.has(entry.nationalDexNumber) ? (
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                          포획 완료
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </td>
                 <td className="border-y border-border px-5 py-5 transition-colors group-hover:bg-muted/70">
