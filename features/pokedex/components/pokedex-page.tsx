@@ -13,7 +13,6 @@ import {
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
-import { SiteHeroHeader } from "@/features/site/components/site-hero-header";
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
@@ -223,10 +222,8 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+    <main className="min-h-full w-full">
       <div className="space-y-6">
-        <SiteHeroHeader />
-
         {view === "daily" ? (
           <DailyEncounter
             encounter={isCollectionReady ? todayEncounter : null}
