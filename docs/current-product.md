@@ -73,6 +73,19 @@
 - Team maker
 - Random team picker
 
+## Deployment Plan
+- Short-term production direction:
+  - deploy the Next.js app on Vercel
+  - use managed PostgreSQL such as Neon or Supabase
+  - implement credentials-based login first through Auth.js
+- Social login direction:
+  - keep room for adding Kakao login later without replacing the base auth model
+- Data rollout direction:
+  - continue serving the core Pokedex catalog from `data/pokedex.json` initially
+  - move user-owned data and auth/session data into PostgreSQL before migrating catalog-like content
+- Local development direction:
+  - prefer Docker-based PostgreSQL when database work begins
+
 ## Known Constraints
 - `next/font/google` is used in `app/layout.tsx`, so restricted network environments can affect build behavior
 - The app depends on `data/pokedex.json` being present and valid
