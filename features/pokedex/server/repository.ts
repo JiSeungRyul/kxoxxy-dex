@@ -74,6 +74,86 @@ export async function getPokemonBySlug(slug: string) {
   return snapshot.pokemon.find((entry) => entry.slug === slug) ?? null;
 }
 
+type LatestSnapshotRecord = {
+  id: number;
+  totalPokemon: number;
+};
+
+async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
+  const rows = await postgresClient.unsafe<Array<{ id: number; totalPokemon: number }>>(
+    `
+      SELECT id, total_pokemon AS "totalPokemon"
+      FROM pokedex_snapshots
+      ORDER BY synced_at DESC, id DESC
+      LIMIT 1
+    `,
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function getPokemonDetailBySlug(slug: string) {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return null;
+  }
+
+  const rows = await postgresClient.unsafe<Array<{ payload: PokemonSummary }>>(
+    `
+      SELECT payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      AND slug = $2
+      LIMIT 1
+    `,
+    [latestSnapshot.id, slug],
+  );
+
+  return rows[0]?.payload ?? null;
+}
+
+export async function getAdjacentPokemonByDexNumber(nationalDexNumber: number) {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      previousPokemon: null,
+      nextPokemon: null,
+    };
+  }
+
+  const rows = await postgresClient.unsafe<
+    Array<{ relation: "previous" | "next"; payload: PokemonSummary }>
+  >(
+    `
+      (
+        SELECT 'previous' AS relation, payload
+        FROM pokemon_catalog
+        WHERE snapshot_id = $1
+        AND national_dex_number < $2
+        ORDER BY national_dex_number DESC
+        LIMIT 1
+      )
+      UNION ALL
+      (
+        SELECT 'next' AS relation, payload
+        FROM pokemon_catalog
+        WHERE snapshot_id = $1
+        AND national_dex_number > $2
+        ORDER BY national_dex_number ASC
+        LIMIT 1
+      )
+    `,
+    [latestSnapshot.id, nationalDexNumber],
+  );
+
+  return {
+    previousPokemon: rows.find((row) => row.relation === "previous")?.payload ?? null,
+    nextPokemon: rows.find((row) => row.relation === "next")?.payload ?? null,
+  };
+}
+
 function getPokedexFilterOptions(): PokedexFilterOptions {
   return {
     generations: Object.entries(GENERATION_LABELS).map(([id, label]) => ({
@@ -136,14 +216,15 @@ function getSortExpression(sortKey: PokemonSortKey) {
 }
 
 function buildPokedexCatalogWhere({
+  snapshotId,
   searchTerm,
   selectedType,
   selectedGeneration,
-}: Pick<PokedexListQuery, "searchTerm" | "selectedType" | "selectedGeneration">) {
-  const conditions = [
-    "snapshot_id = (SELECT id FROM pokedex_snapshots ORDER BY synced_at DESC, id DESC LIMIT 1)",
-  ];
-  const values: Array<string | number> = [];
+}: Pick<PokedexListQuery, "searchTerm" | "selectedType" | "selectedGeneration"> & {
+  snapshotId: number;
+}) {
+  const conditions = ["snapshot_id = $1"];
+  const values: Array<string | number> = [snapshotId];
 
   if (searchTerm.length > 0) {
     values.push(`%${searchTerm}%`);
@@ -168,22 +249,38 @@ function buildPokedexCatalogWhere({
 
 export async function getPokedexListPage(query: Partial<PokedexListQuery>): Promise<PokedexListPage> {
   const normalizedQuery = normalizePokedexListQuery(query);
-  const { whereClause, values } = buildPokedexCatalogWhere(normalizedQuery);
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+      filterOptions: getPokedexFilterOptions(),
+      query: normalizedQuery,
+      totalCount: 0,
+      totalResults: 0,
+      totalPages: 1,
+      pageStart: 0,
+      pageEnd: 0,
+    };
+  }
+
+  const { whereClause, values } = buildPokedexCatalogWhere({
+    ...normalizedQuery,
+    snapshotId: latestSnapshot.id,
+  });
   const totalCountResult = await postgresClient.unsafe<
-    Array<{ totalCount: number; totalResults: number }>
+    Array<{ totalResults: number }>
   >(
     `
       SELECT
-        COALESCE(MAX(ps.total_pokemon), 0)::int AS "totalCount",
         COUNT(pc.national_dex_number)::int AS "totalResults"
       FROM pokemon_catalog pc
-      JOIN pokedex_snapshots ps ON ps.id = pc.snapshot_id
       WHERE ${whereClause}
     `,
     values,
   );
-  const totals = totalCountResult[0] ?? { totalCount: 0, totalResults: 0 };
-  const totalPages = Math.max(1, Math.ceil(totals.totalResults / POKEMON_PER_PAGE));
+  const totalResults = totalCountResult[0]?.totalResults ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalResults / POKEMON_PER_PAGE));
   const page = Math.min(normalizedQuery.page, totalPages);
   const offset = (page - 1) * POKEMON_PER_PAGE;
   const sortExpression = getSortExpression(normalizedQuery.sortKey);
@@ -200,8 +297,8 @@ export async function getPokedexListPage(query: Partial<PokedexListQuery>): Prom
     values,
   );
   const pokemon = pokemonRows.map((row) => row.payload);
-  const pageStart = totals.totalResults === 0 ? 0 : offset + 1;
-  const pageEnd = totals.totalResults === 0 ? 0 : offset + pokemon.length;
+  const pageStart = totalResults === 0 ? 0 : offset + 1;
+  const pageEnd = totalResults === 0 ? 0 : offset + pokemon.length;
 
   return {
     pokemon,
@@ -210,8 +307,8 @@ export async function getPokedexListPage(query: Partial<PokedexListQuery>): Prom
       ...normalizedQuery,
       page,
     },
-    totalCount: totals.totalCount,
-    totalResults: totals.totalResults,
+    totalCount: latestSnapshot.totalPokemon,
+    totalResults,
     totalPages,
     pageStart,
     pageEnd,
