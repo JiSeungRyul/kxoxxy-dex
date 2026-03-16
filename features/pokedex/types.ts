@@ -145,6 +145,26 @@ export type PokedexSnapshot = {
   filterOptions: PokedexFilterOptions;
 };
 
+export type PokedexListQuery = {
+  page: number;
+  searchTerm: string;
+  selectedType: TypeFilterValue;
+  selectedGeneration: GenerationFilterValue;
+  sortKey: PokemonSortKey;
+  sortDirection: SortDirection;
+};
+
+export type PokedexListPage = {
+  pokemon: PokemonSummary[];
+  filterOptions: PokedexFilterOptions;
+  query: PokedexListQuery;
+  totalCount: number;
+  totalResults: number;
+  totalPages: number;
+  pageStart: number;
+  pageEnd: number;
+};
+
 export type PokedexCollectionState = {
   capturedDexNumbers: number[];
   encountersByDate: Record<string, number>;
