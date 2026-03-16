@@ -13,6 +13,12 @@
   - Prebuilt Pokemon dataset snapshot
 - `scripts/sync-pokedex.mjs`
   - Snapshot generation script using PokeAPI
+- `lib/db/`
+  - Shared PostgreSQL connection layer for future database-backed features
+- `db/schema/`
+  - Reserved location for future Drizzle schema definitions
+- `drizzle.config.ts`
+  - Drizzle Kit configuration for future migrations
 
 ## Runtime Flow
 1. `app/page.tsx` calls `getPokedexSnapshot()`
@@ -32,6 +38,17 @@
   - uses `unstable_cache`
   - cache key: `pokedex-snapshot`
   - revalidate interval: 24 hours
+
+## Database Preparation Layer
+- Source file: `lib/db/client.ts`
+- Connection style:
+  - PostgreSQL via `postgres` driver
+  - Drizzle ORM wrapper for future schema-based access
+- Status:
+  - connection layer is present
+  - initial catalog schema and migrations are present for snapshot storage
+  - `scripts/import-pokedex-to-db.mjs` imports `data/pokedex.json` into PostgreSQL
+  - runtime Pokedex reads still use `data/pokedex.json`
 
 ## Client State
 - Source file: `features/pokedex/components/pokedex-page.tsx`

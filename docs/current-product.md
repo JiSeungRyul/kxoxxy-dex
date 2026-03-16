@@ -7,7 +7,7 @@
 - Data source: local snapshot in `data/pokedex.json`
 - Snapshot metadata:
   - source: `pokeapi`
-  - syncedAt: `2026-03-15T11:21:16.121Z`
+  - syncedAt: `2026-03-15T15:51:46.289Z`
   - totalPokemon: `1025`
 
 ## Implemented Routes
@@ -53,6 +53,18 @@
 - Client-side Pokedex interaction lives in `features/pokedex/components/pokedex-page.tsx`
 - Data loading is snapshot-based and file-backed
 - Pokemon detail data is read from the same snapshot, not from live API calls
+- PostgreSQL connection groundwork is present:
+  - local Postgres Docker Compose runtime
+  - `compose.yaml`
+  - `drizzle.config.ts`
+  - `lib/db/client.ts`
+  - `docs/database-plan.md`
+- `data/pokedex.json` can now be imported into PostgreSQL:
+  - snapshot metadata is stored in `pokedex_snapshots`
+  - Pokemon catalog rows are stored in `pokemon_catalog`
+  - local verification result:
+    - `pokedex_snapshots = 1`
+    - `pokemon_catalog = 1025`
 - Collection-related utility types and routes are active:
   - `capturedDexNumbers`
   - `encountersByDate`
@@ -60,7 +72,6 @@
   - `/my-pokemon`
 
 ## Out Of Scope In Current Workspace
-- Database
 - Authentication
 - Server-side user state
 - API routes for gameplay state
@@ -68,7 +79,7 @@
 
 ## Planned Next Features
 - Login
-- Database integration
+- User/auth schema implementation
 - Move temporary frontend-held Korean ability description data into the database
 - Team maker
 - Random team picker
@@ -85,6 +96,7 @@
   - move user-owned data and auth/session data into PostgreSQL before migrating catalog-like content
 - Local development direction:
   - prefer Docker-based PostgreSQL when database work begins
+  - Docker Compose PostgreSQL groundwork is already added
 
 ## Known Constraints
 - `next/font/google` is used in `app/layout.tsx`, so restricted network environments can affect build behavior
