@@ -79,6 +79,22 @@
 - `localStorage` key: `kxoxxy-theme`
 - HTML root gets `dark` class when the saved theme is `dark`
 
+## Deployment Direction
+- Local development:
+  - preferred database runtime is Docker-based PostgreSQL
+- Initial production deployment target:
+  - app hosting on Vercel
+  - managed PostgreSQL on Neon or Supabase
+  - authentication handled in-app through Auth.js
+- Reasoning:
+  - preserves strong compatibility with the existing Next.js App Router setup
+  - keeps database operations on standard PostgreSQL rather than a custom backend abstraction
+  - supports starting with credentials-based login and later adding Kakao login through the same auth layer
+- Intended migration path:
+  - keep `data/pokedex.json` as the runtime source for Pokemon catalog data during the early service phase
+  - move user-specific state such as captured Pokemon, daily encounters, teams, and auth/session data into PostgreSQL first
+  - move operationally edited content such as localized ability descriptions into the database only when admin workflows are needed
+
 ## Residual Collection Model In Code
 - Source type: `PokedexCollectionState`
 - Fields:
