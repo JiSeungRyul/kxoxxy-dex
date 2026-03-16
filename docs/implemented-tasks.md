@@ -112,6 +112,36 @@
 - `/my-pokemon` exists and uses local captured-state storage
 - Collection sanitization and date-key helpers are active parts of the current workspace
 
+## Task Group 7. Database Groundwork
+
+### 7.1 Local PostgreSQL runtime preparation
+- Added `compose.yaml` for local PostgreSQL development
+- Added environment variable template for database configuration
+- Added README guidance for starting and stopping the local database
+
+### 7.2 App-side database access preparation
+- Added a shared PostgreSQL connection module in `lib/db/client.ts`
+- Added `drizzle.config.ts` for future schema and migration generation
+- Added package scripts for future Drizzle generate, migrate, and studio workflows
+
+### 7.3 Schema planning groundwork
+- Added `docs/database-plan.md`
+- Documented planned domains for:
+  - users and login
+  - captured Pokemon from daily flow
+  - Pokemon catalog tables derived from `pokedex.json`
+  - team builder persistence
+  - user favorites
+
+### 7.4 Initial Pokedex catalog database import
+- Added initial PostgreSQL catalog tables for snapshot storage:
+  - `pokedex_snapshots`
+  - `pokemon_catalog`
+- Generated and applied the first Drizzle migration for the catalog schema
+- Added `scripts/import-pokedex-to-db.mjs`
+- Imported `data/pokedex.json` into PostgreSQL for local development
+- Kept runtime app reads on the file-backed snapshot path while database migration remains partial
+
 ## Recommended Reading Order For A New Session
 1. `docs/current-product.md`
 2. `docs/architecture.md`

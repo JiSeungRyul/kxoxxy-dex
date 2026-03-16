@@ -28,11 +28,7 @@ To run this project locally, you need:
 - npm 10 or newer recommended
 - Internet access when running `npm run sync:pokedex`
 
-This project does not currently require:
-
-- a database
-- environment variables
-- Docker
+This project does not currently require a database connection at runtime for the Pokedex snapshot flow.
 
 ## Quick Start
 
@@ -72,6 +68,9 @@ If the build fails on Windows because `.next/trace` is locked, stop any running 
 - `npm run start`: run production server
 - `npm run typecheck`: run TypeScript type check
 - `npm run sync:pokedex`: rebuild `data/pokedex.json` from PokeAPI
+- `npm run db:generate`: generate Drizzle migration files after schema is added
+- `npm run db:migrate`: apply generated Drizzle migrations
+- `npm run db:studio`: open Drizzle Studio for local database inspection
 
 ## Data Source
 
@@ -112,19 +111,32 @@ public/brand/                Static brand assets
 - If ports are already in use, stop the existing dev server before starting a new one
 
 ## Docker Compose Direction
+This project now includes a local PostgreSQL setup for future database and auth work.
 
-This project is intentionally kept simple right now, but it is being prepared for future Docker Compose usage when a database is introduced.
+1. Copy the environment template:
 
-Recommended future structure:
+```bash
+Copy-Item .env.example .env
+```
 
-- `app` service: Next.js application
-- `db` service: PostgreSQL or another database
-- optional `adminer` or `pgadmin` service for local database inspection
+2. Start PostgreSQL with Docker Compose:
 
-Recommended future files:
+```bash
+docker compose up -d
+```
 
-- `Dockerfile`
-- `docker-compose.yml`
-- `.env.example`
+3. The default local database connection string is:
 
-Until a database is added, running the app directly with Node.js is the simplest and most reliable approach.
+```text
+postgresql://postgres:postgres@localhost:5432/kxoxxydex
+```
+
+4. Stop the database when finished:
+
+```bash
+docker compose down
+```
+
+The current app still reads Pokemon catalog data from `data/pokedex.json`. The database is being introduced as preparation for auth and user-owned state.
+
+The current repository only includes the database connection layer and Drizzle configuration. Concrete tables and migrations should be added after the schema is finalized.
