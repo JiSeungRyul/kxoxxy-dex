@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import {
@@ -17,6 +18,7 @@ import type {
   GenerationFilterValue,
   PokedexCollectionState,
   PokedexFilterOptions,
+  PokedexListQuery,
   PokemonSortKey,
   PokemonSummary,
   SortDirection,
@@ -43,17 +45,33 @@ type PokedexPageProps = {
   pokemon: PokemonSummary[];
   filterOptions: PokedexFilterOptions;
   view?: "daily" | "pokedex" | "my-pokemon";
+  serverListState?: {
+    query: PokedexListQuery;
+    totalCount: number;
+    totalResults: number;
+    totalPages: number;
+    pageStart: number;
+    pageEnd: number;
+  };
 };
 
 const POKEDEX_COLLECTION_STORAGE_KEY = "kxoxxy-pokedex-collection";
 
-export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: PokedexPageProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState<TypeFilterValue>(ALL_TYPE_FILTER);
-  const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>(ALL_GENERATION_FILTER);
-  const [sortKey, setSortKey] = useState<PokemonSortKey>(DEFAULT_SORT_KEY);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_SORT_DIRECTION);
-  const [currentPage, setCurrentPage] = useState(1);
+export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverListState }: PokedexPageProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isServerDrivenPokedex = view === "pokedex" && Boolean(serverListState);
+  const [searchTerm, setSearchTerm] = useState(serverListState?.query.searchTerm ?? "");
+  const [selectedType, setSelectedType] = useState<TypeFilterValue>(serverListState?.query.selectedType ?? ALL_TYPE_FILTER);
+  const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>(
+    serverListState?.query.selectedGeneration ?? ALL_GENERATION_FILTER,
+  );
+  const [sortKey, setSortKey] = useState<PokemonSortKey>(serverListState?.query.sortKey ?? DEFAULT_SORT_KEY);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    serverListState?.query.sortDirection ?? DEFAULT_SORT_DIRECTION,
+  );
+  const [currentPage, setCurrentPage] = useState(serverListState?.query.page ?? 1);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
 
@@ -63,20 +81,36 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     view === "my-pokemon"
       ? pokemon.filter((entry) => collectionState.capturedDexNumbers.includes(entry.nationalDexNumber))
       : pokemon;
-  const filteredPokemon = filterAndSortPokemon({
-    pokemon: sourcePokemon,
-    searchTerm: deferredSearchTerm,
-    selectedType,
-    selectedGeneration,
-    sortKey,
-    sortDirection,
-  });
-  const totalPages = Math.max(1, Math.ceil(filteredPokemon.length / POKEMON_PER_PAGE));
-  const normalizedCurrentPage = Math.min(currentPage, totalPages);
-  const pageStartIndex = (normalizedCurrentPage - 1) * POKEMON_PER_PAGE;
-  const paginatedPokemon = filteredPokemon.slice(pageStartIndex, pageStartIndex + POKEMON_PER_PAGE);
-  const pageStart = filteredPokemon.length === 0 ? 0 : pageStartIndex + 1;
-  const pageEnd = filteredPokemon.length === 0 ? 0 : pageStartIndex + paginatedPokemon.length;
+  const filteredPokemon = isServerDrivenPokedex
+    ? pokemon
+    : filterAndSortPokemon({
+        pokemon: sourcePokemon,
+        searchTerm: deferredSearchTerm,
+        selectedType,
+        selectedGeneration,
+        sortKey,
+        sortDirection,
+      });
+  const totalPages = isServerDrivenPokedex
+    ? (serverListState?.totalPages ?? 1)
+    : Math.max(1, Math.ceil(filteredPokemon.length / POKEMON_PER_PAGE));
+  const normalizedCurrentPage = isServerDrivenPokedex
+    ? (serverListState?.query.page ?? 1)
+    : Math.min(currentPage, totalPages);
+  const pageStartIndex = isServerDrivenPokedex ? 0 : (normalizedCurrentPage - 1) * POKEMON_PER_PAGE;
+  const paginatedPokemon = isServerDrivenPokedex
+    ? pokemon
+    : filteredPokemon.slice(pageStartIndex, pageStartIndex + POKEMON_PER_PAGE);
+  const pageStart = isServerDrivenPokedex
+    ? (serverListState?.pageStart ?? 0)
+    : filteredPokemon.length === 0
+      ? 0
+      : pageStartIndex + 1;
+  const pageEnd = isServerDrivenPokedex
+    ? (serverListState?.pageEnd ?? 0)
+    : filteredPokemon.length === 0
+      ? 0
+      : pageStartIndex + paginatedPokemon.length;
   const todayEncounterDexNumber = collectionState.encountersByDate[todayKey];
   const todayEncounter = todayEncounterDexNumber
     ? pokemon.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ?? null
@@ -118,10 +152,87 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
   }, [deferredSearchTerm, selectedType, selectedGeneration, sortKey, sortDirection]);
 
   useEffect(() => {
+    if (!serverListState) {
+      return;
+    }
+
+    setSearchTerm(serverListState.query.searchTerm);
+    setSelectedType(serverListState.query.selectedType);
+    setSelectedGeneration(serverListState.query.selectedGeneration);
+    setSortKey(serverListState.query.sortKey);
+    setSortDirection(serverListState.query.sortDirection);
+    setCurrentPage(serverListState.query.page);
+  }, [serverListState]);
+
+  useEffect(() => {
     if (currentPage !== normalizedCurrentPage) {
       setCurrentPage(normalizedCurrentPage);
     }
   }, [currentPage, normalizedCurrentPage]);
+
+  useEffect(() => {
+    if (!isServerDrivenPokedex) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (deferredSearchTerm.length > 0) {
+      nextSearchParams.set("search", deferredSearchTerm);
+    } else {
+      nextSearchParams.delete("search");
+    }
+
+    if (selectedType !== ALL_TYPE_FILTER) {
+      nextSearchParams.set("type", selectedType);
+    } else {
+      nextSearchParams.delete("type");
+    }
+
+    if (selectedGeneration !== ALL_GENERATION_FILTER) {
+      nextSearchParams.set("generation", selectedGeneration);
+    } else {
+      nextSearchParams.delete("generation");
+    }
+
+    if (sortKey !== DEFAULT_SORT_KEY) {
+      nextSearchParams.set("sort", sortKey);
+    } else {
+      nextSearchParams.delete("sort");
+    }
+
+    if (sortDirection !== DEFAULT_SORT_DIRECTION) {
+      nextSearchParams.set("direction", sortDirection);
+    } else {
+      nextSearchParams.delete("direction");
+    }
+
+    if (currentPage > 1) {
+      nextSearchParams.set("page", String(currentPage));
+    } else {
+      nextSearchParams.delete("page");
+    }
+
+    const nextQueryString = nextSearchParams.toString();
+    const currentQueryString = searchParams.toString();
+
+    if (nextQueryString === currentQueryString) {
+      return;
+    }
+
+    router.replace(nextQueryString.length > 0 ? `${pathname}?${nextQueryString}` : pathname, { scroll: false });
+  }, [
+    currentPage,
+    deferredSearchTerm,
+    isServerDrivenPokedex,
+    pathname,
+    router,
+    searchParams,
+    selectedGeneration,
+    selectedType,
+    sortDirection,
+    sortKey,
+  ]);
 
   useEffect(() => {
     if (!isCollectionReady) {
@@ -250,11 +361,20 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
               searchTerm={searchTerm}
               selectedType={selectedType}
               selectedGeneration={selectedGeneration}
-              resultCount={filteredPokemon.length}
-              totalCount={sourcePokemon.length}
-              onSearchChange={setSearchTerm}
-              onTypeChange={setSelectedType}
-              onGenerationChange={setSelectedGeneration}
+              resultCount={isServerDrivenPokedex ? (serverListState?.totalResults ?? 0) : filteredPokemon.length}
+              totalCount={isServerDrivenPokedex ? (serverListState?.totalCount ?? 0) : sourcePokemon.length}
+              onSearchChange={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(1);
+              }}
+              onTypeChange={(value) => {
+                setSelectedType(value);
+                setCurrentPage(1);
+              }}
+              onGenerationChange={(value) => {
+                setSelectedGeneration(value);
+                setCurrentPage(1);
+              }}
               onReset={resetFilters}
             />
             <div className="w-full space-y-6">
@@ -277,7 +397,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
                 currentPage={normalizedCurrentPage}
                 totalPages={totalPages}
                 pageSize={POKEMON_PER_PAGE}
-                totalResults={filteredPokemon.length}
+                totalResults={isServerDrivenPokedex ? (serverListState?.totalResults ?? 0) : filteredPokemon.length}
                 pageStart={pageStart}
                 pageEnd={pageEnd}
                 onPageChange={setCurrentPage}
