@@ -71,6 +71,13 @@
   - `/daily`
   - `/my-pokemon`
 
+## Current Reality Check
+- PostgreSQL setup exists, but the app's live catalog runtime is still JSON-backed.
+- The project is currently in a hybrid migration stage, not a finished DB-backed architecture.
+- Performance risk is currently higher than schema risk:
+  - the large snapshot plus client-heavy list processing is the main operational concern
+- Login has not been added yet, so user state still lives outside the server data model
+
 ## Out Of Scope In Current Workspace
 - Authentication
 - Server-side user state

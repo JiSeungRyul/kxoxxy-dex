@@ -1,5 +1,13 @@
 # Architecture
 
+## Current Truth
+- Runtime application state is still centered on Next.js App Router plus a file-backed snapshot.
+- The live Pokedex read path is `app/* -> features/pokedex/server/repository.ts -> data/pokedex.json`.
+- PostgreSQL and Drizzle groundwork exist, but the live catalog read path has not been migrated to the database yet.
+- The project should currently be described as:
+  - `Next.js frontend + Next server runtime + JSON-backed catalog`
+  - not yet `frontend + database-backed application`
+
 ## High-Level Structure
 - `app/`
   - Next.js App Router entry points and layout
@@ -29,6 +37,23 @@
 6. Clicking a row navigates to `/pokemon/[slug]`
 7. `app/pokemon/[slug]/page.tsx` resolves the Pokemon from the same snapshot and renders `PokemonDetailPage`
 
+## Architectural Risks To Track First
+- Runtime source ambiguity:
+  - DB files exist, but runtime catalog reads still come from `data/pokedex.json`
+  - future work must not assume the app is already DB-backed
+- Heavy initial payload:
+  - the snapshot file is large and the list routes currently load the catalog through the snapshot path
+  - this is the leading suspect for slow first render and weak interactivity
+- Client-heavy catalog processing:
+  - filtering, sorting, and pagination still happen against the in-memory dataset in the client
+  - this will not scale cleanly once login, user data, and richer catalog features are added
+- Local-only user state:
+  - collection progress currently depends on `localStorage`
+  - once login is added, this state must move behind authenticated server writes
+- Mixed migration phase:
+  - DB schema, import scripts, and runtime code are not yet aligned around one source of truth
+  - new work should explicitly state whether it targets snapshot mode, hybrid mode, or DB mode
+
 ## Data Layer
 - Source file: `features/pokedex/server/repository.ts`
 - Snapshot path: `data/pokedex.json`
@@ -49,6 +74,15 @@
   - initial catalog schema and migrations are present for snapshot storage
   - `scripts/import-pokedex-to-db.mjs` imports `data/pokedex.json` into PostgreSQL
   - runtime Pokedex reads still use `data/pokedex.json`
+
+## Near-Term Migration Rule
+- Until repository reads are moved, `features/pokedex/server/repository.ts` remains the effective runtime source of truth.
+- DB work should first target:
+  - auth and user-owned state
+  - capture history
+  - favorites
+  - teams
+- Catalog migration should happen only after the list/detail read strategy is intentionally redesigned.
 
 ## Client State
 - Source file: `features/pokedex/components/pokedex-page.tsx`

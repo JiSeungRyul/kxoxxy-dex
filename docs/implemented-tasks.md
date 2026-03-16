@@ -145,7 +145,9 @@
 ## Recommended Reading Order For A New Session
 1. `docs/current-product.md`
 2. `docs/architecture.md`
-3. `docs/implemented-tasks.md`
+3. `docs/database-plan.md`
+4. `docs/session-guide.md`
+5. `docs/implemented-tasks.md`
 
 ## Planned Future Tasks
 - Add login
