@@ -203,7 +203,9 @@ function hashString(value: string) {
 export function getInitialCollectionState(): PokedexCollectionState {
   return {
     capturedDexNumbers: [],
+    shinyCapturedDexNumbers: [],
     encountersByDate: {},
+    shinyEncountersByDate: {},
   };
 }
 
@@ -216,6 +218,9 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
   const capturedDexNumbers = Array.isArray(candidate.capturedDexNumbers)
     ? candidate.capturedDexNumbers.filter((entry): entry is number => Number.isInteger(entry))
     : [];
+  const shinyCapturedDexNumbers = Array.isArray(candidate.shinyCapturedDexNumbers)
+    ? candidate.shinyCapturedDexNumbers.filter((entry): entry is number => Number.isInteger(entry))
+    : [];
 
   const encountersByDate =
     candidate.encountersByDate && typeof candidate.encountersByDate === "object"
@@ -225,11 +230,40 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
           ),
         )
       : {};
+  const shinyEncountersByDate =
+    candidate.shinyEncountersByDate && typeof candidate.shinyEncountersByDate === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.shinyEncountersByDate).filter(
+            (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
+          ),
+        )
+      : {};
 
   return {
     capturedDexNumbers: [...new Set(capturedDexNumbers)].sort((left, right) => left - right),
+    shinyCapturedDexNumbers: [...new Set(shinyCapturedDexNumbers)].sort((left, right) => left - right),
     encountersByDate,
+    shinyEncountersByDate,
   };
+}
+
+export function getAvailableDailyEncounterPokemon({
+  pokemon,
+  capturedDexNumbers,
+  excludedDexNumbers = [],
+}: {
+  pokemon: PokemonSummary[];
+  capturedDexNumbers: number[];
+  excludedDexNumbers?: number[];
+}) {
+  const capturedDexNumberSet = new Set(capturedDexNumbers);
+  const excludedDexNumberSet = new Set(excludedDexNumbers);
+
+  return pokemon.filter(
+    (entry) =>
+      !capturedDexNumberSet.has(entry.nationalDexNumber) &&
+      !excludedDexNumberSet.has(entry.nationalDexNumber),
+  );
 }
 
 export function selectDailyEncounterPokemon({
@@ -243,17 +277,41 @@ export function selectDailyEncounterPokemon({
   dateKey?: string;
   excludedDexNumbers?: number[];
 }) {
-  const capturedDexNumberSet = new Set(capturedDexNumbers);
-  const excludedDexNumberSet = new Set(excludedDexNumbers);
-  const candidates = pokemon.filter(
-    (entry) =>
-      !capturedDexNumberSet.has(entry.nationalDexNumber) &&
-      !excludedDexNumberSet.has(entry.nationalDexNumber),
-  );
+  const candidates = getAvailableDailyEncounterPokemon({
+    pokemon,
+    capturedDexNumbers,
+    excludedDexNumbers,
+  });
 
   if (candidates.length === 0) {
     return null;
   }
 
   return candidates[hashString(dateKey) % candidates.length];
+}
+
+export function selectRandomDailyEncounterPokemon({
+  pokemon,
+  capturedDexNumbers,
+  excludedDexNumbers = [],
+}: {
+  pokemon: PokemonSummary[];
+  capturedDexNumbers: number[];
+  excludedDexNumbers?: number[];
+}) {
+  const candidates = getAvailableDailyEncounterPokemon({
+    pokemon,
+    capturedDexNumbers,
+    excludedDexNumbers,
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+export function rollDailyEncounterShiny(odds = 4096) {
+  return Math.floor(Math.random() * odds) === 0;
 }

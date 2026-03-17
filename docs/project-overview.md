@@ -17,7 +17,7 @@
 - Sort by dex number, name, and base stats
 - Navigate paginated results
 - View Pokemon detail pages with forms, evolution, abilities, and matchup references
-- Use local daily encounter and local captured-Pokemon collection flows
+- Use anonymous-session-backed daily encounter and captured-Pokemon collection flows
 - Use light and dark theme modes
 
 ## Tech Stack
@@ -31,8 +31,8 @@
 
 ## Data Model Summary
 - `data/pokedex.json` is the generated local catalog snapshot.
-- PostgreSQL is partially used for current runtime list and detail queries, while other routes still rely on the local snapshot.
+- PostgreSQL is used for current runtime list, detail, daily, and my-pokemon catalog flows.
 - The repository is currently in a hybrid migration stage:
-  - some routes read from PostgreSQL-backed catalog queries
-  - some routes still read directly from the local snapshot
+  - runtime routes use PostgreSQL-backed catalog queries
+  - snapshot generation and DB import still remain in the pipeline
 - As the migration continues, API-derived catalog data is expected to be stored in PostgreSQL.

@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import {
   captureDailyEncounter,
   getDailyCollectionState,
+  releaseCapturedPokemon,
   rerollDailyEncounter,
   resetDailyEncounterCapture,
 } from "@/features/pokedex/server/repository";
 
-type DailyAction = "capture" | "reset" | "reroll";
+type DailyAction = "capture" | "reset" | "reroll" | "release";
 
 function isValidSessionId(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     sessionId?: string;
     action?: DailyAction;
+    nationalDexNumber?: number;
   };
 
   if (!isValidSessionId(body.sessionId)) {
@@ -46,6 +48,16 @@ export async function POST(request: Request) {
       break;
     case "reroll":
       state = await rerollDailyEncounter(body.sessionId);
+      break;
+    case "release":
+      if (!Number.isInteger(body.nationalDexNumber)) {
+        return NextResponse.json({ error: "nationalDexNumber is required" }, { status: 400 });
+      }
+
+      {
+        const nationalDexNumber = Number(body.nationalDexNumber);
+        state = await releaseCapturedPokemon(body.sessionId, nationalDexNumber);
+      }
       break;
     default:
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });

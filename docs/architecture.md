@@ -5,7 +5,7 @@
 - The runtime is hybrid:
   - list, detail, daily, and my-pokemon catalog reads are DB-backed
   - snapshot generation and DB import still coexist in the data pipeline
-- Daily encounter and collection state are stored per anonymous session in PostgreSQL.
+- Daily encounter and collection state, including shiny flags, are stored per anonymous session in PostgreSQL.
 - The client still mirrors collection state into `localStorage` as a compatibility fallback.
 
 ## High-Level Structure

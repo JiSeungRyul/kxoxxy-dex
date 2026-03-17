@@ -22,7 +22,7 @@
   - evolution displays
   - defensive matchup reference
   - cry audio and footprint display
-- Daily encounter flow with anonymous-session-backed capture progress
+- Daily encounter flow with anonymous-session-backed capture progress and shiny chance
 - My Pokemon gallery based on captured Pokemon stored for the current anonymous session
 - Theme toggle
 - Contact, terms, and privacy pages
@@ -31,6 +31,8 @@
 - The main browsing experience is server-driven for list queries and detail lookup.
 - Daily encounter now uses anonymous-session-backed server persistence.
 - My Pokemon now reads the same anonymous-session-backed server collection state as daily.
+- Daily encounter state stores whether the current encounter is shiny.
+- My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
 - Captured Pokemon progress still does not sync across devices or accounts.
 - The app currently presents one Korean-first experience and does not support runtime locale switching.
 - Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.

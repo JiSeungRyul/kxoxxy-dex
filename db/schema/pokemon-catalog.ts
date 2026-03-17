@@ -1,4 +1,4 @@
-import { date, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, date, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const pokedexSnapshots = pgTable("pokedex_snapshots", {
   id: serial("id").primaryKey(),
@@ -54,6 +54,7 @@ export const dailyEncounters = pgTable(
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    isShiny: boolean("is_shiny").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -75,6 +76,7 @@ export const dailyCaptures = pgTable(
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    isShiny: boolean("is_shiny").default(false).notNull(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

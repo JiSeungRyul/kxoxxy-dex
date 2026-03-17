@@ -9,6 +9,7 @@ import { formatDexNumber, formatGenerationLabel, formatTypeLabel } from "@/featu
 
 type DailyEncounterProps = {
   encounter: PokemonSummary | null;
+  isShiny: boolean;
   capturedCount: number;
   totalCount: number;
   recentCaptures: PokemonSummary[];
@@ -280,6 +281,7 @@ const ENCOUNTER_SCENE_STYLES: Record<
 
 export function DailyEncounter({
   encounter,
+  isShiny,
   capturedCount,
   totalCount,
   recentCaptures,
@@ -294,6 +296,13 @@ export function DailyEncounter({
   const completionRate = totalCount === 0 ? 0 : Math.round((capturedCount / totalCount) * 100);
   const mainType = encounter?.types[0]?.name ?? "grass";
   const sceneStyle = ENCOUNTER_SCENE_STYLES[mainType];
+  const encounterDisplayImageUrl = encounter
+    ? isShiny
+      ? encounter.forms.find((form) => form.isDefault)?.shinyArtworkImageUrl ??
+        encounter.forms[0]?.shinyArtworkImageUrl ??
+        encounter.artworkImageUrl
+      : encounter.imageUrl
+    : null;
   const captureTimeoutRef = useRef<number | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
   const [isThrowingBall, setIsThrowingBall] = useState(false);
@@ -397,10 +406,16 @@ export function DailyEncounter({
                     야생의 {encounter.name}
                   </div>
 
+                  {isShiny ? (
+                    <div className="absolute right-6 top-6 rounded-full bg-amber-300/90 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-amber-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)]">
+                      Shiny
+                    </div>
+                  ) : null}
+
                   <div className="absolute inset-x-0 top-[23%] flex justify-center">
                     <div className={`relative ${isCaptured ? "capture-ring-pulse" : ""}`}>
                       <Image
-                        src={encounter.imageUrl}
+                        src={encounterDisplayImageUrl ?? encounter.imageUrl}
                         alt={encounter.name}
                         width={150}
                         height={150}
@@ -498,6 +513,11 @@ export function DailyEncounter({
                   {isCaptured ? (
                     <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-emerald-900 dark:text-emerald-100">
                       포획 완료
+                    </span>
+                  ) : null}
+                  {isShiny ? (
+                    <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-amber-900 dark:text-amber-100">
+                      Shiny
                     </span>
                   ) : null}
                 </div>
