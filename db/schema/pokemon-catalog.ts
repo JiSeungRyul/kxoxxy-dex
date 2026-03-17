@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { date, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const pokedexSnapshots = pgTable("pokedex_snapshots", {
   id: serial("id").primaryKey(),
@@ -31,5 +31,56 @@ export const pokemonCatalog = pgTable(
   },
   (table) => ({
     pokemonCatalogSlugKey: uniqueIndex("pokemon_catalog_slug_key").on(table.slug),
+  }),
+);
+
+export const anonymousSessions = pgTable("anonymous_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  anonymousSessionsSessionIdKey: uniqueIndex("anonymous_sessions_session_id_key").on(table.sessionId),
+}));
+
+export const dailyEncounters = pgTable(
+  "daily_encounters",
+  {
+    id: serial("id").primaryKey(),
+    anonymousSessionId: integer("anonymous_session_id")
+      .notNull()
+      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    encounterDate: date("encounter_date").notNull(),
+    nationalDexNumber: integer("national_dex_number")
+      .notNull()
+      .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dailyEncountersSessionDateKey: uniqueIndex("daily_encounters_session_date_key").on(
+      table.anonymousSessionId,
+      table.encounterDate,
+    ),
+  }),
+);
+
+export const dailyCaptures = pgTable(
+  "daily_captures",
+  {
+    id: serial("id").primaryKey(),
+    anonymousSessionId: integer("anonymous_session_id")
+      .notNull()
+      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    nationalDexNumber: integer("national_dex_number")
+      .notNull()
+      .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dailyCapturesSessionPokemonKey: uniqueIndex("daily_captures_session_pokemon_key").on(
+      table.anonymousSessionId,
+      table.nationalDexNumber,
+    ),
   }),
 );

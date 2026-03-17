@@ -17,12 +17,17 @@ while daily and collection features still rely on a local snapshot and browser s
 4. docs/database-plan.md
 5. docs/implemented-tasks.md
 
+If the task depends on local PostgreSQL, read `docs/database-plan.md` for the required startup order:
+`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex`.
+
 ## Current Runtime Truth
 - The repository is in a hybrid state.
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
-- `/daily` and `/my-pokemon` still load the full local snapshot from `data/pokedex.json`.
-- Daily encounter progress and captured Pokemon state still live in `localStorage`.
+- `/daily` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/daily` stores anonymous-session encounter and capture state in PostgreSQL.
+- `/my-pokemon` still loads the local snapshot from `data/pokedex.json`.
+- `my-pokemon` collection state still lives in `localStorage`.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
 
@@ -62,5 +67,9 @@ while daily and collection features still rely on a local snapshot and browser s
   - DB-related runtime assumptions must be stated explicitly
 - User state migration:
   - collection progress is still browser-local and separate from server data
+- Daily migration caveat:
+  - the daily API depends on migrated anonymous-session tables and can fail until DB migrations are applied
+- Local runtime caveat:
+  - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change

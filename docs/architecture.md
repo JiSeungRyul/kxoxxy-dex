@@ -3,9 +3,10 @@
 ## Current System Shape
 - The app uses Next.js App Router with domain logic in `features/pokedex`.
 - The runtime is hybrid:
-  - list and detail catalog reads are DB-backed
-  - daily and collection routes still read the local snapshot
-- User-owned collection state is still browser-local.
+  - list, detail, and daily catalog reads are DB-backed
+  - my-pokemon still reads the local snapshot
+- Daily encounter state is stored per anonymous session in PostgreSQL.
+- My Pokemon collection state is still browser-local.
 
 ## High-Level Structure
 - `app/`
@@ -43,16 +44,17 @@
 4. `PokemonDetailPage` renders the full detail experience
 
 ### Daily And Collection Routes
-1. `app/daily/page.tsx` and `app/my-pokemon/page.tsx` call `getPokedexSnapshot()`
-2. `features/pokedex/server/repository.ts#getPokedexSnapshot()` reads `data/pokedex.json`
-3. `PokedexPage` runs local collection logic in the browser
-4. Collection state is stored in `localStorage`
+1. `app/daily/page.tsx` loads the full Pokemon catalog from PostgreSQL
+2. The client creates or reuses an anonymous session id in local storage
+3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
+4. The client mirrors the returned daily state into `localStorage` so existing collection UI stays in sync during the hybrid phase
+5. `app/my-pokemon/page.tsx` still calls `getPokedexSnapshot()` and uses browser-local collection state
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
 2. The script writes `data/pokedex.json`
 3. `scripts/import-pokedex-to-db.mjs` imports that snapshot into PostgreSQL
-4. Runtime list/detail reads use the imported catalog tables
+4. Runtime list/detail/daily catalog reads use the imported catalog tables
 
 ## Data Contracts
 - `features/pokedex/types.ts` defines the stable payload contracts used by both snapshot and DB payload storage.
@@ -64,9 +66,16 @@
   - runtime behavior differs by route
 - Environment dependency:
   - `lib/db/client.ts` requires `DATABASE_URL`
+- Migration dependency:
+  - `anonymous_sessions`, `daily_encounters`, and `daily_captures` must exist before the daily API route can succeed
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
 - User-state split:
-  - collection progress is separate from server-backed catalog reads
+  - anonymous daily persistence and local My Pokemon state now use different storage models
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
+
+## Immediate Follow-Up TODO
+- Move My Pokemon from local-only collection reads to the same server-backed daily collection model.
+- Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
+- Add a lightweight verification flow for daily state after migrations and server restarts.
