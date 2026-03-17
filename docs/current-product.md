@@ -1,111 +1,44 @@
 # Current Product
 
-## Snapshot
-- Project name: `KxoxxyDex`
-- App type: desktop-first Korean Pokemon encyclopedia MVP
-- Main route: `/`
-- Data source: local snapshot in `data/pokedex.json`
-- Snapshot metadata:
-  - source: `pokeapi`
-  - syncedAt: `2026-03-15T15:51:46.289Z`
-  - totalPokemon: `1025`
-
-## Implemented Routes
-- `/`
-  - Main Pokedex page
-  - Search, filter, sort, pagination
-- `/pokedex`
-  - Dedicated Pokedex route
-  - Same core browsing experience as the main route
-- `/daily`
-  - Daily encounter view
-  - Local collection-state interaction
-- `/my-pokemon`
-  - Captured Pokemon gallery view
-  - Local collection-state interaction
-- `/pokemon/[slug]`
-  - Pokemon detail page
-  - Form switching, shiny toggle, previous/next navigation, evolution path, type matchup, media sections, grouped Pokedex references
-- `/contact`
-  - Contact / inquiry page
-- `/terms`
-  - Terms page
-- `/privacy`
-  - Privacy policy page
-
-## Current Product Scope
-- Korean UI
-- Pokemon list browsing from a prebuilt JSON snapshot
-- Search by Korean name
-- Filter by type
-- Filter by generation
-- Sort by dex number, name, and base stats
-- Paginated table view
-- Detail page per Pokemon
-- Form-aware detail page with regional / mega / gigantamax switching
-- Hero artwork toggle for normal / shiny presentation
-- Ability table with temporary frontend-held Korean description support
-- Grouped regional Pokedex number display with representative Pokedex flavor text
-- Light / dark theme toggle
-- Footer with service / policy / resource links
-
-## Explicitly Present In Code Now
-- Client-side Pokedex interaction lives in `features/pokedex/components/pokedex-page.tsx`
-- Data loading is snapshot-based and file-backed
-- Pokemon detail data is read from the same snapshot, not from live API calls
-- PostgreSQL connection groundwork is present:
-  - local Postgres Docker Compose runtime
-  - `compose.yaml`
-  - `drizzle.config.ts`
-  - `lib/db/client.ts`
-  - `docs/database-plan.md`
-- `data/pokedex.json` can now be imported into PostgreSQL:
-  - snapshot metadata is stored in `pokedex_snapshots`
-  - Pokemon catalog rows are stored in `pokemon_catalog`
-  - local verification result:
-    - `pokedex_snapshots = 1`
-    - `pokemon_catalog = 1025`
-- Collection-related utility types and routes are active:
-  - `capturedDexNumbers`
-  - `encountersByDate`
+## Product Snapshot
+- Product name: `KxoxxyDex`
+- Product type: Korean-first Pokemon encyclopedia MVP
+- Primary routes:
+  - `/`
+  - `/pokedex`
+  - `/pokemon/[slug]`
   - `/daily`
   - `/my-pokemon`
 
-## Current Reality Check
-- PostgreSQL setup exists, but the app's live catalog runtime is still JSON-backed.
-- The project is currently in a hybrid migration stage, not a finished DB-backed architecture.
-- Performance risk is currently higher than schema risk:
-  - the large snapshot plus client-heavy list processing is the main operational concern
-- Login has not been added yet, so user state still lives outside the server data model
+## User-Facing Features
+- Main Pokedex browsing with search, type filter, generation filter, sorting, and pagination
+- Pokemon detail pages with:
+  - form switching
+  - shiny artwork toggle
+  - previous/next navigation
+  - base stats
+  - abilities
+  - grouped regional Pokedex references
+  - evolution displays
+  - defensive matchup reference
+  - cry audio and footprint display
+- Daily encounter flow with local capture progress
+- My Pokemon gallery based on locally captured Pokemon
+- Theme toggle
+- Contact, terms, and privacy pages
 
-## Out Of Scope In Current Workspace
-- Authentication
-- Server-side user state
-- API routes for gameplay state
-- Automated tests
+## Current Product Behavior
+- The main browsing experience is server-driven for list queries and detail lookup.
+- Daily encounter and My Pokemon still depend on local browser state.
+- Captured Pokemon progress does not sync across devices or accounts.
+- The app currently presents one Korean-first experience and does not support runtime locale switching.
 
-## Planned Next Features
-- Login
-- User/auth schema implementation
-- Move temporary frontend-held Korean ability description data into the database
-- Team maker
-- Random team picker
+## Current Constraints
+- Authentication is not implemented.
+- Server-backed user persistence is not implemented.
+- Automated tests are not present.
+- Catalog data operations are still split across snapshot generation and DB import workflows.
 
-## Deployment Plan
-- Short-term production direction:
-  - deploy the Next.js app on Vercel
-  - use managed PostgreSQL such as Neon or Supabase
-  - implement credentials-based login first through Auth.js
-- Social login direction:
-  - keep room for adding Kakao login later without replacing the base auth model
-- Data rollout direction:
-  - continue serving the core Pokedex catalog from `data/pokedex.json` initially
-  - move user-owned data and auth/session data into PostgreSQL before migrating catalog-like content
-- Local development direction:
-  - prefer Docker-based PostgreSQL when database work begins
-  - Docker Compose PostgreSQL groundwork is already added
-
-## Known Constraints
-- `next/font/google` is used in `app/layout.tsx`, so restricted network environments can affect build behavior
-- The app depends on `data/pokedex.json` being present and valid
-- Filtering and sorting run on the full in-memory dataset on the client
+## Current Content Sources
+- Pokemon catalog content originates from PokeAPI-derived snapshot generation.
+- Temporary Korean ability-description support still includes frontend-held translation logic.
