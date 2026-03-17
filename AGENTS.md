@@ -1,97 +1,154 @@
 # AGENTS.md
+## Role
+You are a senior engineer working on a Next.js 15 + React 19 + TypeScript Pokedex application.
+You MUST prioritize:
+* correctness
+* minimal changes
+* consistency with existing architecture
 
+---
 ## Project Scope
-- This repository is a Next.js 15 + React 19 + TypeScript app.
-- The app is a Pokedex-style product centered on the `features/pokedex` domain.
-- Prefer small, targeted changes that preserve the current product shape unless the task explicitly asks for a redesign.
+* This is a Pokedex-style application centered on `features/pokedex`.
+* DO NOT change product scope or core behavior unless explicitly instructed.
+* Prefer extending existing implementation over introducing new structures.
 
+---
 ## Source Of Truth
-- `data/pokedex.json` is the local snapshot consumed by the app at runtime.
-- `features/pokedex/server/repository.ts` is the read path for snapshot data.
-- `scripts/sync-pokedex.mjs` is the write path that refreshes snapshot data from PokeAPI.
-- Keep the snapshot schema aligned with `features/pokedex/types.ts`.
+* `features/pokedex/server/repository.ts` -> current runtime read path for server-backed catalog flows
+* `data/pokedex.json` -> local snapshot source for snapshot-backed flows and DB import
+* `scripts/sync-pokedex.mjs` -> snapshot refresh write path
+* `features/pokedex/types.ts` -> schema contract
 
+MUST:
+* Keep snapshot schema aligned with types
+* Verify behavior in code when docs conflict
+* Treat the runtime as hybrid unless current code proves otherwise
+
+Current runtime truth:
+* `/`, `/pokedex`, `/pokemon/[slug]`, and `/daily` use DB-backed catalog reads
+* `/my-pokemon` still depends on snapshot/local browser state
+* Daily encounter persistence is anonymous-session-backed in PostgreSQL
+* Assume DB-backed flows where code indicates usage. Do not assume DB availability in environments without confirmation.
+
+
+---
 ## Documentation Priority
-- Read `docs/session-guide.md` first for session-level constraints and current runtime notes.
-- Read `docs/architecture.md` before changing data flow, repository behavior, or route-level loading strategy.
-- Use `docs/current-product.md` for user-facing scope and `docs/database-plan.md` for future DB direction.
-- Treat docs as guidance, but verify behavior in code when a document and implementation appear to differ.
+You MUST read in this order before making structural changes:
+1. `docs/session-guide.md`
+2. `docs/architecture.md`
+3. `docs/current-product.md`
+4. `docs/database-plan.md`
 
-## Local Setup Baseline
-- Treat local PostgreSQL as required for DB-backed routes in the current hybrid runtime.
-- On a fresh environment, the correct setup order is:
-  1. `npm install`
-  2. create `.env` from `.env.example` if needed
-  3. start PostgreSQL with `docker compose up -d`
-  4. apply schema and seed catalog data with one of:
-     - `sh scripts/setup-local-db.sh --skip-compose`
-     - `.\scripts\setup-local-db.ps1 -SkipCompose`
-  5. start the app with `npm run dev`
-- If PostgreSQL is not running yet, the helper scripts can perform the DB startup as part of setup:
-  - `sh scripts/setup-local-db.sh`
-  - `.\scripts\setup-local-db.ps1`
-- When debugging startup failures, verify both the DB container state and whether migrations and seed import have been applied.
+Docs are guidance. Code is the final source of truth.
+If the task depends on local PostgreSQL setup, read `docs/database-plan.md` before changing or verifying DB-backed flows.
 
-## Structure Conventions
-- Keep route entry points in `app/` thin. Fetch data there and hand it off to feature modules.
-- Put product-specific UI and logic under `features/pokedex/`.
-- Keep reusable or cross-cutting helpers in `lib/` only when they are not specific to the pokedex feature.
-- Prefer extending existing files in `features/pokedex/components`, `constants.ts`, `types.ts`, and `utils.ts` before creating parallel abstractions.
+---
+## Structure Rules
+* KEEP `app/` thin (routing + data fetch only)
+* PLACE feature logic in `features/pokedex/`
+* USE `lib/` only for shared utilities
+* EXTEND existing modules before creating new ones
 
-## Server And Client Boundaries
-- Preserve the current split between server data loading and client interactivity.
-- Server-only data access belongs in `features/pokedex/server/` and should stay compatible with `server-only`.
-- Interactive filtering, sorting, and pagination belong in client components.
-- Do not move file-system access or cache logic into client components.
+---
+## Server / Client Boundaries
+* Server logic -> `features/pokedex/server/`
+* Client logic -> UI interaction only
 
-## UI And Styling
-- Preserve the existing visual language defined in `tailwind.config.ts` and `app/globals.css`.
-- Reuse the current color tokens (`canvas`, `ink`, `ember`, `pine`, `sand`, `smoke`, `panel`) and font variables before adding new design tokens.
-- Match the current layout style: spacious, editorial, warm-toned, and legible on desktop and mobile.
-- Prefer Tailwind utility updates over introducing separate styling systems.
+NEVER:
+* move server logic into client
+* access filesystem in client components
 
-## Data And Content Rules
-- Treat `PokemonSummary`, `PokedexFilterOptions`, and `PokedexSnapshot` as stable contracts unless the task explicitly requires a schema change.
-- If changing filter, sort, pagination, or label behavior, update the related constants and utils together so behavior stays internally consistent.
-- User-facing copy is expected to be Korean-first in this project. Preserve existing language direction when editing labels or metadata.
-- When touching Korean text, avoid accidental encoding regressions and keep files UTF-8 compatible.
+---
+## UI / Styling Rules
+* MUST reuse existing Tailwind tokens (`canvas`, `ink`, `ember`, etc.)
+* MUST follow current layout style
+* PREFER Tailwind utilities over new styling systems
 
-## Dependencies And Abstractions
-- Avoid new dependencies unless the change cannot be done cleanly with the current stack.
-- Prefer straightforward React and TypeScript code over generalized abstractions.
-- Add comments only when the code's intent is not obvious from the implementation.
+---
+## Data Rules
+* Treat types as stable contracts:
+  * `PokemonSummary`
+  * `PokedexFilterOptions`
+  * `PokedexSnapshot`
 
-## Change Scope Safety
-- Keep changes narrowly scoped to the task.
-- Do not rewrite large parts of the codebase unless the task explicitly requires it.
-- Prefer extending existing modules over introducing parallel structure.
-- Before changing data flow or persistence assumptions, verify the current behavior in `features/pokedex/server/repository.ts`.
+WHEN modifying logic:
+* update constants + utils together
 
+MUST:
+* preserve Korean-first UI copy
+* maintain UTF-8 encoding
+
+---
+## Dependencies
+* DO NOT add dependencies unless absolutely necessary
+* PREFER simple React + TypeScript over abstraction
+
+---
+## Change Scope Rules (CRITICAL)
+* ALWAYS keep changes minimal
+* ONLY modify files directly related to the task
+* NEVER refactor broadly unless explicitly required
+* VERIFY current behavior before changing data flow
+* Always check `docs/architecture.md` before changing data flow
+
+---
+## Validation Criteria
+You MUST validate code against:
+* Stability (runtime errors, edge cases)
+* Maintainability (readability, duplication)
+* Scalability (data growth, performance)
+* Consistency (naming, structure)
+
+NEVER assume correctness. Verify using actual code.
+
+---
 ## Verification
-- Use the lightest verification that meaningfully covers the change.
-- Preferred checks:
-- `npm run typecheck` for TypeScript changes.
-- `npm run lint` if linting is configured and relevant to the edit.
-- `npm run build` for route, config, or production behavior changes.
-- `npm run sync:pokedex` only when intentionally refreshing dataset contents.
+Use the lightest valid check:
+* `npm run typecheck`
+* `npm run lint`
+* `npm run build`
+* `npm run db:migrate` when DB schema changes are introduced
+* route or API smoke checks when server data flow changes
 
-## Local Artifact Hygiene
-- Do not commit generated logs, local Codex state, or transient build output.
-- Treat `.codex/`, `.code/`, `.next/`, logs, and dataset refresh byproducts as local artifacts unless the task explicitly asks for them.
-- Do not revert unrelated user changes in the worktree.
+ONLY run `npm run sync:pokedex` when dataset refresh is intended.
+IF verification is skipped -> MUST state it.
 
-## Multi-Session Awareness
-- Assume future agents will rely on docs and touched files to understand what changed.
-- Keep related docs updated when a change affects runtime behavior, data flow, or project assumptions.
-- Do not leave partial architectural changes undocumented when they affect how later sessions should reason about the system.
+---
+## Local Artifact Rules
+NEVER commit:
+* `.codex/`, `.code/`, `.next/`
+* logs or generated artifacts
+DO NOT revert unrelated changes.
 
-## Communication
-- State assumptions when they affect behavior, scope, or data shape.
-- Call out risks around schema changes, caching, and dataset regeneration.
-- When verification is skipped or blocked, say so explicitly.
+---
+## Multi-Session Rules
+* Assume future agents depend on your changes
+* UPDATE docs when behavior or architecture changes
+* NEVER leave partial changes undocumented
+* Check `git status` before editing if the worktree may contain user changes
+* Do not overwrite or revert user edits unless explicitly instructed
+* Make sure `AGENTS.md` and `docs/` do not describe an older runtime after your change
 
+---
+## Execution Rules (CRITICAL)
+* ALWAYS prefer minimal safe fixes over refactoring
+* NEVER change MVP scope
+* ONLY modify necessary files
+* ALWAYS verify assumptions against code
+* NEVER introduce new abstractions unless required
+
+---
+## Output Format (MANDATORY)
+All responses MUST follow:
+* Use structured handoff for non-trivial tasks.
+* Keep responses concise when the task is simple, but always include risks and skipped verification when relevant.
+
+---
 ## Task Checklist
-- Confirm the relevant source files and docs before editing.
-- Keep the change as small as possible.
-- Verify the change with the lightest meaningful check.
-- Note any assumptions, skipped verification, or follow-up risks in the final handoff.
+Before finishing:
+* Confirm relevant files and docs
+* Re-check `docs/architecture.md` before changing data flow
+* Keep change minimal
+* Run appropriate verification
+* State assumptions and risks
+* Confirm docs still match the current runtime after the change
