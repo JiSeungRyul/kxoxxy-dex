@@ -3,10 +3,10 @@
 ## Current System Shape
 - The app uses Next.js App Router with domain logic in `features/pokedex`.
 - The runtime is hybrid:
-  - list, detail, and daily catalog reads are DB-backed
-  - my-pokemon still reads the local snapshot
-- Daily encounter state is stored per anonymous session in PostgreSQL.
-- My Pokemon collection state is still browser-local.
+  - list, detail, daily, and my-pokemon catalog reads are DB-backed
+  - snapshot generation and DB import still coexist in the data pipeline
+- Daily encounter and collection state are stored per anonymous session in PostgreSQL.
+- The client still mirrors collection state into `localStorage` as a compatibility fallback.
 
 ## High-Level Structure
 - `app/`
@@ -47,8 +47,9 @@
 1. `app/daily/page.tsx` loads the full Pokemon catalog from PostgreSQL
 2. The client creates or reuses an anonymous session id in local storage
 3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
-4. The client mirrors the returned daily state into `localStorage` so existing collection UI stays in sync during the hybrid phase
-5. `app/my-pokemon/page.tsx` still calls `getPokedexSnapshot()` and uses browser-local collection state
+4. `app/my-pokemon/page.tsx` also loads the full Pokemon catalog from PostgreSQL
+5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
+6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
@@ -67,15 +68,14 @@
 - Environment dependency:
   - `lib/db/client.ts` requires `DATABASE_URL`
 - Migration dependency:
-  - `anonymous_sessions`, `daily_encounters`, and `daily_captures` must exist before the daily API route can succeed
+  - `anonymous_sessions`, `daily_encounters`, and `daily_captures` must exist before the daily and My Pokemon collection flow can succeed
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
 - User-state split:
-  - anonymous daily persistence and local My Pokemon state now use different storage models
+  - anonymous server persistence exists, but account-linked user persistence does not
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
 
 ## Immediate Follow-Up TODO
-- Move My Pokemon from local-only collection reads to the same server-backed daily collection model.
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
 - Add a lightweight verification flow for daily state after migrations and server restarts.

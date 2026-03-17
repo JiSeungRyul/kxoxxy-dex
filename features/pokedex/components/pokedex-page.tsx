@@ -90,6 +90,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
   const [isCollectionReady, setIsCollectionReady] = useState(false);
   const [dailyAnonymousSessionId, setDailyAnonymousSessionId] = useState<string | null>(null);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
+  const usesServerCollectionState = view === "daily" || view === "my-pokemon";
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const todayKey = getLocalDateKey();
@@ -155,7 +156,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
   }
 
   useEffect(() => {
-    if (view === "daily") {
+    if (usesServerCollectionState) {
       const dailyAnonymousSessionId = getOrCreateDailyAnonymousSessionId();
       setDailyAnonymousSessionId(dailyAnonymousSessionId);
 
@@ -204,7 +205,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     }
 
     setIsCollectionReady(true);
-  }, [view]);
+  }, [usesServerCollectionState]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -294,7 +295,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
   ]);
 
   useEffect(() => {
-    if (view === "daily") {
+    if (usesServerCollectionState) {
       return;
     }
 
@@ -324,7 +325,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         [todayKey]: encounter.nationalDexNumber,
       },
     }));
-  }, [collectionState.capturedDexNumbers, collectionState.encountersByDate, isCollectionReady, pokemon, todayKey]);
+  }, [collectionState.capturedDexNumbers, collectionState.encountersByDate, isCollectionReady, pokemon, todayKey, usesServerCollectionState]);
 
   useEffect(() => {
     if (!isCollectionReady) {
