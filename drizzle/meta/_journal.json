@@ -8,6 +8,13 @@
       "when": 1773626101254,
       "tag": "0000_unusual_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773810000000,
+      "tag": "0001_daily_capture_sessions",
+      "breakpoints": true
     }
   ]
 }

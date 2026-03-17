@@ -18,6 +18,7 @@ import { postgresClient } from "@/lib/db/client";
 
 import type {
   GenerationFilterValue,
+  PokedexCollectionState,
   PokedexFilterOptions,
   PokedexListPage,
   PokedexListQuery,
@@ -27,6 +28,7 @@ import type {
   SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
+import { getLocalDateKey, selectDailyEncounterPokemon } from "@/features/pokedex/utils";
 
 const SNAPSHOT_PATH = path.join(process.cwd(), "data", "pokedex.json");
 const VALID_SORT_KEYS = new Set<PokemonSortKey>([
@@ -90,6 +92,48 @@ async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
   );
 
   return rows[0] ?? null;
+}
+
+async function getAllPokemonCatalogEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<Array<{ payload: PokemonSummary }>>(
+    `
+      SELECT payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function readPokedexCatalogSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+      filterOptions: getPokedexFilterOptions(),
+    };
+  }
+
+  return {
+    pokemon: await getAllPokemonCatalogEntries(latestSnapshot.id),
+    filterOptions: getPokedexFilterOptions(),
+  };
+}
+
+const getCachedPokedexCatalogSnapshot = unstable_cache(readPokedexCatalogSnapshot, ["pokedex-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+export function getPokedexCatalogSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexCatalogSnapshot();
+  }
+
+  return getCachedPokedexCatalogSnapshot();
 }
 
 export async function getPokemonDetailBySlug(slug: string) {
@@ -313,4 +357,216 @@ export async function getPokedexListPage(query: Partial<PokedexListQuery>): Prom
     pageStart,
     pageEnd,
   };
+}
+
+async function getOrCreateAnonymousSessionId(sessionId: string) {
+  const rows = await postgresClient.unsafe<Array<{ id: number }>>(
+    `
+      INSERT INTO anonymous_sessions (session_id)
+      VALUES ($1)
+      ON CONFLICT (session_id)
+      DO UPDATE SET updated_at = NOW()
+      RETURNING id
+    `,
+    [sessionId],
+  );
+
+  return rows[0]?.id ?? null;
+}
+
+async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId: number): Promise<PokedexCollectionState> {
+  const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number }>>(
+    `
+      SELECT national_dex_number AS "nationalDexNumber"
+      FROM daily_captures
+      WHERE anonymous_session_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [anonymousSessionId],
+  );
+  const encounterRows = await postgresClient.unsafe<Array<{ encounterDate: string; nationalDexNumber: number }>>(
+    `
+      SELECT encounter_date::text AS "encounterDate", national_dex_number AS "nationalDexNumber"
+      FROM daily_encounters
+      WHERE anonymous_session_id = $1
+      ORDER BY encounter_date ASC
+    `,
+    [anonymousSessionId],
+  );
+
+  return {
+    capturedDexNumbers: capturedRows.map((row) => row.nationalDexNumber),
+    encountersByDate: Object.fromEntries(
+      encounterRows.map((row) => [row.encounterDate, row.nationalDexNumber]),
+    ),
+  };
+}
+
+async function upsertDailyEncounterForSession({
+  anonymousSessionId,
+  dateKey,
+  nationalDexNumber,
+}: {
+  anonymousSessionId: number;
+  dateKey: string;
+  nationalDexNumber: number;
+}) {
+  await postgresClient.unsafe(
+    `
+      INSERT INTO daily_encounters (anonymous_session_id, encounter_date, national_dex_number)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (anonymous_session_id, encounter_date)
+      DO UPDATE SET national_dex_number = EXCLUDED.national_dex_number, updated_at = NOW()
+    `,
+    [anonymousSessionId, dateKey, nationalDexNumber],
+  );
+}
+
+export async function getDailyCollectionState(sessionId: string, dateKey = getLocalDateKey()): Promise<PokedexCollectionState> {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      capturedDexNumbers: [],
+      encountersByDate: {},
+    };
+  }
+
+  const state = await getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId);
+
+  if (state.encountersByDate[dateKey]) {
+    return state;
+  }
+
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return state;
+  }
+
+  const pokemon = await getAllPokemonCatalogEntries(latestSnapshot.id);
+  const encounter = selectDailyEncounterPokemon({
+    pokemon,
+    capturedDexNumbers: state.capturedDexNumbers,
+    dateKey,
+  });
+
+  if (!encounter) {
+    return state;
+  }
+
+  await upsertDailyEncounterForSession({
+    anonymousSessionId,
+    dateKey,
+    nationalDexNumber: encounter.nationalDexNumber,
+  });
+
+  return {
+    ...state,
+    encountersByDate: {
+      ...state.encountersByDate,
+      [dateKey]: encounter.nationalDexNumber,
+    },
+  };
+}
+
+export async function captureDailyEncounter(sessionId: string, dateKey = getLocalDateKey()) {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      capturedDexNumbers: [],
+      encountersByDate: {},
+    };
+  }
+
+  const state = await getDailyCollectionState(sessionId, dateKey);
+  const nationalDexNumber = state.encountersByDate[dateKey];
+
+  if (!nationalDexNumber) {
+    return state;
+  }
+
+  await postgresClient.unsafe(
+    `
+      INSERT INTO daily_captures (anonymous_session_id, national_dex_number)
+      VALUES ($1, $2)
+      ON CONFLICT (anonymous_session_id, national_dex_number)
+      DO NOTHING
+    `,
+    [anonymousSessionId, nationalDexNumber],
+  );
+
+  return getDailyCollectionState(sessionId, dateKey);
+}
+
+export async function resetDailyEncounterCapture(sessionId: string, dateKey = getLocalDateKey()) {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      capturedDexNumbers: [],
+      encountersByDate: {},
+    };
+  }
+
+  const state = await getDailyCollectionState(sessionId, dateKey);
+  const nationalDexNumber = state.encountersByDate[dateKey];
+
+  if (nationalDexNumber) {
+    await postgresClient.unsafe(
+      `
+        DELETE FROM daily_captures
+        WHERE anonymous_session_id = $1
+        AND national_dex_number = $2
+      `,
+      [anonymousSessionId, nationalDexNumber],
+    );
+  }
+
+  return getDailyCollectionState(sessionId, dateKey);
+}
+
+export async function rerollDailyEncounter(sessionId: string, dateKey = getLocalDateKey()) {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      capturedDexNumbers: [],
+      encountersByDate: {},
+    };
+  }
+
+  const state = await getDailyCollectionState(sessionId, dateKey);
+  const currentEncounterDexNumber = state.encountersByDate[dateKey];
+
+  if (!currentEncounterDexNumber || state.capturedDexNumbers.includes(currentEncounterDexNumber)) {
+    return state;
+  }
+
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return state;
+  }
+
+  const pokemon = await getAllPokemonCatalogEntries(latestSnapshot.id);
+  const rerolledEncounter = selectDailyEncounterPokemon({
+    pokemon,
+    capturedDexNumbers: state.capturedDexNumbers,
+    dateKey,
+    excludedDexNumbers: [currentEncounterDexNumber],
+  });
+
+  if (!rerolledEncounter) {
+    return state;
+  }
+
+  await upsertDailyEncounterForSession({
+    anonymousSessionId,
+    dateKey,
+    nationalDexNumber: rerolledEncounter.nationalDexNumber,
+  });
+
+  return getDailyCollectionState(sessionId, dateKey);
 }

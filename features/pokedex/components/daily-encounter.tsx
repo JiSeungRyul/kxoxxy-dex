@@ -14,6 +14,7 @@ type DailyEncounterProps = {
   recentCaptures: PokemonSummary[];
   isCaptured: boolean;
   isReady: boolean;
+  isSyncing: boolean;
   onCapture: () => void;
   onResetToday: () => void;
   onRerollToday: () => void;
@@ -284,6 +285,7 @@ export function DailyEncounter({
   recentCaptures,
   isCaptured,
   isReady,
+  isSyncing,
   onCapture,
   onResetToday,
   onRerollToday,
@@ -317,7 +319,7 @@ export function DailyEncounter({
   }, []);
 
   function throwPokeball() {
-    if (!encounter || isCaptured || isThrowingBall) {
+    if (!encounter || isCaptured || isThrowingBall || isSyncing) {
       return;
     }
 
@@ -376,7 +378,7 @@ export function DailyEncounter({
                 <button
                   type="button"
                   onClick={throwPokeball}
-                  disabled={isCaptured || isThrowingBall}
+                  disabled={isCaptured || isThrowingBall || isSyncing}
                   className={`relative block min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene}`}
                 >
                   <div
@@ -425,7 +427,7 @@ export function DailyEncounter({
                   <div className="absolute bottom-6 right-6 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
                     {isCaptured
                       ? "오늘의 포획 완료"
-                      : isThrowingBall
+                      : isThrowingBall || isSyncing
                         ? "포켓볼이 날아갑니다..."
                         : "화면을 클릭해 포켓볼을 던지세요"}
                   </div>
@@ -437,7 +439,7 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={throwPokeball}
-                    disabled={isCaptured || isThrowingBall}
+                    disabled={isCaptured || isThrowingBall || isSyncing}
                     className="inline-flex h-12 items-center justify-center rounded-2xl bg-emerald-950 px-5 text-sm font-semibold text-emerald-50 transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-emerald-950/35 disabled:text-emerald-50/70 dark:bg-emerald-100 dark:text-emerald-950 dark:disabled:bg-emerald-100/30 dark:disabled:text-emerald-950/60"
                   >
                     {isCaptured ? "포획 완료" : isThrowingBall ? "포획 시도 중" : "포켓볼 던지기"}
@@ -445,6 +447,7 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={onResetToday}
+                    disabled={isSyncing}
                     className="inline-flex h-12 items-center justify-center rounded-2xl border border-emerald-950/15 bg-white/80 px-5 text-sm font-semibold text-emerald-950 transition hover:bg-white dark:border-white/10 dark:bg-white/10 dark:text-emerald-50 dark:hover:bg-white/15"
                   >
                     오늘 상태 초기화

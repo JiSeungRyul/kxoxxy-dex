@@ -43,6 +43,8 @@
 - Added `/daily`
 - Added `/my-pokemon`
 - Added local collection-state helpers for captured Pokemon and daily encounter tracking
+- Added anonymous-session PostgreSQL persistence for daily encounter and capture state
+- Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
@@ -57,3 +59,5 @@
 - Team builder
 - Favorites
 - Further DB integration beyond the current hybrid stage
+- Unify daily and My Pokemon around one collection persistence model
+- Replace anonymous browser-scoped session ownership with account-linked ownership later

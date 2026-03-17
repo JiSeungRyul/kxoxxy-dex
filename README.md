@@ -38,13 +38,37 @@ This project does not currently require a database connection at runtime for the
 npm install
 ```
 
-2. Run the development server:
+2. Create the local environment file if you do not already have one:
+
+```bash
+Copy-Item .env.example .env
+```
+
+3. Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+4. Apply migrations and seed the catalog:
+
+```bash
+.\scripts\setup-local-db.ps1 -SkipCompose
+```
+
+Shell equivalent:
+
+```bash
+sh scripts/setup-local-db.sh --skip-compose
+```
+
+5. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-3. Open the app:
+6. Open the app:
 
 ```text
 http://localhost:3000
@@ -125,18 +149,35 @@ Copy-Item .env.example .env
 docker compose up -d
 ```
 
-3. The default local database connection string is:
+3. Apply migrations and seed the catalog:
+
+```bash
+sh scripts/setup-local-db.sh --skip-compose
+```
+
+You can also run the full DB bootstrap in one step:
+
+```bash
+sh scripts/setup-local-db.sh
+```
+
+PowerShell equivalents:
+
+```powershell
+.\scripts\setup-local-db.ps1 -SkipCompose
+.\scripts\setup-local-db.ps1
+```
+
+4. The default local database connection string is:
 
 ```text
 postgresql://postgres:postgres@localhost:5432/kxoxxydex
 ```
 
-4. Stop the database when finished:
+5. Stop the database when finished:
 
 ```bash
 docker compose down
 ```
 
-The current app still reads Pokemon catalog data from `data/pokedex.json`. The database is being introduced as preparation for auth and user-owned state.
-
-The current repository only includes the database connection layer and Drizzle configuration. Concrete tables and migrations should be added after the schema is finalized.
+The current app uses a hybrid data flow. PostgreSQL-backed catalog tables must be created and seeded before DB-backed routes are expected to work correctly in a fresh environment.

@@ -17,6 +17,21 @@
 - Use `docs/current-product.md` for user-facing scope and `docs/database-plan.md` for future DB direction.
 - Treat docs as guidance, but verify behavior in code when a document and implementation appear to differ.
 
+## Local Setup Baseline
+- Treat local PostgreSQL as required for DB-backed routes in the current hybrid runtime.
+- On a fresh environment, the correct setup order is:
+  1. `npm install`
+  2. create `.env` from `.env.example` if needed
+  3. start PostgreSQL with `docker compose up -d`
+  4. apply schema and seed catalog data with one of:
+     - `sh scripts/setup-local-db.sh --skip-compose`
+     - `.\scripts\setup-local-db.ps1 -SkipCompose`
+  5. start the app with `npm run dev`
+- If PostgreSQL is not running yet, the helper scripts can perform the DB startup as part of setup:
+  - `sh scripts/setup-local-db.sh`
+  - `.\scripts\setup-local-db.ps1`
+- When debugging startup failures, verify both the DB container state and whether migrations and seed import have been applied.
+
 ## Structure Conventions
 - Keep route entry points in `app/` thin. Fetch data there and hand it off to feature modules.
 - Put product-specific UI and logic under `features/pokedex/`.
