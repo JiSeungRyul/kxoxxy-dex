@@ -2,7 +2,7 @@
 
 ## One-line Summary
 KxoxxyDex is a hybrid Pokedex app where list/detail routes are partially DB-backed,
-while daily and collection features still rely on a local snapshot and browser state.
+while snapshot generation and DB-backed runtime flows currently coexist.
 
 ## Purpose
 - Give a new AI agent enough context to work safely and quickly.
@@ -26,8 +26,9 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
 - `/daily` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL.
-- `/my-pokemon` still loads the local snapshot from `data/pokedex.json`.
-- `my-pokemon` collection state still lives in `localStorage`.
+- `/my-pokemon` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
+- Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
 
@@ -66,7 +67,7 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
   - `lib/db/client.ts` requires `DATABASE_URL`
   - DB-related runtime assumptions must be stated explicitly
 - User state migration:
-  - collection progress is still browser-local and separate from server data
+  - collection progress is server-backed for anonymous sessions, but not yet account-linked
 - Daily migration caveat:
   - the daily API depends on migrated anonymous-session tables and can fail until DB migrations are applied
 - Local runtime caveat:

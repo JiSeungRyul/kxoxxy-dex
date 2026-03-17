@@ -110,5 +110,4 @@ Result:
 
 ## Near-Term TODO
 - Add a clear migration path from `anonymous_sessions` daily records to future `user_id`-based ownership.
-- Unify My Pokemon persistence with the same server-backed collection model used by daily.
 - Add follow-up checks for migration application and local server restart behavior during DB-related development.

@@ -22,18 +22,18 @@
   - evolution displays
   - defensive matchup reference
   - cry audio and footprint display
-- Daily encounter flow with local capture progress
-- My Pokemon gallery based on locally captured Pokemon
+- Daily encounter flow with anonymous-session-backed capture progress
+- My Pokemon gallery based on captured Pokemon stored for the current anonymous session
 - Theme toggle
 - Contact, terms, and privacy pages
 
 ## Current Product Behavior
 - The main browsing experience is server-driven for list queries and detail lookup.
 - Daily encounter now uses anonymous-session-backed server persistence.
-- My Pokemon still depends on local browser state.
+- My Pokemon now reads the same anonymous-session-backed server collection state as daily.
 - Captured Pokemon progress still does not sync across devices or accounts.
 - The app currently presents one Korean-first experience and does not support runtime locale switching.
-- Daily state is mirrored back into local browser storage so the current My Pokemon view stays aligned with daily captures during the hybrid phase.
+- Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
 ## Current Constraints
 - Authentication is not implemented.
@@ -45,10 +45,8 @@
 - After DB schema changes, the local Next.js dev server may need a restart on Windows before the new daily route behaves correctly.
 
 ## Current Risks
-- Daily and My Pokemon still use different persistence models:
-  - daily uses anonymous-session server storage
-  - My Pokemon still renders from browser-local collection state
 - Anonymous session identity is browser-scoped and is not durable across devices or account changes.
+- Collection ownership is still anonymous-session-based rather than account-linked.
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources
