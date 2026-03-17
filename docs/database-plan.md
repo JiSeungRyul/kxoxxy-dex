@@ -14,6 +14,7 @@
   - `anonymous_sessions`
   - `daily_captures`
   - `daily_encounters`
+  - both daily tables now store `is_shiny` flags
 - Import path:
   - `data/pokedex.json` -> `scripts/import-pokedex-to-db.mjs` -> PostgreSQL
 

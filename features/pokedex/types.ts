@@ -167,5 +167,7 @@ export type PokedexListPage = {
 
 export type PokedexCollectionState = {
   capturedDexNumbers: number[];
+  shinyCapturedDexNumbers: number[];
   encountersByDate: Record<string, number>;
+  shinyEncountersByDate: Record<string, boolean>;
 };

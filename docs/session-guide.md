@@ -25,7 +25,7 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
 - `/daily` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
-- `/daily` stores anonymous-session encounter and capture state in PostgreSQL.
+- `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
 - `/my-pokemon` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.

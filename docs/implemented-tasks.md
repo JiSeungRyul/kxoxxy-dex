@@ -45,6 +45,7 @@
 - Added local collection-state helpers for captured Pokemon and daily encounter tracking
 - Added anonymous-session PostgreSQL persistence for daily encounter and capture state
 - Moved My Pokemon collection reads onto the same anonymous-session-backed server state used by daily
+- Added shiny encounter/capture state for daily and release support in My Pokemon
 - Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
 ## Database Groundwork

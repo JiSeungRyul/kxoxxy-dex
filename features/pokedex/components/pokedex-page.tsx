@@ -26,10 +26,13 @@ import type {
 } from "@/features/pokedex/types";
 import {
   filterAndSortPokemon,
+  getAvailableDailyEncounterPokemon,
   getInitialCollectionState,
   getLocalDateKey,
+  rollDailyEncounterShiny,
   sanitizeCollectionState,
   selectDailyEncounterPokemon,
+  selectRandomDailyEncounterPokemon,
 } from "@/features/pokedex/utils";
 
 const DailyEncounter = dynamic(
@@ -132,18 +135,21 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
   const todayEncounter = todayEncounterDexNumber
     ? pokemon.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ?? null
     : null;
+  const isTodayEncounterShiny = Boolean(collectionState.shinyEncountersByDate[todayKey]);
   const capturedDexNumberSet = new Set(collectionState.capturedDexNumbers);
   const isTodayEncounterCaptured = todayEncounter
     ? capturedDexNumberSet.has(todayEncounter.nationalDexNumber)
     : false;
-  const rerolledEncounter = isCollectionReady && todayEncounter
-    ? selectDailyEncounterPokemon({
+  const canRerollTodayEncounter = Boolean(
+    isCollectionReady &&
+      todayEncounter &&
+      !isTodayEncounterCaptured &&
+      getAvailableDailyEncounterPokemon({
         pokemon,
         capturedDexNumbers: collectionState.capturedDexNumbers,
         excludedDexNumbers: [todayEncounter.nationalDexNumber],
-      })
-    : null;
-  const canRerollTodayEncounter = Boolean(todayEncounter && !isTodayEncounterCaptured && rerolledEncounter);
+      }).length > 0,
+  );
   const recentCaptures = [...collectionState.capturedDexNumbers]
     .slice(-6)
     .reverse()
@@ -324,6 +330,10 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         ...currentState.encountersByDate,
         [todayKey]: encounter.nationalDexNumber,
       },
+      shinyEncountersByDate: {
+        ...currentState.shinyEncountersByDate,
+        [todayKey]: rollDailyEncounterShiny(),
+      },
     }));
   }, [collectionState.capturedDexNumbers, collectionState.encountersByDate, isCollectionReady, pokemon, todayKey, usesServerCollectionState]);
 
@@ -344,7 +354,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     setCurrentPage(1);
   }
 
-  async function syncDailyCollectionState(action: "capture" | "reset" | "reroll") {
+  async function syncDailyCollectionState(action: "capture" | "reset" | "reroll" | "release", nationalDexNumber?: number) {
     if (!dailyAnonymousSessionId || isSyncingDailyState) {
       return;
     }
@@ -360,6 +370,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         body: JSON.stringify({
           sessionId: dailyAnonymousSessionId,
           action,
+          nationalDexNumber,
         }),
       });
 
@@ -372,6 +383,14 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     } finally {
       setIsSyncingDailyState(false);
     }
+  }
+
+  function releaseCapturedPokemon(nationalDexNumber: number) {
+    if (view !== "my-pokemon") {
+      return;
+    }
+
+    void syncDailyCollectionState("release", nationalDexNumber);
   }
 
   function captureTodayEncounter() {
@@ -395,9 +414,16 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
           capturedDexNumbers: [...currentState.capturedDexNumbers, todayEncounter.nationalDexNumber].sort(
             (left, right) => left - right,
           ),
+          shinyCapturedDexNumbers: isTodayEncounterShiny
+            ? [...currentState.shinyCapturedDexNumbers, todayEncounter.nationalDexNumber].sort((left, right) => left - right)
+            : currentState.shinyCapturedDexNumbers,
           encountersByDate: {
             ...currentState.encountersByDate,
             [todayKey]: todayEncounter.nationalDexNumber,
+          },
+          shinyEncountersByDate: {
+            ...currentState.shinyEncountersByDate,
+            [todayKey]: isTodayEncounterShiny,
           },
         };
       });
@@ -419,11 +445,14 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
       capturedDexNumbers: currentState.capturedDexNumbers.filter(
         (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
       ),
+      shinyCapturedDexNumbers: currentState.shinyCapturedDexNumbers.filter(
+        (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
+      ),
     }));
   }
 
   function rerollTodayEncounter() {
-    if (!todayEncounter || isTodayEncounterCaptured || !rerolledEncounter) {
+    if (!todayEncounter || isTodayEncounterCaptured || !canRerollTodayEncounter) {
       return;
     }
 
@@ -432,11 +461,25 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
       return;
     }
 
+    const rerolledEncounter = selectRandomDailyEncounterPokemon({
+      pokemon,
+      capturedDexNumbers: collectionState.capturedDexNumbers,
+      excludedDexNumbers: [todayEncounter.nationalDexNumber],
+    });
+
+    if (!rerolledEncounter) {
+      return;
+    }
+
     setCollectionState((currentState) => ({
       ...currentState,
       encountersByDate: {
         ...currentState.encountersByDate,
         [todayKey]: rerolledEncounter.nationalDexNumber,
+      },
+      shinyEncountersByDate: {
+        ...currentState.shinyEncountersByDate,
+        [todayKey]: rollDailyEncounterShiny(),
       },
     }));
   }
@@ -447,6 +490,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         {view === "daily" ? (
           <DailyEncounter
             encounter={isCollectionReady ? todayEncounter : null}
+            isShiny={isCollectionReady ? isTodayEncounterShiny : false}
             capturedCount={collectionState.capturedDexNumbers.length}
             totalCount={pokemon.length}
             recentCaptures={recentCaptures}
@@ -461,7 +505,12 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         ) : null}
 
         {view === "my-pokemon" ? (
-          <MyPokemonGallery pokemon={sourcePokemon} />
+          <MyPokemonGallery
+            pokemon={sourcePokemon}
+            shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}
+            isReleasing={isSyncingDailyState}
+            onRelease={releaseCapturedPokemon}
+          />
         ) : null}
 
         {view === "pokedex" ? (

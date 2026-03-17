@@ -28,7 +28,12 @@ import type {
   SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
-import { getLocalDateKey, selectDailyEncounterPokemon } from "@/features/pokedex/utils";
+import {
+  getLocalDateKey,
+  rollDailyEncounterShiny,
+  selectDailyEncounterPokemon,
+  selectRandomDailyEncounterPokemon,
+} from "@/features/pokedex/utils";
 
 const SNAPSHOT_PATH = path.join(process.cwd(), "data", "pokedex.json");
 const VALID_SORT_KEYS = new Set<PokemonSortKey>([
@@ -375,18 +380,23 @@ async function getOrCreateAnonymousSessionId(sessionId: string) {
 }
 
 async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId: number): Promise<PokedexCollectionState> {
-  const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number }>>(
+  const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number; isShiny: boolean }>>(
     `
-      SELECT national_dex_number AS "nationalDexNumber"
+      SELECT national_dex_number AS "nationalDexNumber", is_shiny AS "isShiny"
       FROM daily_captures
       WHERE anonymous_session_id = $1
       ORDER BY national_dex_number ASC
     `,
     [anonymousSessionId],
   );
-  const encounterRows = await postgresClient.unsafe<Array<{ encounterDate: string; nationalDexNumber: number }>>(
+  const encounterRows = await postgresClient.unsafe<
+    Array<{ encounterDate: string; nationalDexNumber: number; isShiny: boolean }>
+  >(
     `
-      SELECT encounter_date::text AS "encounterDate", national_dex_number AS "nationalDexNumber"
+      SELECT
+        encounter_date::text AS "encounterDate",
+        national_dex_number AS "nationalDexNumber",
+        is_shiny AS "isShiny"
       FROM daily_encounters
       WHERE anonymous_session_id = $1
       ORDER BY encounter_date ASC
@@ -396,8 +406,12 @@ async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessio
 
   return {
     capturedDexNumbers: capturedRows.map((row) => row.nationalDexNumber),
+    shinyCapturedDexNumbers: capturedRows.filter((row) => row.isShiny).map((row) => row.nationalDexNumber),
     encountersByDate: Object.fromEntries(
       encounterRows.map((row) => [row.encounterDate, row.nationalDexNumber]),
+    ),
+    shinyEncountersByDate: Object.fromEntries(
+      encounterRows.map((row) => [row.encounterDate, row.isShiny]),
     ),
   };
 }
@@ -406,19 +420,21 @@ async function upsertDailyEncounterForSession({
   anonymousSessionId,
   dateKey,
   nationalDexNumber,
+  isShiny,
 }: {
   anonymousSessionId: number;
   dateKey: string;
   nationalDexNumber: number;
+  isShiny: boolean;
 }) {
   await postgresClient.unsafe(
     `
-      INSERT INTO daily_encounters (anonymous_session_id, encounter_date, national_dex_number)
-      VALUES ($1, $2, $3)
+      INSERT INTO daily_encounters (anonymous_session_id, encounter_date, national_dex_number, is_shiny)
+      VALUES ($1, $2, $3, $4)
       ON CONFLICT (anonymous_session_id, encounter_date)
-      DO UPDATE SET national_dex_number = EXCLUDED.national_dex_number, updated_at = NOW()
+      DO UPDATE SET national_dex_number = EXCLUDED.national_dex_number, is_shiny = EXCLUDED.is_shiny, updated_at = NOW()
     `,
-    [anonymousSessionId, dateKey, nationalDexNumber],
+    [anonymousSessionId, dateKey, nationalDexNumber, isShiny],
   );
 }
 
@@ -428,7 +444,9 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
   if (!anonymousSessionId) {
     return {
       capturedDexNumbers: [],
+      shinyCapturedDexNumbers: [],
       encountersByDate: {},
+      shinyEncountersByDate: {},
     };
   }
 
@@ -455,10 +473,13 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
     return state;
   }
 
+  const isShiny = rollDailyEncounterShiny();
+
   await upsertDailyEncounterForSession({
     anonymousSessionId,
     dateKey,
     nationalDexNumber: encounter.nationalDexNumber,
+    isShiny,
   });
 
   return {
@@ -466,6 +487,10 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
     encountersByDate: {
       ...state.encountersByDate,
       [dateKey]: encounter.nationalDexNumber,
+    },
+    shinyEncountersByDate: {
+      ...state.shinyEncountersByDate,
+      [dateKey]: isShiny,
     },
   };
 }
@@ -476,12 +501,15 @@ export async function captureDailyEncounter(sessionId: string, dateKey = getLoca
   if (!anonymousSessionId) {
     return {
       capturedDexNumbers: [],
+      shinyCapturedDexNumbers: [],
       encountersByDate: {},
+      shinyEncountersByDate: {},
     };
   }
 
   const state = await getDailyCollectionState(sessionId, dateKey);
   const nationalDexNumber = state.encountersByDate[dateKey];
+  const isShiny = state.shinyEncountersByDate[dateKey] ?? false;
 
   if (!nationalDexNumber) {
     return state;
@@ -489,12 +517,12 @@ export async function captureDailyEncounter(sessionId: string, dateKey = getLoca
 
   await postgresClient.unsafe(
     `
-      INSERT INTO daily_captures (anonymous_session_id, national_dex_number)
-      VALUES ($1, $2)
+      INSERT INTO daily_captures (anonymous_session_id, national_dex_number, is_shiny)
+      VALUES ($1, $2, $3)
       ON CONFLICT (anonymous_session_id, national_dex_number)
       DO NOTHING
     `,
-    [anonymousSessionId, nationalDexNumber],
+    [anonymousSessionId, nationalDexNumber, isShiny],
   );
 
   return getDailyCollectionState(sessionId, dateKey);
@@ -506,7 +534,9 @@ export async function resetDailyEncounterCapture(sessionId: string, dateKey = ge
   if (!anonymousSessionId) {
     return {
       capturedDexNumbers: [],
+      shinyCapturedDexNumbers: [],
       encountersByDate: {},
+      shinyEncountersByDate: {},
     };
   }
 
@@ -533,7 +563,9 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
   if (!anonymousSessionId) {
     return {
       capturedDexNumbers: [],
+      shinyCapturedDexNumbers: [],
       encountersByDate: {},
+      shinyEncountersByDate: {},
     };
   }
 
@@ -551,10 +583,9 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
   }
 
   const pokemon = await getAllPokemonCatalogEntries(latestSnapshot.id);
-  const rerolledEncounter = selectDailyEncounterPokemon({
+  const rerolledEncounter = selectRandomDailyEncounterPokemon({
     pokemon,
     capturedDexNumbers: state.capturedDexNumbers,
-    dateKey,
     excludedDexNumbers: [currentEncounterDexNumber],
   });
 
@@ -562,11 +593,38 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
     return state;
   }
 
+  const isShiny = rollDailyEncounterShiny();
+
   await upsertDailyEncounterForSession({
     anonymousSessionId,
     dateKey,
     nationalDexNumber: rerolledEncounter.nationalDexNumber,
+    isShiny,
   });
 
   return getDailyCollectionState(sessionId, dateKey);
+}
+
+export async function releaseCapturedPokemon(sessionId: string, nationalDexNumber: number) {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      capturedDexNumbers: [],
+      shinyCapturedDexNumbers: [],
+      encountersByDate: {},
+      shinyEncountersByDate: {},
+    };
+  }
+
+  await postgresClient.unsafe(
+    `
+      DELETE FROM daily_captures
+      WHERE anonymous_session_id = $1
+      AND national_dex_number = $2
+    `,
+    [anonymousSessionId, nationalDexNumber],
+  );
+
+  return getDailyCollectionState(sessionId);
 }
