@@ -1,4 +1,4 @@
-import {
+﻿import {
   ALL_GENERATION_FILTER,
   ALL_TYPE_FILTER,
   DEFAULT_SORT_DIRECTION,
@@ -10,10 +10,13 @@ import {
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
+  PokemonBaseStats,
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
   SortDirection,
+  PokemonTeamMemberDraft,
+  PokemonTeamStatSpread,
   PokemonTypeName,
   TypeFilterValue,
 } from "@/features/pokedex/types";
@@ -314,4 +317,107 @@ export function selectRandomDailyEncounterPokemon({
 
 export function rollDailyEncounterShiny(odds = 4096) {
   return Math.floor(Math.random() * odds) === 0;
+}
+
+export function getDefaultTeamIvs(): PokemonTeamStatSpread {
+  return {
+    hp: 31,
+    attack: 31,
+    defense: 31,
+    specialAttack: 31,
+    specialDefense: 31,
+    speed: 31,
+  };
+}
+
+export function getDefaultTeamEvs(): PokemonTeamStatSpread {
+  return {
+    hp: 0,
+    attack: 0,
+    defense: 0,
+    specialAttack: 0,
+    specialDefense: 0,
+    speed: 0,
+  };
+}
+
+export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
+  return {
+    slot,
+    nationalDexNumber: null,
+    nature: "명랑",
+    item: "",
+    ability: "",
+    moves: ["", "", "", ""],
+    ivs: getDefaultTeamIvs(),
+    evs: getDefaultTeamEvs(),
+  };
+}
+
+function sanitizeTeamStatValue(value: unknown, min: number, max: number, fallback: number) {
+  if (!Number.isInteger(value)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, Number(value)));
+}
+
+export function sanitizeTeamStatSpread(
+  value: unknown,
+  fallback: PokemonBaseStats,
+  options: { min: number; max: number },
+): PokemonTeamStatSpread {
+  const candidate = value && typeof value === "object" ? (value as Partial<PokemonBaseStats>) : {};
+
+  return {
+    hp: sanitizeTeamStatValue(candidate.hp, options.min, options.max, fallback.hp),
+    attack: sanitizeTeamStatValue(candidate.attack, options.min, options.max, fallback.attack),
+    defense: sanitizeTeamStatValue(candidate.defense, options.min, options.max, fallback.defense),
+    specialAttack: sanitizeTeamStatValue(candidate.specialAttack, options.min, options.max, fallback.specialAttack),
+    specialDefense: sanitizeTeamStatValue(candidate.specialDefense, options.min, options.max, fallback.specialDefense),
+    speed: sanitizeTeamStatValue(candidate.speed, options.min, options.max, fallback.speed),
+  };
+}
+
+export function sanitizeTeamMembers(value: unknown) {
+  if (!Array.isArray(value)) {
+    return Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1));
+  }
+
+  const members = Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1));
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidate = entry as Partial<PokemonTeamMemberDraft>;
+    const slot = Number(candidate.slot);
+
+    if (!Number.isInteger(slot) || slot < 1 || slot > 6) {
+      continue;
+    }
+
+    members[slot - 1] = {
+      slot,
+      nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
+      nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "명랑",
+      item: typeof candidate.item === "string" ? candidate.item.trim().slice(0, 80) : "",
+      ability: typeof candidate.ability === "string" ? candidate.ability.trim().slice(0, 80) : "",
+      moves: Array.isArray(candidate.moves)
+        ? candidate.moves.slice(0, 4).map((move) => (typeof move === "string" ? move.trim().slice(0, 80) : ""))
+        : ["", "", "", ""],
+      ivs: sanitizeTeamStatSpread(candidate.ivs, getDefaultTeamIvs(), { min: 0, max: 31 }),
+      evs: sanitizeTeamStatSpread(candidate.evs, getDefaultTeamEvs(), { min: 0, max: 252 }),
+    };
+  }
+
+  return members.map((member) => ({
+    ...member,
+    moves: [...member.moves, "", "", "", ""].slice(0, 4),
+  }));
+}
+
+export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
+  return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
 }
