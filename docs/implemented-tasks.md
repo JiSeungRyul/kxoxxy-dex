@@ -59,6 +59,16 @@
 - Authentication
 - Server-backed user persistence
 - Team builder
+  - Browse saved teams
+  - Create and edit teams built from any Pokemon in the full catalog, not only captured Pokemon
+  - Support up to six Pokemon per team
+  - Store per-member configuration for nature, item, moves, base stats display, IVs, EVs, and ability
+  - Show a readable team detail view with each member's configured values
 - Favorites
+  - Allow favorite toggling from the Pokemon list UI
+  - Allow favorite toggling from Pokemon detail pages
+  - Add a dedicated favorites view for browsing saved favorite Pokemon
+  - Prefer a direct navigation entry for favorites during the current MVP stage instead of a broader my-page shell
 - Further DB integration beyond the current hybrid stage
 - Replace anonymous browser-scoped session ownership with account-linked ownership later
+
