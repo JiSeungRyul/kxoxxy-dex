@@ -1,7 +1,7 @@
 # Session Guide
 
 ## One-line Summary
-KxoxxyDex is a hybrid Pokedex app where list/detail routes are partially DB-backed,
+KxoxxyDex is a hybrid Pokedex app where runtime catalog reads are DB-backed,
 while snapshot generation and DB-backed runtime flows currently coexist.
 
 ## Purpose
