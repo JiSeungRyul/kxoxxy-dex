@@ -11,7 +11,8 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
-import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";`r`nimport { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
+import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
+import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
 import type {

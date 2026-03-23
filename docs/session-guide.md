@@ -28,6 +28,9 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
 - `/my-pokemon` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
+- `/teams` loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
+- Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
@@ -38,6 +41,9 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - `app/pokemon/[slug]/page.tsx`
 - `app/daily/page.tsx`
 - `app/my-pokemon/page.tsx`
+- `app/teams/page.tsx`
+- `app/my-teams/page.tsx`
+- `app/api/teams/state/route.ts`
 - `features/pokedex/server/repository.ts`
 - `features/pokedex/components/pokedex-page.tsx`
 - `features/pokedex/types.ts`
@@ -68,8 +74,8 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
   - DB-related runtime assumptions must be stated explicitly
 - User state migration:
   - collection progress is server-backed for anonymous sessions, but not yet account-linked
-- Daily migration caveat:
-  - the daily API depends on migrated anonymous-session tables and can fail until DB migrations are applied
+- Daily and team migration caveat:
+  - the daily and team APIs depend on migrated anonymous-session tables and can fail until DB migrations are applied
 - Local runtime caveat:
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:

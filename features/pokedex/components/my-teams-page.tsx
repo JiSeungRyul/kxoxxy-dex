@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type { PokemonBaseStats, PokemonTeam } from "@/features/pokedex/types";
-import { formatDexNumber, formatTypeLabel, getTeamEvTotal } from "@/features/pokedex/utils";
+import { calculatePokemonBattleStats, formatDexNumber, formatTypeLabel, getTeamEvTotal } from "@/features/pokedex/utils";
 
 const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
   { key: "hp", label: "HP" },
@@ -227,6 +227,14 @@ export function MyTeamsPage() {
                       );
                     }
 
+                    const battleStats = calculatePokemonBattleStats({
+                      baseStats: member.pokemon.stats,
+                      level: member.level,
+                      ivs: member.ivs,
+                      evs: member.evs,
+                      nature: member.nature,
+                    });
+
                     return (
                       <div key={`${team.id}-member-${member.slot}`} className="rounded-[1.5rem] border border-border bg-background/60 p-5">
                         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -254,6 +262,7 @@ export function MyTeamsPage() {
                         <div className="mt-5 grid gap-4 lg:grid-cols-3">
                           <div className="space-y-2 rounded-[1.25rem] border border-border bg-card p-4 text-sm">
                             <p className="font-semibold text-foreground">기본 정보</p>
+                            <p className="text-muted-foreground">레벨: <span className="font-medium text-foreground">Lv. {member.level}</span></p>
                             <p className="text-muted-foreground">성격: <span className="font-medium text-foreground">{member.nature || "-"}</span></p>
                             <p className="text-muted-foreground">아이템: <span className="font-medium text-foreground">{member.item || "-"}</span></p>
                             <p className="text-muted-foreground">특성: <span className="font-medium text-foreground">{member.ability || "-"}</span></p>
@@ -289,15 +298,17 @@ export function MyTeamsPage() {
                                 <th className="px-4 py-3 font-semibold">종족값</th>
                                 <th className="px-4 py-3 font-semibold">개체값</th>
                                 <th className="px-4 py-3 font-semibold">노력치</th>
+                                <th className="px-4 py-3 font-semibold">실전 능력치</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
                               {STAT_FIELDS.map((field) => (
                                 <tr key={`${team.id}-${member.slot}-${field.key}`}>
                                   <td className="px-4 py-3 font-semibold text-foreground">{field.label}</td>
-                                  <td className="px-4 py-3 text-muted-foreground">{member.pokemon.stats[field.key]}</td>
+                                  <td className="px-4 py-3 text-muted-foreground">{member.pokemon!.stats[field.key]}</td>
                                   <td className="px-4 py-3 text-muted-foreground">{member.ivs[field.key]}</td>
                                   <td className="px-4 py-3 text-muted-foreground">{member.evs[field.key]}</td>
+                                  <td className="px-4 py-3 text-muted-foreground">{battleStats[field.key]}</td>
                                 </tr>
                               ))}
                             </tbody>

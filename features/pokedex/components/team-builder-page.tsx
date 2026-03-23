@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -8,11 +8,14 @@ import { startTransition, useEffect, useState } from "react";
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type { PokemonBaseStats, PokemonSummary, PokemonTeam, PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import {
+  calculatePokemonBattleStats,
   formatDexNumber,
   formatTypeLabel,
   getDefaultTeamIvs,
   getEmptyTeamMember,
+  getPokemonAbilityOptions,
   getTeamEvTotal,
+  getTeamValidationError,
   sanitizeTeamMembers,
 } from "@/features/pokedex/utils";
 
@@ -56,16 +59,6 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
 type TeamBuilderPageProps = {
   pokemon: PokemonSummary[];
 };
-
-function getPokemonAbilityOptions(entry: PokemonSummary | undefined) {
-  if (!entry) {
-    return [];
-  }
-
-  const hiddenAbilityName = entry.hiddenAbility?.name ? [entry.hiddenAbility.name] : [];
-
-  return [...new Set([...entry.abilities.map((ability) => ability.name), ...hiddenAbilityName])];
-}
 
 export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
   const router = useRouter();
@@ -158,13 +151,12 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
     const nationalDexNumber = nextValue.length > 0 ? Number(nextValue) : null;
     const selectedPokemon = pokemon.find((entry) => entry.nationalDexNumber === nationalDexNumber);
 
+    const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
+
     updateMember(slot, (currentMember) => ({
       ...currentMember,
       nationalDexNumber,
-      ability:
-        currentMember.ability.length > 0
-          ? currentMember.ability
-          : getPokemonAbilityOptions(selectedPokemon)[0] ?? "",
+      ability: abilityOptions.includes(currentMember.ability) ? currentMember.ability : abilityOptions[0] ?? "",
     }));
   }
 
@@ -317,6 +309,15 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
             : undefined;
           const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
           const evTotal = getTeamEvTotal(member.evs);
+          const battleStats = selectedPokemon
+            ? calculatePokemonBattleStats({
+                baseStats: selectedPokemon.stats,
+                level: member.level,
+                ivs: member.ivs,
+                evs: member.evs,
+                nature: member.nature,
+              })
+            : null;
 
           return (
             <article key={member.slot} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
@@ -370,7 +371,7 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
                   </select>
                 </label>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>
                     <select
@@ -434,7 +435,7 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
                   </div>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-3">
+                <div className="grid gap-5 lg:grid-cols-4">
                   <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
                     <p className="text-sm font-semibold text-foreground">종족값</p>
                     <div className="mt-3 space-y-2 text-sm text-muted-foreground">

@@ -177,6 +177,7 @@ export type PokemonTeamStatSpread = PokemonBaseStats;
 export type PokemonTeamMemberDraft = {
   slot: number;
   nationalDexNumber: number | null;
+  level: number;
   nature: string;
   item: string;
   ability: string;

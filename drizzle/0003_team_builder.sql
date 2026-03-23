@@ -1,4 +1,4 @@
-﻿CREATE TABLE "teams" (
+CREATE TABLE "teams" (
   "id" serial PRIMARY KEY NOT NULL,
   "anonymous_session_id" integer NOT NULL,
   "name" text NOT NULL,
