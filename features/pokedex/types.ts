@@ -1,4 +1,4 @@
-export type PokemonGenerationId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+﻿export type PokemonGenerationId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type PokemonTypeName =
   | "bug"
@@ -170,4 +170,31 @@ export type PokedexCollectionState = {
   shinyCapturedDexNumbers: number[];
   encountersByDate: Record<string, number>;
   shinyEncountersByDate: Record<string, boolean>;
+};
+
+export type PokemonTeamStatSpread = PokemonBaseStats;
+
+export type PokemonTeamMemberDraft = {
+  slot: number;
+  nationalDexNumber: number | null;
+  level: number;
+  nature: string;
+  item: string;
+  ability: string;
+  moves: string[];
+  ivs: PokemonTeamStatSpread;
+  evs: PokemonTeamStatSpread;
+};
+
+export type PokemonTeamMember = PokemonTeamMemberDraft & {
+  id: number;
+  pokemon: PokemonSummary | null;
+};
+
+export type PokemonTeam = {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  members: PokemonTeamMember[];
 };

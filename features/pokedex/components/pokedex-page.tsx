@@ -11,6 +11,7 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
+import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
@@ -163,7 +164,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
 
   useEffect(() => {
     if (usesServerCollectionState) {
-      const dailyAnonymousSessionId = getOrCreateDailyAnonymousSessionId();
+      const dailyAnonymousSessionId = getOrCreateAnonymousSessionId();
       setDailyAnonymousSessionId(dailyAnonymousSessionId);
 
       const controller = new AbortController();

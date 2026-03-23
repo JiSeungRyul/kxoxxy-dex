@@ -12,6 +12,7 @@ export function SiteHeroHeader() {
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
+  const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
 
   return (
     <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
@@ -97,11 +98,23 @@ export function SiteHeroHeader() {
                 onClick={() => setIsDailyMenuOpen(false)}
                 className="block rounded-[0.9rem] px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
               >
-                내포켓몬
+                내 포켓몬
               </Link>
             </div>
           </div>
         </div>
+
+        <Link
+          href="/teams"
+          aria-current={isTeamsActive ? "page" : undefined}
+          className={
+            isTeamsActive
+              ? "inline-flex rounded-[1rem] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
+              : "inline-flex rounded-[1rem] px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          }
+        >
+          팀 빌딩
+        </Link>
       </nav>
     </section>
   );

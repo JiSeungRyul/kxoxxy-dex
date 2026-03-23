@@ -48,6 +48,15 @@
 - Added shiny encounter/capture state for daily and release support in My Pokemon
 - Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
+## Team Builder (Updated: 2026-03-23)
+- Added `/teams` for building teams from the full catalog
+- Added `/my-teams` for browsing, editing, and deleting saved teams
+- Added anonymous-session-backed PostgreSQL storage for teams and team members
+- Added level configuration and level-based battle stat display for team members
+- Added the `0003_team_builder` and `0004_team_member_level` migrations and Drizzle schema entries
+- Hardened team save/load handling so saved member level is preserved and saved team reads stay aligned to the latest catalog snapshot
+- Verified the local team flow with `npm run typecheck`, `npm run db:migrate`, and route/API smoke checks for `/teams`, `/my-teams`, and `/api/teams/state` on 2026-03-23
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration
@@ -59,11 +68,7 @@
 - Authentication
 - Server-backed user persistence
 - Team builder
-  - Browse saved teams
-  - Create and edit teams built from any Pokemon in the full catalog, not only captured Pokemon
-  - Support up to six Pokemon per team
-  - Store per-member configuration for nature, item, moves, base stats display, IVs, EVs, and ability
-  - Show a readable team detail view with each member's configured values
+  - Add stronger server-managed session ownership beyond the current browser-scoped anonymous session
 - Favorites
   - Allow favorite toggling from the Pokemon list UI
   - Allow favorite toggling from Pokemon detail pages
@@ -71,4 +76,3 @@
   - Prefer a direct navigation entry for favorites during the current MVP stage instead of a broader my-page shell
 - Further DB integration beyond the current hybrid stage
 - Replace anonymous browser-scoped session ownership with account-linked ownership later
-

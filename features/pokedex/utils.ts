@@ -10,10 +10,13 @@ import {
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
+  PokemonBaseStats,
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
   SortDirection,
+  PokemonTeamMemberDraft,
+  PokemonTeamStatSpread,
   PokemonTypeName,
   TypeFilterValue,
 } from "@/features/pokedex/types";
@@ -55,21 +58,21 @@ export function formatCaptureRate(captureRate: number) {
 
 export function formatGenderRate(genderRate: number) {
   if (genderRate === -1) {
-    return "성별 없음";
+    return "���� ����";
   }
 
   const femaleRate = (genderRate / 8) * 100;
   const maleRate = 100 - femaleRate;
 
   if (femaleRate === 0) {
-    return "수컷 100%";
+    return "���� 100%";
   }
 
   if (maleRate === 0) {
-    return "암컷 100%";
+    return "���� 100%";
   }
 
-  return `수컷 ${maleRate.toFixed(1)}% / 암컷 ${femaleRate.toFixed(1)}%`;
+  return `���� ${maleRate.toFixed(1)}% / ���� ${femaleRate.toFixed(1)}%`;
 }
 
 export function formatMaxExperience(maxExperience: number) {
@@ -106,11 +109,11 @@ export function getDefensiveTypeMatchups(defendingTypes: PokemonTypeName[]) {
   }
 
   return [
-    { label: "4배", multiplier: "4배", types: buckets["4"] },
-    { label: "2배", multiplier: "2배", types: buckets["2"] },
-    { label: "1배", multiplier: "1배", types: buckets["1"] },
-    { label: "0.5배", multiplier: "0.5배", types: buckets["0.5"] },
-    { label: "0배", multiplier: "0배", types: buckets["0"] },
+    { label: "4��", multiplier: "4��", types: buckets["4"] },
+    { label: "2��", multiplier: "2��", types: buckets["2"] },
+    { label: "1��", multiplier: "1��", types: buckets["1"] },
+    { label: "0.5��", multiplier: "0.5��", types: buckets["0.5"] },
+    { label: "0��", multiplier: "0��", types: buckets["0"] },
   ];
 }
 
@@ -314,4 +317,225 @@ export function selectRandomDailyEncounterPokemon({
 
 export function rollDailyEncounterShiny(odds = 4096) {
   return Math.floor(Math.random() * odds) === 0;
+}
+
+export function getDefaultTeamIvs(): PokemonTeamStatSpread {
+  return {
+    hp: 31,
+    attack: 31,
+    defense: 31,
+    specialAttack: 31,
+    specialDefense: 31,
+    speed: 31,
+  };
+}
+
+export function getDefaultTeamEvs(): PokemonTeamStatSpread {
+  return {
+    hp: 0,
+    attack: 0,
+    defense: 0,
+    specialAttack: 0,
+    specialDefense: 0,
+    speed: 0,
+  };
+}
+
+export function getDefaultTeamLevel() {
+  return 50;
+}
+
+export function getPokemonAbilityOptions(entry: Pick<PokemonSummary, "abilities" | "hiddenAbility"> | null | undefined) {
+  if (!entry) {
+    return [];
+  }
+
+  const hiddenAbilityName = entry.hiddenAbility?.name ? [entry.hiddenAbility.name] : [];
+
+  return [...new Set([...entry.abilities.map((ability) => ability.name), ...hiddenAbilityName])];
+}
+
+export function getTeamValidationError({
+  teamName,
+  members,
+  pokemonByDexNumber,
+}: {
+  teamName: string;
+  members: PokemonTeamMemberDraft[];
+  pokemonByDexNumber?: Map<number, PokemonSummary>;
+}) {
+  if (teamName.trim().length === 0) {
+    return "�� �̸��� �Է����ּ���.";
+  }
+
+  const selectedMembers = members.filter((member) => member.nationalDexNumber !== null);
+
+  if (selectedMembers.length === 0) {
+    return "�ּ� �� ���� �̻� �����ؾ� ���� ������ �� �ֽ��ϴ�.";
+  }
+
+  for (const member of selectedMembers) {
+    if (!Number.isInteger(member.level) || member.level < 1 || member.level > 100) {
+      return `${member.slot}�� ������ ������ 1���� 100 ���̿��� �մϴ�.`;
+    }
+
+    if (getTeamEvTotal(member.evs) > 510) {
+      return `${member.slot}�� ������ ���ġ ������ 510�� �ʰ��߽��ϴ�.`;
+    }
+
+    if (!pokemonByDexNumber || member.nationalDexNumber === null) {
+      continue;
+    }
+
+    const selectedPokemon = pokemonByDexNumber.get(member.nationalDexNumber);
+
+    if (!selectedPokemon) {
+      return `${member.slot}�� ������ ���ϸ� �����͸� ã�� �� �����ϴ�.`;
+    }
+
+    if (member.ability.length > 0 && !getPokemonAbilityOptions(selectedPokemon).includes(member.ability)) {
+      return `${member.slot}�� ������ Ư���� ������ ���ϸ�� ���� �ʽ��ϴ�.`;
+    }
+  }
+
+  return null;
+}
+
+const TEAM_NATURE_MODIFIERS: Partial<Record<string, Partial<Record<keyof PokemonBaseStats, number>>>> = {
+  "\uC678\uB85C\uC6C0": { attack: 1.1, defense: 0.9 },
+  "\uACE0\uC9D1": { attack: 1.1, specialAttack: 0.9 },
+  "\uAC1C\uAD6C\uC7C1\uC774": { attack: 1.1, specialDefense: 0.9 },
+  "\uC6A9\uAC10": { attack: 1.1, speed: 0.9 },
+  "\uB300\uB2F4": { defense: 1.1, attack: 0.9 },
+  "\uC7A5\uB09C\uAFB8\uB7EC\uAE30": { defense: 1.1, specialAttack: 0.9 },
+  "\uBB34\uC0AC\uD0DC\uD3C9": { defense: 1.1, specialDefense: 0.9 },
+  "\uCC9C\uC9C4\uB09C\uB9CC": { speed: 1.1, specialDefense: 0.9 },
+  "\uAC81\uC7C1\uC774": { speed: 1.1, attack: 0.9 },
+  "\uC131\uAE09": { speed: 1.1, defense: 0.9 },
+  "\uBA85\uB791": { speed: 1.1, specialAttack: 0.9 },
+  "\uC870\uC2EC": { specialAttack: 1.1, attack: 0.9 },
+  "\uC758\uC82F": { specialAttack: 1.1, defense: 0.9 },
+  "\uC218\uC90D\uC74C": { specialAttack: 1.1, specialDefense: 0.9 },
+  "\uCC28\uBD84": { specialDefense: 1.1, attack: 0.9 },
+  "\uC584\uC804": { specialDefense: 1.1, defense: 0.9 },
+  "\uC2E0\uC911": { specialDefense: 1.1, specialAttack: 0.9 },
+  "\uAC74\uBC29": { specialDefense: 1.1, speed: 0.9 },
+};
+
+export function getTeamNatureMultiplier(nature: string, stat: keyof PokemonBaseStats) {
+  return TEAM_NATURE_MODIFIERS[nature]?.[stat] ?? 1;
+}
+
+export function calculatePokemonBattleStats({
+  baseStats,
+  level,
+  ivs,
+  evs,
+  nature,
+}: {
+  baseStats: PokemonBaseStats;
+  level: number;
+  ivs: PokemonTeamStatSpread;
+  evs: PokemonTeamStatSpread;
+  nature: string;
+}) {
+  const normalizedLevel = Math.min(100, Math.max(1, Math.floor(level || getDefaultTeamLevel())));
+
+  const calculateOtherStat = (stat: keyof Omit<PokemonBaseStats, "hp">) =>
+    Math.floor(
+      (Math.floor((((2 * baseStats[stat] + ivs[stat] + Math.floor(evs[stat] / 4)) * normalizedLevel) / 100) + 5)) *
+        getTeamNatureMultiplier(nature, stat),
+    );
+
+  return {
+    hp: Math.floor((((2 * baseStats.hp + ivs.hp + Math.floor(evs.hp / 4)) * normalizedLevel) / 100) + normalizedLevel + 10),
+    attack: calculateOtherStat("attack"),
+    defense: calculateOtherStat("defense"),
+    specialAttack: calculateOtherStat("specialAttack"),
+    specialDefense: calculateOtherStat("specialDefense"),
+    speed: calculateOtherStat("speed"),
+  };
+}
+
+export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
+  return {
+    slot,
+    nationalDexNumber: null,
+    level: getDefaultTeamLevel(),
+    nature: "����",
+    item: "",
+    ability: "",
+    moves: ["", "", "", ""],
+    ivs: getDefaultTeamIvs(),
+    evs: getDefaultTeamEvs(),
+  };
+}
+
+function sanitizeTeamStatValue(value: unknown, min: number, max: number, fallback: number) {
+  if (!Number.isInteger(value)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, Number(value)));
+}
+
+export function sanitizeTeamStatSpread(
+  value: unknown,
+  fallback: PokemonBaseStats,
+  options: { min: number; max: number },
+): PokemonTeamStatSpread {
+  const candidate = value && typeof value === "object" ? (value as Partial<PokemonBaseStats>) : {};
+
+  return {
+    hp: sanitizeTeamStatValue(candidate.hp, options.min, options.max, fallback.hp),
+    attack: sanitizeTeamStatValue(candidate.attack, options.min, options.max, fallback.attack),
+    defense: sanitizeTeamStatValue(candidate.defense, options.min, options.max, fallback.defense),
+    specialAttack: sanitizeTeamStatValue(candidate.specialAttack, options.min, options.max, fallback.specialAttack),
+    specialDefense: sanitizeTeamStatValue(candidate.specialDefense, options.min, options.max, fallback.specialDefense),
+    speed: sanitizeTeamStatValue(candidate.speed, options.min, options.max, fallback.speed),
+  };
+}
+
+export function sanitizeTeamMembers(value: unknown) {
+  if (!Array.isArray(value)) {
+    return Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1));
+  }
+
+  const members = Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1));
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidate = entry as Partial<PokemonTeamMemberDraft>;
+    const slot = Number(candidate.slot);
+
+    if (!Number.isInteger(slot) || slot < 1 || slot > 6) {
+      continue;
+    }
+
+    members[slot - 1] = {
+      slot,
+      nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
+      level: sanitizeTeamStatValue(candidate.level, 1, 100, getDefaultTeamLevel()),
+      nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "����",
+      item: typeof candidate.item === "string" ? candidate.item.trim().slice(0, 80) : "",
+      ability: typeof candidate.ability === "string" ? candidate.ability.trim().slice(0, 80) : "",
+      moves: Array.isArray(candidate.moves)
+        ? candidate.moves.slice(0, 4).map((move) => (typeof move === "string" ? move.trim().slice(0, 80) : ""))
+        : ["", "", "", ""],
+      ivs: sanitizeTeamStatSpread(candidate.ivs, getDefaultTeamIvs(), { min: 0, max: 31 }),
+      evs: sanitizeTeamStatSpread(candidate.evs, getDefaultTeamEvs(), { min: 0, max: 252 }),
+    };
+  }
+
+  return members.map((member) => ({
+    ...member,
+    moves: [...member.moves, "", "", "", ""].slice(0, 4),
+  }));
+}
+
+export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
+  return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
 }

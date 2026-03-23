@@ -5,7 +5,7 @@
 - The runtime is hybrid:
   - list, detail, daily, and my-pokemon catalog reads are DB-backed
   - snapshot generation and DB import still coexist in the data pipeline
-- Daily encounter and collection state, including shiny flags, are stored per anonymous session in PostgreSQL.
+- Daily encounter, collection state, and saved team data are stored per anonymous session in PostgreSQL.
 - The client still mirrors collection state into `localStorage` as a compatibility fallback.
 
 ## High-Level Structure
@@ -51,6 +51,13 @@
 5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
 6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
+### Team Routes
+1. `app/teams/page.tsx` loads the full Pokemon catalog from PostgreSQL
+2. The client creates or reuses the same anonymous session id used by daily and collection flows
+3. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
+4. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
+5. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
+
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
 2. The script writes `data/pokedex.json`
@@ -68,7 +75,7 @@
 - Environment dependency:
   - `lib/db/client.ts` requires `DATABASE_URL`
 - Migration dependency:
-  - `anonymous_sessions`, `daily_encounters`, and `daily_captures` must exist before the daily and My Pokemon collection flow can succeed
+  - `anonymous_sessions`, `daily_encounters`, `daily_captures`, `teams`, and `team_members` must exist before the daily, My Pokemon, and team-builder flows can succeed
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
 - User-state split:
@@ -78,4 +85,4 @@
 
 ## Immediate Follow-Up TODO
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
-- Add a lightweight verification flow for daily state after migrations and server restarts.
+- Add a lightweight verification flow for daily and team state after migrations and server restarts.

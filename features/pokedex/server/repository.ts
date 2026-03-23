@@ -25,12 +25,17 @@ import type {
   PokedexSnapshot,
   PokemonSortKey,
   PokemonSummary,
+  PokemonTeam,
+  PokemonTeamMember,
+  PokemonTeamMemberDraft,
   SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
 import {
   getLocalDateKey,
+  getTeamValidationError,
   rollDailyEncounterShiny,
+  sanitizeTeamMembers,
   selectDailyEncounterPokemon,
   selectRandomDailyEncounterPokemon,
 } from "@/features/pokedex/utils";
@@ -108,6 +113,25 @@ async function getAllPokemonCatalogEntries(snapshotId: number) {
       ORDER BY national_dex_number ASC
     `,
     [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function getPokemonCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
+  if (dexNumbers.length === 0) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<Array<{ payload: PokemonSummary }>>(
+    `
+      SELECT payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      AND national_dex_number = ANY($2::int[])
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId, dexNumbers],
   );
 
   return rows.map((row) => row.payload);
@@ -627,4 +651,304 @@ export async function releaseCapturedPokemon(sessionId: string, nationalDexNumbe
   );
 
   return getDailyCollectionState(sessionId);
+}
+
+type TeamRow = {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TeamMemberRow = {
+  id: number;
+  teamId: number;
+  slot: number;
+  nationalDexNumber: number;
+  level: number;
+  nature: string;
+  item: string;
+  ability: string;
+  moves: string[];
+  ivs: PokemonTeamMemberDraft["ivs"];
+  evs: PokemonTeamMemberDraft["evs"];
+  pokemon: PokemonSummary;
+};
+
+function getEmptyStoredTeamMemberFallback(slot: number): PokemonTeamMemberDraft {
+  return {
+    ...sanitizeTeamMembers([{ slot }])[0],
+    slot,
+  };
+}
+
+function getEmptyStoredTeamMember(slot: number): PokemonTeamMember {
+  const emptyMember = sanitizeTeamMembers([{ slot }]).find((member) => member.slot === slot) ?? getEmptyStoredTeamMemberFallback(slot);
+
+  return {
+    id: 0,
+    ...emptyMember,
+    pokemon: null,
+  };
+}
+
+async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise<PokemonTeam[]> {
+  const latestSnapshot = await getLatestSnapshotRecord();
+  const teamRows = await postgresClient.unsafe<TeamRow[]>(
+    `
+      SELECT
+        id,
+        name,
+        created_at::text AS "createdAt",
+        updated_at::text AS "updatedAt"
+      FROM teams
+      WHERE anonymous_session_id = $1
+      ORDER BY updated_at DESC, id DESC
+    `,
+    [anonymousSessionId],
+  );
+
+  if (teamRows.length === 0) {
+    return [];
+  }
+
+  const teamIds = teamRows.map((row) => row.id);
+  const memberRows = latestSnapshot
+    ? await postgresClient.unsafe<TeamMemberRow[]>(
+        `
+          SELECT
+            tm.id,
+            tm.team_id AS "teamId",
+            tm.slot,
+            tm.national_dex_number AS "nationalDexNumber",
+            tm.level,
+            tm.nature,
+            tm.item,
+            tm.ability,
+            tm.moves,
+            tm.ivs,
+            tm.evs,
+            pc.payload AS pokemon
+          FROM team_members tm
+          INNER JOIN pokemon_catalog pc
+            ON pc.snapshot_id = $2
+            AND pc.national_dex_number = tm.national_dex_number
+          WHERE tm.team_id = ANY($1::int[])
+          ORDER BY tm.team_id ASC, tm.slot ASC
+        `,
+        [teamIds, latestSnapshot.id],
+      )
+    : [];
+
+  return teamRows.map((teamRow) => {
+    const members = Array.from({ length: 6 }, (_, index) => getEmptyStoredTeamMember(index + 1));
+
+    for (const memberRow of memberRows) {
+      if (memberRow.teamId !== teamRow.id || memberRow.slot < 1 || memberRow.slot > 6) {
+        continue;
+      }
+
+      const sanitizedMember = sanitizeTeamMembers([memberRow])[0];
+      members[memberRow.slot - 1] = {
+        id: memberRow.id,
+        ...sanitizedMember,
+        pokemon: memberRow.pokemon,
+      };
+    }
+
+    return {
+      id: teamRow.id,
+      name: teamRow.name,
+      createdAt: teamRow.createdAt,
+      updatedAt: teamRow.updatedAt,
+      members,
+    };
+  });
+}
+
+export async function getStoredTeams(sessionId: string): Promise<PokemonTeam[]> {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return [];
+  }
+
+  return getTeamsByAnonymousSessionId(anonymousSessionId);
+}
+
+export async function saveTeam(
+  sessionId: string,
+  team: {
+    id?: number | null;
+    name: string;
+    members: PokemonTeamMemberDraft[];
+  },
+): Promise<{ teams: PokemonTeam[]; savedTeamId: number | null; error?: string }> {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return {
+      teams: [],
+      savedTeamId: null,
+    };
+  }
+
+  const normalizedTeamName = team.name.trim().slice(0, 60);
+  const sanitizedMembers = sanitizeTeamMembers(team.members);
+  const selectedMembers = sanitizedMembers.filter((member) => member.nationalDexNumber !== null);
+  const existingTeams = await getTeamsByAnonymousSessionId(anonymousSessionId);
+
+  const validationError = getTeamValidationError({
+    teamName: normalizedTeamName,
+    members: sanitizedMembers,
+  });
+
+  if (validationError) {
+    return {
+      teams: existingTeams,
+      savedTeamId: null,
+      error: validationError,
+    };
+  }
+
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      teams: existingTeams,
+      savedTeamId: null,
+      error: "?�켓�?카탈로그�?찾을 ???�습?�다.",
+    };
+  }
+
+  const selectedDexNumbers = selectedMembers.flatMap((member) =>
+    member.nationalDexNumber === null ? [] : [member.nationalDexNumber],
+  );
+  const selectedPokemon = await getPokemonCatalogEntriesByDexNumbers(latestSnapshot.id, selectedDexNumbers);
+  const pokemonByDexNumber = new Map(selectedPokemon.map((entry) => [entry.nationalDexNumber, entry]));
+  const catalogValidationError = getTeamValidationError({
+    teamName: normalizedTeamName,
+    members: sanitizedMembers,
+    pokemonByDexNumber,
+  });
+
+  if (catalogValidationError) {
+    return {
+      teams: existingTeams,
+      savedTeamId: null,
+      error: catalogValidationError,
+    };
+  }
+
+  const savedTeamId = await postgresClient.begin(async (transaction) => {
+    let teamId = Number.isInteger(team.id) ? Number(team.id) : null;
+
+    if (teamId) {
+      const ownedTeamRows = await transaction.unsafe<Array<{ id: number }>>(
+        `
+          SELECT id
+          FROM teams
+          WHERE id = $1
+          AND anonymous_session_id = $2
+          LIMIT 1
+        `,
+        [teamId, anonymousSessionId],
+      );
+
+      if (ownedTeamRows.length === 0) {
+        teamId = null;
+      }
+    }
+
+    if (teamId) {
+      await transaction.unsafe(
+        `
+          UPDATE teams
+          SET name = $1, updated_at = NOW()
+          WHERE id = $2
+        `,
+        [normalizedTeamName, teamId],
+      );
+      await transaction.unsafe(
+        `
+          DELETE FROM team_members
+          WHERE team_id = $1
+        `,
+        [teamId],
+      );
+    } else {
+      const insertedTeamRows = await transaction.unsafe<Array<{ id: number }>>(
+        `
+          INSERT INTO teams (anonymous_session_id, name)
+          VALUES ($1, $2)
+          RETURNING id
+        `,
+        [anonymousSessionId, normalizedTeamName],
+      );
+
+      teamId = insertedTeamRows[0]?.id ?? null;
+    }
+
+    if (!teamId) {
+      return null;
+    }
+
+    for (const member of selectedMembers) {
+      await transaction.unsafe(
+        `
+          INSERT INTO team_members (
+            team_id,
+            slot,
+            national_dex_number,
+            level,
+            nature,
+            item,
+            ability,
+            moves,
+            ivs,
+            evs
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb)
+        `,
+        [
+          teamId,
+          member.slot,
+          member.nationalDexNumber,
+          member.level,
+          member.nature,
+          member.item,
+          member.ability,
+          JSON.stringify(member.moves),
+          JSON.stringify(member.ivs),
+          JSON.stringify(member.evs),
+        ],
+      );
+    }
+
+    return teamId;
+  });
+
+  return {
+    teams: await getTeamsByAnonymousSessionId(anonymousSessionId),
+    savedTeamId,
+  };
+}
+
+export async function deleteStoredTeam(sessionId: string, teamId: number) {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return [];
+  }
+
+  await postgresClient.unsafe(
+    `
+      DELETE FROM teams
+      WHERE id = $1
+      AND anonymous_session_id = $2
+    `,
+    [teamId, anonymousSessionId],
+  );
+
+  return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
