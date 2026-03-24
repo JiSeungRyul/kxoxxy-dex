@@ -44,15 +44,15 @@
 4. `PokemonDetailPage` renders the full detail experience
 
 ### Daily And Collection Routes
-1. `app/daily/page.tsx` loads the full Pokemon catalog from PostgreSQL
+1. `app/daily/page.tsx` loads a reduced catalog list payload from PostgreSQL through `getPokedexCatalogListSnapshot()`
 2. The client creates or reuses an anonymous session id in local storage
 3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
-4. `app/my-pokemon/page.tsx` also loads the full Pokemon catalog from PostgreSQL
+4. `app/my-pokemon/page.tsx` also loads the same reduced catalog list payload from PostgreSQL
 5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
 6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
 ### Team Routes
-1. `app/teams/page.tsx` loads the full Pokemon catalog from PostgreSQL
+1. `app/teams/page.tsx` loads a reduced catalog list payload from PostgreSQL through `getPokedexCatalogListSnapshot()`
 2. The client creates or reuses the same anonymous session id used by daily and collection flows
 3. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
 4. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
@@ -86,3 +86,17 @@
 ## Immediate Follow-Up TODO
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
 - Add a lightweight verification flow for daily and team state after migrations and server restarts.
+- Continue reducing the remaining initial route payload on `/daily`, `/my-pokemon`, and `/teams`.
+  - A reduced catalog-list payload shipped on 2026-03-24, replacing the previous full `PokemonSummary` route payload for those pages.
+  - Local `npm run start` measurement on 2026-03-24 showed second-request totals of about 0.052s for `/daily`, 0.040s for `/my-pokemon`, and 0.031s for `/teams`.
+  - The same production responses still returned large payloads at roughly 1.10 MB to 1.11 MB per route, so the remaining bottleneck is transfer size more than server time.
+  - Local `npm run dev` measurement on 2026-03-24 remained much slower at about 13.50s for `/daily`, 10.60s for `/my-pokemon`, and 4.70s for `/teams` on second request.
+- Rework catalog delivery for the daily, collection, and team-builder routes so they do not ship broad catalog data to the client on first load.
+  - Prefer route-specific payloads or smaller server-derived view models over broad refactors.
+  - Keep `app/` thin and keep catalog shaping inside `features/pokedex/server/`.
+  - Preserve the current `PokemonSummary` contract unless a deliberate schema migration is planned.
+- Revisit the current caching approach for reduced and full catalog reads.
+  - `unstable_cache` should be re-evaluated after payload shape changes because cache effectiveness and data-cache limits may differ by route payload size.
+  - Any follow-up should verify whether cache granularity, payload shape, or route-level read strategy needs to change.
+- Keep re-measuring both `npm run dev` and `npm run start` for `/`, `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, and `/api/teams/state` after each meaningful performance change so the next improvement is explicit.
+

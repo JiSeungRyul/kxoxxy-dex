@@ -20,6 +20,7 @@ import type {
   GenerationFilterValue,
   PokedexCollectionState,
   PokedexFilterOptions,
+  PokemonCatalogListEntry,
   PokedexListPage,
   PokedexListQuery,
   PokedexSnapshot,
@@ -104,6 +105,45 @@ async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
   return rows[0] ?? null;
 }
 
+type CatalogListEntryRow = {
+  payload: PokemonCatalogListEntry;
+};
+
+async function getAllPokemonCatalogListEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<CatalogListEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'slug', slug,
+        'name', name_ko,
+        'imageUrl', payload->>'imageUrl',
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'defaultShinyArtworkImageUrl', COALESCE(
+          (
+            SELECT form->>'shinyArtworkImageUrl'
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE COALESCE((form->>'isDefault')::boolean, false)
+            LIMIT 1
+          ),
+          (SELECT form->>'shinyArtworkImageUrl' FROM jsonb_array_elements(payload->'forms') form LIMIT 1),
+          payload->>'artworkImageUrl'
+        ),
+        'generation', payload->'generation',
+        'types', payload->'types',
+        'stats', payload->'stats',
+        'abilities', payload->'abilities',
+        'hiddenAbility', payload->'hiddenAbility'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
 async function getAllPokemonCatalogEntries(snapshotId: number) {
   const rows = await postgresClient.unsafe<Array<{ payload: PokemonSummary }>>(
     `
@@ -153,7 +193,27 @@ async function readPokedexCatalogSnapshot() {
   };
 }
 
+async function readPokedexCatalogListSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+      filterOptions: getPokedexFilterOptions(),
+    };
+  }
+
+  return {
+    pokemon: await getAllPokemonCatalogListEntries(latestSnapshot.id),
+    filterOptions: getPokedexFilterOptions(),
+  };
+}
+
 const getCachedPokedexCatalogSnapshot = unstable_cache(readPokedexCatalogSnapshot, ["pokedex-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexCatalogListSnapshot = unstable_cache(readPokedexCatalogListSnapshot, ["pokedex-catalog-list-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
@@ -163,6 +223,14 @@ export function getPokedexCatalogSnapshot() {
   }
 
   return getCachedPokedexCatalogSnapshot();
+}
+
+export function getPokedexCatalogListSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexCatalogListSnapshot();
+  }
+
+  return getCachedPokedexCatalogListSnapshot();
 }
 
 export async function getPokemonDetailBySlug(slug: string) {
@@ -952,3 +1020,5 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
+
+

@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import type { PokemonSummary } from "@/features/pokedex/types";
+import type { PokemonCatalogListEntry } from "@/features/pokedex/types";
 import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
 
 type MyPokemonGalleryProps = {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCatalogListEntry[];
   shinyCapturedDexNumbers: number[];
   isReleasing: boolean;
   onRelease: (nationalDexNumber: number) => void;
@@ -56,9 +56,7 @@ export function MyPokemonGallery({
         {pokemon.map((entry) => {
           const isShiny = shinyCapturedDexNumberSet.has(entry.nationalDexNumber);
           const displayImageUrl = isShiny
-            ? entry.forms.find((form) => form.isDefault)?.shinyArtworkImageUrl ??
-              entry.forms[0]?.shinyArtworkImageUrl ??
-              entry.artworkImageUrl
+            ? entry.defaultShinyArtworkImageUrl ?? entry.artworkImageUrl
             : entry.imageUrl;
 
           return (
@@ -109,3 +107,5 @@ export function MyPokemonGallery({
     </section>
   );
 }
+
+

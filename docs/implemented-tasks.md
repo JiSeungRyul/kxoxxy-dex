@@ -76,3 +76,27 @@
   - Prefer a direct navigation entry for favorites during the current MVP stage instead of a broader my-page shell
 - Further DB integration beyond the current hybrid stage
 - Replace anonymous browser-scoped session ownership with account-linked ownership later
+
+## UI And UX Backlog (Added: 2026-03-24)
+
+### Pokemon Detail Page
+- Fix broken Korean text in the gender-ratio display
+- Fix broken Korean text in the defensive-matchup multiplier display
+
+### Daily And My Pokemon
+- Rework the Daily Encounter background art and overall Pokemon scene styling for the main encounter CTA area
+- Improve My Pokemon gallery alignment so a single captured Pokemon does not stay left-aligned on wide screens
+- Keep My Pokemon responsive so the gallery centers cleanly and wraps downward as the viewport narrows
+- Aim for a wide-layout presentation that visually groups around five cards per row before wrapping when space allows
+
+### Team Builder
+- Add search-based Pokemon selection in addition to the current select control
+- Consider moving ability selection to a dropdown in a later step
+- Consider adding searchable item selection plus dropdown support later
+- Check whether move selection can use Pokemon-specific learnable move dropdowns later
+- Show which stat is raised and lowered when a nature is selected
+- Prevent EV inputs from exceeding the total cap during editing and add stronger over-cap feedback around the `510 / 510` indicator
+- Rebalance the layout so base stats, IVs, and EVs align more cleanly with the upper content blocks instead of feeling left-heavy
+- Rebalance the layout for nature, item, and ability controls in the same way
+- Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
+

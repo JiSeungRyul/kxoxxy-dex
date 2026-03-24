@@ -20,8 +20,8 @@ import type {
   PokedexCollectionState,
   PokedexFilterOptions,
   PokedexListQuery,
+  PokemonCatalogListEntry,
   PokemonSortKey,
-  PokemonSummary,
   SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
@@ -46,7 +46,7 @@ const MyPokemonGallery = dynamic(
 );
 
 type PokedexPageProps = {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCatalogListEntry[];
   filterOptions: PokedexFilterOptions;
   view?: "daily" | "pokedex" | "my-pokemon";
   serverListState?: {
@@ -155,7 +155,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     .slice(-6)
     .reverse()
     .map((dexNumber) => pokemon.find((entry) => entry.nationalDexNumber === dexNumber))
-    .filter((entry): entry is PokemonSummary => Boolean(entry));
+    .filter((entry): entry is PokemonCatalogListEntry => Boolean(entry));
 
   function persistCollectionState(nextState: PokedexCollectionState) {
     setCollectionState(nextState);
@@ -569,3 +569,5 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     </main>
   );
 }
+
+

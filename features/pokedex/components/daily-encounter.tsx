@@ -4,15 +4,15 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import type { PokemonSummary, PokemonTypeName } from "@/features/pokedex/types";
+import type { PokemonCatalogListEntry, PokemonTypeName } from "@/features/pokedex/types";
 import { formatDexNumber, formatGenerationLabel, formatTypeLabel } from "@/features/pokedex/utils";
 
 type DailyEncounterProps = {
-  encounter: PokemonSummary | null;
+  encounter: PokemonCatalogListEntry | null;
   isShiny: boolean;
   capturedCount: number;
   totalCount: number;
-  recentCaptures: PokemonSummary[];
+  recentCaptures: PokemonCatalogListEntry[];
   isCaptured: boolean;
   isReady: boolean;
   isSyncing: boolean;
@@ -22,7 +22,7 @@ type DailyEncounterProps = {
   canRerollToday: boolean;
 };
 
-function TypeBadge({ type }: { type: PokemonSummary["types"][number] }) {
+function TypeBadge({ type }: { type: PokemonCatalogListEntry["types"][number] }) {
   return (
     <span
       className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.04em] ${TYPE_BADGE_STYLES[type.name]}`}
@@ -298,9 +298,7 @@ export function DailyEncounter({
   const sceneStyle = ENCOUNTER_SCENE_STYLES[mainType];
   const encounterDisplayImageUrl = encounter
     ? isShiny
-      ? encounter.forms.find((form) => form.isDefault)?.shinyArtworkImageUrl ??
-        encounter.forms[0]?.shinyArtworkImageUrl ??
-        encounter.artworkImageUrl
+      ? encounter.defaultShinyArtworkImageUrl ?? encounter.artworkImageUrl
       : encounter.imageUrl
     : null;
   const captureTimeoutRef = useRef<number | null>(null);
@@ -579,3 +577,8 @@ export function DailyEncounter({
     </section>
   );
 }
+
+
+
+
+

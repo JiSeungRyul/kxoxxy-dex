@@ -1,4 +1,4 @@
-﻿export type PokemonGenerationId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type PokemonGenerationId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type PokemonTypeName =
   | "bug"
@@ -130,6 +130,22 @@ export type PokemonSummary = {
   forms: PokemonForm[];
 };
 
+export type PokemonCatalogListEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "slug"
+  | "name"
+  | "imageUrl"
+  | "artworkImageUrl"
+  | "generation"
+  | "types"
+  | "stats"
+  | "abilities"
+  | "hiddenAbility"
+> & {
+  defaultShinyArtworkImageUrl?: string | null;
+};
+
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];
   types: PokemonType[];
@@ -198,3 +214,5 @@ export type PokemonTeam = {
   updatedAt: string;
   members: PokemonTeamMember[];
 };
+
+
