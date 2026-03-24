@@ -1,120 +1,88 @@
 # Architecture
 
+## Current System Shape
+- The app uses Next.js App Router with domain logic in `features/pokedex`.
+- The runtime is hybrid:
+  - list, detail, daily, and my-pokemon catalog reads are DB-backed
+  - snapshot generation and DB import still coexist in the data pipeline
+- Daily encounter, collection state, and saved team data are stored per anonymous session in PostgreSQL.
+- The client still mirrors collection state into `localStorage` as a compatibility fallback.
+
 ## High-Level Structure
 - `app/`
-  - Next.js App Router entry points and layout
+  - route entry points and layout
 - `features/pokedex/`
-  - Pokedex domain types, constants, UI, and server snapshot access
-- `features/theme/`
-  - Theme toggle UI
+  - domain types, constants, UI, utilities, and server data access
 - `features/site/`
-  - Reusable site-level informational UI
+  - reusable site-level shells and header UI
+- `features/theme/`
+  - theme toggle UI
 - `data/pokedex.json`
-  - Prebuilt Pokemon dataset snapshot
+  - generated catalog snapshot
 - `scripts/sync-pokedex.mjs`
-  - Snapshot generation script using PokeAPI
+  - snapshot generation from PokeAPI
+- `scripts/import-pokedex-to-db.mjs`
+  - snapshot import into PostgreSQL
 - `lib/db/`
-  - Shared PostgreSQL connection layer for future database-backed features
+  - shared DB client
 - `db/schema/`
-  - Reserved location for future Drizzle schema definitions
-- `drizzle.config.ts`
-  - Drizzle Kit configuration for future migrations
+  - Drizzle schema definitions
 
-## Runtime Flow
-1. `app/page.tsx` calls `getPokedexSnapshot()`
-2. `features/pokedex/server/repository.ts` reads `data/pokedex.json`
-3. The dataset is passed into `PokedexPage`
-4. `PokedexPage` manages UI state for search, filters, sorting, and pagination
-5. `PokedexTable` renders the current page of Pokemon
-6. Clicking a row navigates to `/pokemon/[slug]`
-7. `app/pokemon/[slug]/page.tsx` resolves the Pokemon from the same snapshot and renders `PokemonDetailPage`
+## Runtime Data Flow
 
-## Data Layer
-- Source file: `features/pokedex/server/repository.ts`
-- Snapshot path: `data/pokedex.json`
-- Development mode:
-  - reads snapshot directly from disk
-- Production mode:
-  - uses `unstable_cache`
-  - cache key: `pokedex-snapshot`
-  - revalidate interval: 24 hours
+### List Routes
+1. `app/page.tsx` and `app/pokedex/page.tsx` parse route search params
+2. `features/pokedex/server/list-page.ts` normalizes query input
+3. `features/pokedex/server/repository.ts#getPokedexListPage()` queries `pokemon_catalog`
+4. `PokedexPage` receives already paginated list data plus server list state
+5. Client controls update the URL query string and trigger a new server fetch
 
-## Database Preparation Layer
-- Source file: `lib/db/client.ts`
-- Connection style:
-  - PostgreSQL via `postgres` driver
-  - Drizzle ORM wrapper for future schema-based access
-- Status:
-  - connection layer is present
-  - initial catalog schema and migrations are present for snapshot storage
-  - `scripts/import-pokedex-to-db.mjs` imports `data/pokedex.json` into PostgreSQL
-  - runtime Pokedex reads still use `data/pokedex.json`
+### Detail Route
+1. `app/pokemon/[slug]/page.tsx` loads the slug
+2. `features/pokedex/server/repository.ts#getPokemonDetailBySlug()` queries `pokemon_catalog`
+3. Adjacent navigation is loaded from the same catalog snapshot in PostgreSQL
+4. `PokemonDetailPage` renders the full detail experience
 
-## Client State
-- Source file: `features/pokedex/components/pokedex-page.tsx`
-- Managed state:
-  - search term
-  - selected type
-  - selected generation
-  - sort key
-  - sort direction
-  - current page
-- Search input uses `useDeferredValue`
-- Filtering and sorting are recalculated from the full dataset on each relevant state change
+### Daily And Collection Routes
+1. `app/daily/page.tsx` loads the full Pokemon catalog from PostgreSQL
+2. The client creates or reuses an anonymous session id in local storage
+3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
+4. `app/my-pokemon/page.tsx` also loads the full Pokemon catalog from PostgreSQL
+5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
+6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
-## Domain Utilities
-- Source file: `features/pokedex/utils.ts`
-- Main responsibilities:
-  - label formatting
-  - dex number formatting
-  - generation / type label formatting
-  - height / weight / experience formatting
-  - defensive matchup calculation
-  - combined filter + sort processing
-  - collection-state sanitization helpers
+### Team Routes
+1. `app/teams/page.tsx` loads the full Pokemon catalog from PostgreSQL
+2. The client creates or reuses the same anonymous session id used by daily and collection flows
+3. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
+4. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
+5. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 
-## UI Composition
-- `PokedexControls`
-  - hero area with logo, title, theme toggle
-  - search / type / generation filters
-  - result summary and reset action
-- `PokedexTable`
-  - sortable table
-  - row click navigation
-  - empty state
-- `PokedexPagination`
-  - page navigation and visible range summary
-- `PokemonDetailPage`
-  - artwork and form tabs
-  - base profile stats
-  - media blocks
-  - evolution flow
-  - defensive type matchup analysis
+## Catalog Data Pipeline
+1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
+2. The script writes `data/pokedex.json`
+3. `scripts/import-pokedex-to-db.mjs` imports that snapshot into PostgreSQL
+4. Runtime list/detail/daily catalog reads use the imported catalog tables
 
-## Theme Model
-- Theme bootstrapping script is embedded in `app/layout.tsx`
-- `localStorage` key: `kxoxxy-theme`
-- HTML root gets `dark` class when the saved theme is `dark`
+## Data Contracts
+- `features/pokedex/types.ts` defines the stable payload contracts used by both snapshot and DB payload storage.
+- `pokemon_catalog.payload` stores a full `PokemonSummary`-shaped object.
+- `pokedex_snapshots.payload` stores the full snapshot payload.
 
-## Deployment Direction
-- Local development:
-  - preferred database runtime is Docker-based PostgreSQL
-- Initial production deployment target:
-  - app hosting on Vercel
-  - managed PostgreSQL on Neon or Supabase
-  - authentication handled in-app through Auth.js
-- Reasoning:
-  - preserves strong compatibility with the existing Next.js App Router setup
-  - keeps database operations on standard PostgreSQL rather than a custom backend abstraction
-  - supports starting with credentials-based login and later adding Kakao login through the same auth layer
-- Intended migration path:
-  - keep `data/pokedex.json` as the runtime source for Pokemon catalog data during the early service phase
-  - move user-specific state such as captured Pokemon, daily encounters, teams, and auth/session data into PostgreSQL first
-  - move operationally edited content such as localized ability descriptions into the database only when admin workflows are needed
+## Current Architectural Risks
+- Mixed read paths:
+  - runtime behavior differs by route
+- Environment dependency:
+  - `lib/db/client.ts` requires `DATABASE_URL`
+- Migration dependency:
+  - `anonymous_sessions`, `daily_encounters`, `daily_captures`, `teams`, and `team_members` must exist before the daily, My Pokemon, and team-builder flows can succeed
+- Catalog duplication:
+  - the same catalog exists in both `data/pokedex.json` and PostgreSQL
+- User-state split:
+  - anonymous server persistence exists, but account-linked user persistence does not
+- Doc drift:
+  - architecture can become misleading unless runtime-path changes are documented immediately
 
-## Residual Collection Model In Code
-- Source type: `PokedexCollectionState`
-- Fields:
-  - `capturedDexNumbers`
-  - `encountersByDate`
-- These helpers remain in `features/pokedex/utils.ts`, but there is no active route in the current workspace that uses them
+## Immediate Follow-Up TODO
+- Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
+- Add a lightweight verification flow for daily and team state after migrations and server restarts.

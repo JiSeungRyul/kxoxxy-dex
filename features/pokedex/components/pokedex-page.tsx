@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import {
@@ -10,6 +11,7 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
+import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
@@ -17,6 +19,7 @@ import type {
   GenerationFilterValue,
   PokedexCollectionState,
   PokedexFilterOptions,
+  PokedexListQuery,
   PokemonSortKey,
   PokemonSummary,
   SortDirection,
@@ -24,10 +27,13 @@ import type {
 } from "@/features/pokedex/types";
 import {
   filterAndSortPokemon,
+  getAvailableDailyEncounterPokemon,
   getInitialCollectionState,
   getLocalDateKey,
+  rollDailyEncounterShiny,
   sanitizeCollectionState,
   selectDailyEncounterPokemon,
+  selectRandomDailyEncounterPokemon,
 } from "@/features/pokedex/utils";
 
 const DailyEncounter = dynamic(
@@ -43,19 +49,52 @@ type PokedexPageProps = {
   pokemon: PokemonSummary[];
   filterOptions: PokedexFilterOptions;
   view?: "daily" | "pokedex" | "my-pokemon";
+  serverListState?: {
+    query: PokedexListQuery;
+    totalCount: number;
+    totalResults: number;
+    totalPages: number;
+    pageStart: number;
+    pageEnd: number;
+  };
 };
 
 const POKEDEX_COLLECTION_STORAGE_KEY = "kxoxxy-pokedex-collection";
+const DAILY_ANONYMOUS_SESSION_STORAGE_KEY = "kxoxxy-daily-anonymous-session";
 
-export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: PokedexPageProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState<TypeFilterValue>(ALL_TYPE_FILTER);
-  const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>(ALL_GENERATION_FILTER);
-  const [sortKey, setSortKey] = useState<PokemonSortKey>(DEFAULT_SORT_KEY);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_SORT_DIRECTION);
-  const [currentPage, setCurrentPage] = useState(1);
+function getOrCreateDailyAnonymousSessionId() {
+  const storedSessionId = window.localStorage.getItem(DAILY_ANONYMOUS_SESSION_STORAGE_KEY);
+
+  if (storedSessionId) {
+    return storedSessionId;
+  }
+
+  const sessionId = window.crypto.randomUUID();
+  window.localStorage.setItem(DAILY_ANONYMOUS_SESSION_STORAGE_KEY, sessionId);
+
+  return sessionId;
+}
+
+export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverListState }: PokedexPageProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isServerDrivenPokedex = view === "pokedex" && Boolean(serverListState);
+  const [searchTerm, setSearchTerm] = useState(serverListState?.query.searchTerm ?? "");
+  const [selectedType, setSelectedType] = useState<TypeFilterValue>(serverListState?.query.selectedType ?? ALL_TYPE_FILTER);
+  const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>(
+    serverListState?.query.selectedGeneration ?? ALL_GENERATION_FILTER,
+  );
+  const [sortKey, setSortKey] = useState<PokemonSortKey>(serverListState?.query.sortKey ?? DEFAULT_SORT_KEY);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    serverListState?.query.sortDirection ?? DEFAULT_SORT_DIRECTION,
+  );
+  const [currentPage, setCurrentPage] = useState(serverListState?.query.page ?? 1);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
+  const [dailyAnonymousSessionId, setDailyAnonymousSessionId] = useState<string | null>(null);
+  const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
+  const usesServerCollectionState = view === "daily" || view === "my-pokemon";
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const todayKey = getLocalDateKey();
@@ -63,43 +102,105 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     view === "my-pokemon"
       ? pokemon.filter((entry) => collectionState.capturedDexNumbers.includes(entry.nationalDexNumber))
       : pokemon;
-  const filteredPokemon = filterAndSortPokemon({
-    pokemon: sourcePokemon,
-    searchTerm: deferredSearchTerm,
-    selectedType,
-    selectedGeneration,
-    sortKey,
-    sortDirection,
-  });
-  const totalPages = Math.max(1, Math.ceil(filteredPokemon.length / POKEMON_PER_PAGE));
-  const normalizedCurrentPage = Math.min(currentPage, totalPages);
-  const pageStartIndex = (normalizedCurrentPage - 1) * POKEMON_PER_PAGE;
-  const paginatedPokemon = filteredPokemon.slice(pageStartIndex, pageStartIndex + POKEMON_PER_PAGE);
-  const pageStart = filteredPokemon.length === 0 ? 0 : pageStartIndex + 1;
-  const pageEnd = filteredPokemon.length === 0 ? 0 : pageStartIndex + paginatedPokemon.length;
+  const filteredPokemon = isServerDrivenPokedex
+    ? pokemon
+    : filterAndSortPokemon({
+        pokemon: sourcePokemon,
+        searchTerm: deferredSearchTerm,
+        selectedType,
+        selectedGeneration,
+        sortKey,
+        sortDirection,
+      });
+  const totalPages = isServerDrivenPokedex
+    ? (serverListState?.totalPages ?? 1)
+    : Math.max(1, Math.ceil(filteredPokemon.length / POKEMON_PER_PAGE));
+  const normalizedCurrentPage = isServerDrivenPokedex
+    ? (serverListState?.query.page ?? 1)
+    : Math.min(currentPage, totalPages);
+  const pageStartIndex = isServerDrivenPokedex ? 0 : (normalizedCurrentPage - 1) * POKEMON_PER_PAGE;
+  const paginatedPokemon = isServerDrivenPokedex
+    ? pokemon
+    : filteredPokemon.slice(pageStartIndex, pageStartIndex + POKEMON_PER_PAGE);
+  const pageStart = isServerDrivenPokedex
+    ? (serverListState?.pageStart ?? 0)
+    : filteredPokemon.length === 0
+      ? 0
+      : pageStartIndex + 1;
+  const pageEnd = isServerDrivenPokedex
+    ? (serverListState?.pageEnd ?? 0)
+    : filteredPokemon.length === 0
+      ? 0
+      : pageStartIndex + paginatedPokemon.length;
   const todayEncounterDexNumber = collectionState.encountersByDate[todayKey];
   const todayEncounter = todayEncounterDexNumber
     ? pokemon.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ?? null
     : null;
+  const isTodayEncounterShiny = Boolean(collectionState.shinyEncountersByDate[todayKey]);
   const capturedDexNumberSet = new Set(collectionState.capturedDexNumbers);
   const isTodayEncounterCaptured = todayEncounter
     ? capturedDexNumberSet.has(todayEncounter.nationalDexNumber)
     : false;
-  const rerolledEncounter = isCollectionReady && todayEncounter
-    ? selectDailyEncounterPokemon({
+  const canRerollTodayEncounter = Boolean(
+    isCollectionReady &&
+      todayEncounter &&
+      !isTodayEncounterCaptured &&
+      getAvailableDailyEncounterPokemon({
         pokemon,
         capturedDexNumbers: collectionState.capturedDexNumbers,
         excludedDexNumbers: [todayEncounter.nationalDexNumber],
-      })
-    : null;
-  const canRerollTodayEncounter = Boolean(todayEncounter && !isTodayEncounterCaptured && rerolledEncounter);
+      }).length > 0,
+  );
   const recentCaptures = [...collectionState.capturedDexNumbers]
     .slice(-6)
     .reverse()
     .map((dexNumber) => pokemon.find((entry) => entry.nationalDexNumber === dexNumber))
     .filter((entry): entry is PokemonSummary => Boolean(entry));
 
+  function persistCollectionState(nextState: PokedexCollectionState) {
+    setCollectionState(nextState);
+    window.localStorage.setItem(POKEDEX_COLLECTION_STORAGE_KEY, JSON.stringify(nextState));
+  }
+
   useEffect(() => {
+    if (usesServerCollectionState) {
+      const dailyAnonymousSessionId = getOrCreateAnonymousSessionId();
+      setDailyAnonymousSessionId(dailyAnonymousSessionId);
+
+      const controller = new AbortController();
+
+      void (async () => {
+        try {
+          const response = await fetch(`/api/daily/state?sessionId=${encodeURIComponent(dailyAnonymousSessionId)}`, {
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load daily collection state.");
+          }
+
+          const nextState = sanitizeCollectionState(await response.json());
+          persistCollectionState(nextState);
+        } catch {
+          try {
+            const storedCollection = window.localStorage.getItem(POKEDEX_COLLECTION_STORAGE_KEY);
+
+            if (storedCollection) {
+              persistCollectionState(sanitizeCollectionState(JSON.parse(storedCollection)));
+            }
+          } catch {
+            persistCollectionState(getInitialCollectionState());
+          }
+        } finally {
+          setIsCollectionReady(true);
+        }
+      })();
+
+      return () => {
+        controller.abort();
+      };
+    }
+
     try {
       const storedCollection = window.localStorage.getItem(POKEDEX_COLLECTION_STORAGE_KEY);
 
@@ -111,11 +212,24 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     }
 
     setIsCollectionReady(true);
-  }, []);
+  }, [usesServerCollectionState]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [deferredSearchTerm, selectedType, selectedGeneration, sortKey, sortDirection]);
+
+  useEffect(() => {
+    if (!serverListState) {
+      return;
+    }
+
+    setSearchTerm(serverListState.query.searchTerm);
+    setSelectedType(serverListState.query.selectedType);
+    setSelectedGeneration(serverListState.query.selectedGeneration);
+    setSortKey(serverListState.query.sortKey);
+    setSortDirection(serverListState.query.sortDirection);
+    setCurrentPage(serverListState.query.page);
+  }, [serverListState]);
 
   useEffect(() => {
     if (currentPage !== normalizedCurrentPage) {
@@ -124,6 +238,74 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
   }, [currentPage, normalizedCurrentPage]);
 
   useEffect(() => {
+    if (!isServerDrivenPokedex) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (deferredSearchTerm.length > 0) {
+      nextSearchParams.set("search", deferredSearchTerm);
+    } else {
+      nextSearchParams.delete("search");
+    }
+
+    if (selectedType !== ALL_TYPE_FILTER) {
+      nextSearchParams.set("type", selectedType);
+    } else {
+      nextSearchParams.delete("type");
+    }
+
+    if (selectedGeneration !== ALL_GENERATION_FILTER) {
+      nextSearchParams.set("generation", selectedGeneration);
+    } else {
+      nextSearchParams.delete("generation");
+    }
+
+    if (sortKey !== DEFAULT_SORT_KEY) {
+      nextSearchParams.set("sort", sortKey);
+    } else {
+      nextSearchParams.delete("sort");
+    }
+
+    if (sortDirection !== DEFAULT_SORT_DIRECTION) {
+      nextSearchParams.set("direction", sortDirection);
+    } else {
+      nextSearchParams.delete("direction");
+    }
+
+    if (currentPage > 1) {
+      nextSearchParams.set("page", String(currentPage));
+    } else {
+      nextSearchParams.delete("page");
+    }
+
+    const nextQueryString = nextSearchParams.toString();
+    const currentQueryString = searchParams.toString();
+
+    if (nextQueryString === currentQueryString) {
+      return;
+    }
+
+    router.replace(nextQueryString.length > 0 ? `${pathname}?${nextQueryString}` : pathname, { scroll: false });
+  }, [
+    currentPage,
+    deferredSearchTerm,
+    isServerDrivenPokedex,
+    pathname,
+    router,
+    searchParams,
+    selectedGeneration,
+    selectedType,
+    sortDirection,
+    sortKey,
+  ]);
+
+  useEffect(() => {
+    if (usesServerCollectionState) {
+      return;
+    }
+
     if (!isCollectionReady) {
       return;
     }
@@ -149,8 +331,12 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
         ...currentState.encountersByDate,
         [todayKey]: encounter.nationalDexNumber,
       },
+      shinyEncountersByDate: {
+        ...currentState.shinyEncountersByDate,
+        [todayKey]: rollDailyEncounterShiny(),
+      },
     }));
-  }, [collectionState.capturedDexNumbers, collectionState.encountersByDate, isCollectionReady, pokemon, todayKey]);
+  }, [collectionState.capturedDexNumbers, collectionState.encountersByDate, isCollectionReady, pokemon, todayKey, usesServerCollectionState]);
 
   useEffect(() => {
     if (!isCollectionReady) {
@@ -169,8 +355,52 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
     setCurrentPage(1);
   }
 
+  async function syncDailyCollectionState(action: "capture" | "reset" | "reroll" | "release", nationalDexNumber?: number) {
+    if (!dailyAnonymousSessionId || isSyncingDailyState) {
+      return;
+    }
+
+    setIsSyncingDailyState(true);
+
+    try {
+      const response = await fetch("/api/daily/state", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: dailyAnonymousSessionId,
+          action,
+          nationalDexNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const nextState = sanitizeCollectionState(await response.json());
+      persistCollectionState(nextState);
+    } finally {
+      setIsSyncingDailyState(false);
+    }
+  }
+
+  function releaseCapturedPokemon(nationalDexNumber: number) {
+    if (view !== "my-pokemon") {
+      return;
+    }
+
+    void syncDailyCollectionState("release", nationalDexNumber);
+  }
+
   function captureTodayEncounter() {
     if (!todayEncounter || isTodayEncounterCaptured) {
+      return;
+    }
+
+    if (view === "daily") {
+      void syncDailyCollectionState("capture");
       return;
     }
 
@@ -185,9 +415,16 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
           capturedDexNumbers: [...currentState.capturedDexNumbers, todayEncounter.nationalDexNumber].sort(
             (left, right) => left - right,
           ),
+          shinyCapturedDexNumbers: isTodayEncounterShiny
+            ? [...currentState.shinyCapturedDexNumbers, todayEncounter.nationalDexNumber].sort((left, right) => left - right)
+            : currentState.shinyCapturedDexNumbers,
           encountersByDate: {
             ...currentState.encountersByDate,
             [todayKey]: todayEncounter.nationalDexNumber,
+          },
+          shinyEncountersByDate: {
+            ...currentState.shinyEncountersByDate,
+            [todayKey]: isTodayEncounterShiny,
           },
         };
       });
@@ -199,16 +436,39 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
       return;
     }
 
+    if (view === "daily") {
+      void syncDailyCollectionState("reset");
+      return;
+    }
+
     setCollectionState((currentState) => ({
       ...currentState,
       capturedDexNumbers: currentState.capturedDexNumbers.filter(
+        (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
+      ),
+      shinyCapturedDexNumbers: currentState.shinyCapturedDexNumbers.filter(
         (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
       ),
     }));
   }
 
   function rerollTodayEncounter() {
-    if (!todayEncounter || isTodayEncounterCaptured || !rerolledEncounter) {
+    if (!todayEncounter || isTodayEncounterCaptured || !canRerollTodayEncounter) {
+      return;
+    }
+
+    if (view === "daily") {
+      void syncDailyCollectionState("reroll");
+      return;
+    }
+
+    const rerolledEncounter = selectRandomDailyEncounterPokemon({
+      pokemon,
+      capturedDexNumbers: collectionState.capturedDexNumbers,
+      excludedDexNumbers: [todayEncounter.nationalDexNumber],
+    });
+
+    if (!rerolledEncounter) {
       return;
     }
 
@@ -217,6 +477,10 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
       encountersByDate: {
         ...currentState.encountersByDate,
         [todayKey]: rerolledEncounter.nationalDexNumber,
+      },
+      shinyEncountersByDate: {
+        ...currentState.shinyEncountersByDate,
+        [todayKey]: rollDailyEncounterShiny(),
       },
     }));
   }
@@ -227,11 +491,13 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
         {view === "daily" ? (
           <DailyEncounter
             encounter={isCollectionReady ? todayEncounter : null}
+            isShiny={isCollectionReady ? isTodayEncounterShiny : false}
             capturedCount={collectionState.capturedDexNumbers.length}
             totalCount={pokemon.length}
             recentCaptures={recentCaptures}
             isCaptured={isTodayEncounterCaptured}
             isReady={isCollectionReady}
+            isSyncing={isSyncingDailyState}
             onCapture={captureTodayEncounter}
             onResetToday={resetTodayEncounter}
             onRerollToday={rerollTodayEncounter}
@@ -240,7 +506,12 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
         ) : null}
 
         {view === "my-pokemon" ? (
-          <MyPokemonGallery pokemon={sourcePokemon} />
+          <MyPokemonGallery
+            pokemon={sourcePokemon}
+            shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}
+            isReleasing={isSyncingDailyState}
+            onRelease={releaseCapturedPokemon}
+          />
         ) : null}
 
         {view === "pokedex" ? (
@@ -250,11 +521,20 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
               searchTerm={searchTerm}
               selectedType={selectedType}
               selectedGeneration={selectedGeneration}
-              resultCount={filteredPokemon.length}
-              totalCount={sourcePokemon.length}
-              onSearchChange={setSearchTerm}
-              onTypeChange={setSelectedType}
-              onGenerationChange={setSelectedGeneration}
+              resultCount={isServerDrivenPokedex ? (serverListState?.totalResults ?? 0) : filteredPokemon.length}
+              totalCount={isServerDrivenPokedex ? (serverListState?.totalCount ?? 0) : sourcePokemon.length}
+              onSearchChange={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(1);
+              }}
+              onTypeChange={(value) => {
+                setSelectedType(value);
+                setCurrentPage(1);
+              }}
+              onGenerationChange={(value) => {
+                setSelectedGeneration(value);
+                setCurrentPage(1);
+              }}
               onReset={resetFilters}
             />
             <div className="w-full space-y-6">
@@ -277,7 +557,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex" }: Pokede
                 currentPage={normalizedCurrentPage}
                 totalPages={totalPages}
                 pageSize={POKEMON_PER_PAGE}
-                totalResults={filteredPokemon.length}
+                totalResults={isServerDrivenPokedex ? (serverListState?.totalResults ?? 0) : filteredPokemon.length}
                 pageStart={pageStart}
                 pageEnd={pageEnd}
                 onPageChange={setCurrentPage}

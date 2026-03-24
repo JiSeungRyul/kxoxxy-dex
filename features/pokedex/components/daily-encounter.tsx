@@ -9,11 +9,13 @@ import { formatDexNumber, formatGenerationLabel, formatTypeLabel } from "@/featu
 
 type DailyEncounterProps = {
   encounter: PokemonSummary | null;
+  isShiny: boolean;
   capturedCount: number;
   totalCount: number;
   recentCaptures: PokemonSummary[];
   isCaptured: boolean;
   isReady: boolean;
+  isSyncing: boolean;
   onCapture: () => void;
   onResetToday: () => void;
   onRerollToday: () => void;
@@ -279,11 +281,13 @@ const ENCOUNTER_SCENE_STYLES: Record<
 
 export function DailyEncounter({
   encounter,
+  isShiny,
   capturedCount,
   totalCount,
   recentCaptures,
   isCaptured,
   isReady,
+  isSyncing,
   onCapture,
   onResetToday,
   onRerollToday,
@@ -292,6 +296,13 @@ export function DailyEncounter({
   const completionRate = totalCount === 0 ? 0 : Math.round((capturedCount / totalCount) * 100);
   const mainType = encounter?.types[0]?.name ?? "grass";
   const sceneStyle = ENCOUNTER_SCENE_STYLES[mainType];
+  const encounterDisplayImageUrl = encounter
+    ? isShiny
+      ? encounter.forms.find((form) => form.isDefault)?.shinyArtworkImageUrl ??
+        encounter.forms[0]?.shinyArtworkImageUrl ??
+        encounter.artworkImageUrl
+      : encounter.imageUrl
+    : null;
   const captureTimeoutRef = useRef<number | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
   const [isThrowingBall, setIsThrowingBall] = useState(false);
@@ -317,7 +328,7 @@ export function DailyEncounter({
   }, []);
 
   function throwPokeball() {
-    if (!encounter || isCaptured || isThrowingBall) {
+    if (!encounter || isCaptured || isThrowingBall || isSyncing) {
       return;
     }
 
@@ -376,7 +387,7 @@ export function DailyEncounter({
                 <button
                   type="button"
                   onClick={throwPokeball}
-                  disabled={isCaptured || isThrowingBall}
+                  disabled={isCaptured || isThrowingBall || isSyncing}
                   className={`relative block min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene}`}
                 >
                   <div
@@ -395,10 +406,16 @@ export function DailyEncounter({
                     야생의 {encounter.name}
                   </div>
 
+                  {isShiny ? (
+                    <div className="absolute right-6 top-6 rounded-full bg-amber-300/90 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-amber-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)]">
+                      Shiny
+                    </div>
+                  ) : null}
+
                   <div className="absolute inset-x-0 top-[23%] flex justify-center">
                     <div className={`relative ${isCaptured ? "capture-ring-pulse" : ""}`}>
                       <Image
-                        src={encounter.imageUrl}
+                        src={encounterDisplayImageUrl ?? encounter.imageUrl}
                         alt={encounter.name}
                         width={150}
                         height={150}
@@ -425,7 +442,7 @@ export function DailyEncounter({
                   <div className="absolute bottom-6 right-6 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
                     {isCaptured
                       ? "오늘의 포획 완료"
-                      : isThrowingBall
+                      : isThrowingBall || isSyncing
                         ? "포켓볼이 날아갑니다..."
                         : "화면을 클릭해 포켓볼을 던지세요"}
                   </div>
@@ -437,7 +454,7 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={throwPokeball}
-                    disabled={isCaptured || isThrowingBall}
+                    disabled={isCaptured || isThrowingBall || isSyncing}
                     className="inline-flex h-12 items-center justify-center rounded-2xl bg-emerald-950 px-5 text-sm font-semibold text-emerald-50 transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-emerald-950/35 disabled:text-emerald-50/70 dark:bg-emerald-100 dark:text-emerald-950 dark:disabled:bg-emerald-100/30 dark:disabled:text-emerald-950/60"
                   >
                     {isCaptured ? "포획 완료" : isThrowingBall ? "포획 시도 중" : "포켓볼 던지기"}
@@ -445,6 +462,7 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={onResetToday}
+                    disabled={isSyncing}
                     className="inline-flex h-12 items-center justify-center rounded-2xl border border-emerald-950/15 bg-white/80 px-5 text-sm font-semibold text-emerald-950 transition hover:bg-white dark:border-white/10 dark:bg-white/10 dark:text-emerald-50 dark:hover:bg-white/15"
                   >
                     오늘 상태 초기화
@@ -495,6 +513,11 @@ export function DailyEncounter({
                   {isCaptured ? (
                     <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-emerald-900 dark:text-emerald-100">
                       포획 완료
+                    </span>
+                  ) : null}
+                  {isShiny ? (
+                    <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-amber-900 dark:text-amber-100">
+                      Shiny
                     </span>
                   ) : null}
                 </div>

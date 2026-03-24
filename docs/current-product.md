@@ -1,104 +1,59 @@
 # Current Product
 
-## Snapshot
-- Project name: `KxoxxyDex`
-- App type: desktop-first Korean Pokemon encyclopedia MVP
-- Main route: `/`
-- Data source: local snapshot in `data/pokedex.json`
-- Snapshot metadata:
-  - source: `pokeapi`
-  - syncedAt: `2026-03-15T15:51:46.289Z`
-  - totalPokemon: `1025`
-
-## Implemented Routes
-- `/`
-  - Main Pokedex page
-  - Search, filter, sort, pagination
-- `/pokedex`
-  - Dedicated Pokedex route
-  - Same core browsing experience as the main route
-- `/daily`
-  - Daily encounter view
-  - Local collection-state interaction
-- `/my-pokemon`
-  - Captured Pokemon gallery view
-  - Local collection-state interaction
-- `/pokemon/[slug]`
-  - Pokemon detail page
-  - Form switching, shiny toggle, previous/next navigation, evolution path, type matchup, media sections, grouped Pokedex references
-- `/contact`
-  - Contact / inquiry page
-- `/terms`
-  - Terms page
-- `/privacy`
-  - Privacy policy page
-
-## Current Product Scope
-- Korean UI
-- Pokemon list browsing from a prebuilt JSON snapshot
-- Search by Korean name
-- Filter by type
-- Filter by generation
-- Sort by dex number, name, and base stats
-- Paginated table view
-- Detail page per Pokemon
-- Form-aware detail page with regional / mega / gigantamax switching
-- Hero artwork toggle for normal / shiny presentation
-- Ability table with temporary frontend-held Korean description support
-- Grouped regional Pokedex number display with representative Pokedex flavor text
-- Light / dark theme toggle
-- Footer with service / policy / resource links
-
-## Explicitly Present In Code Now
-- Client-side Pokedex interaction lives in `features/pokedex/components/pokedex-page.tsx`
-- Data loading is snapshot-based and file-backed
-- Pokemon detail data is read from the same snapshot, not from live API calls
-- PostgreSQL connection groundwork is present:
-  - local Postgres Docker Compose runtime
-  - `compose.yaml`
-  - `drizzle.config.ts`
-  - `lib/db/client.ts`
-  - `docs/database-plan.md`
-- `data/pokedex.json` can now be imported into PostgreSQL:
-  - snapshot metadata is stored in `pokedex_snapshots`
-  - Pokemon catalog rows are stored in `pokemon_catalog`
-  - local verification result:
-    - `pokedex_snapshots = 1`
-    - `pokemon_catalog = 1025`
-- Collection-related utility types and routes are active:
-  - `capturedDexNumbers`
-  - `encountersByDate`
+## Product Snapshot
+- Product name: `KxoxxyDex`
+- Product type: Korean-first Pokemon encyclopedia MVP
+- Primary routes:
+  - `/`
+  - `/pokedex`
+  - `/pokemon/[slug]`
   - `/daily`
   - `/my-pokemon`
 
-## Out Of Scope In Current Workspace
-- Authentication
-- Server-side user state
-- API routes for gameplay state
-- Automated tests
+## User-Facing Features
+- Main Pokedex browsing with search, type filter, generation filter, sorting, and pagination
+- Pokemon detail pages with:
+  - form switching
+  - shiny artwork toggle
+  - previous/next navigation
+  - base stats
+  - abilities
+  - grouped regional Pokedex references
+  - evolution displays
+  - defensive matchup reference
+  - cry audio and footprint display
+- Daily encounter flow with anonymous-session-backed capture progress and shiny chance
+- My Pokemon gallery based on captured Pokemon stored for the current anonymous session
+- Team builder for saving up to six Pokemon with per-member level, nature, item, ability, moves, IVs, EVs, and level-based battle stat display
+- Theme toggle
+- Contact, terms, and privacy pages
 
-## Planned Next Features
-- Login
-- User/auth schema implementation
-- Move temporary frontend-held Korean ability description data into the database
-- Team maker
-- Random team picker
+## Current Product Behavior
+- The main browsing experience is server-driven for list queries and detail lookup.
+- Daily encounter now uses anonymous-session-backed server persistence.
+- My Pokemon now reads the same anonymous-session-backed server collection state as daily.
+- Team builder and My Teams now store team data per anonymous session in PostgreSQL.
+- Team builder now supports per-member level input and preserves that level in saved teams.
+- Daily encounter state stores whether the current encounter is shiny.
+- My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
+- Captured Pokemon progress and saved teams still do not sync across devices or accounts.
+- The app currently presents one Korean-first experience and does not support runtime locale switching.
+- Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
-## Deployment Plan
-- Short-term production direction:
-  - deploy the Next.js app on Vercel
-  - use managed PostgreSQL such as Neon or Supabase
-  - implement credentials-based login first through Auth.js
-- Social login direction:
-  - keep room for adding Kakao login later without replacing the base auth model
-- Data rollout direction:
-  - continue serving the core Pokedex catalog from `data/pokedex.json` initially
-  - move user-owned data and auth/session data into PostgreSQL before migrating catalog-like content
-- Local development direction:
-  - prefer Docker-based PostgreSQL when database work begins
-  - Docker Compose PostgreSQL groundwork is already added
+## Current Constraints
+- Authentication is not implemented.
+- Server-backed user persistence is not implemented.
+- Automated tests are not present.
+- Catalog data operations are still split across snapshot generation and DB import workflows.
+- Anonymous daily persistence and anonymous team persistence exist, but account-linked user persistence does not.
+- Daily and team persistence require the new DB tables to be migrated before the API routes can work.
+- After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
 
-## Known Constraints
-- `next/font/google` is used in `app/layout.tsx`, so restricted network environments can affect build behavior
-- The app depends on `data/pokedex.json` being present and valid
-- Filtering and sorting run on the full in-memory dataset on the client
+## Current Risks
+- Anonymous session identity is browser-scoped and is not durable across devices or account changes.
+- Collection ownership is still anonymous-session-based rather than account-linked.
+- Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
+
+## Current Content Sources
+- Pokemon catalog content originates from PokeAPI-derived snapshot generation.
+- Temporary Korean ability-description support still includes frontend-held translation logic.

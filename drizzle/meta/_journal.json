@@ -8,6 +8,34 @@
       "when": 1773626101254,
       "tag": "0000_unusual_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773810000000,
+      "tag": "0001_daily_capture_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773900000000,
+      "tag": "0002_daily_shiny_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774000000000,
+      "tag": "0003_team_builder",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774100000000,
+      "tag": "0004_team_member_level",
+      "breakpoints": true
     }
   ]
 }
