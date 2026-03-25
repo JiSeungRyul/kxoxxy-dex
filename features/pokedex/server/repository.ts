@@ -29,6 +29,7 @@ import type {
   PokemonSummary,
   PokemonTeam,
   PokemonTeamBuilderCatalogEntry,
+  PokemonTeamBuilderOptionEntry,
   PokemonTeamMember,
   PokemonTeamMemberDraft,
   SortDirection,
@@ -39,8 +40,8 @@ import {
   getTeamValidationError,
   rollDailyEncounterShiny,
   sanitizeTeamMembers,
-  selectDailyEncounterPokemon,
-  selectRandomDailyEncounterPokemon,
+  selectDailyEncounterDexNumber,
+  selectRandomDailyEncounterDexNumber,
 } from "@/features/pokedex/utils";
 
 const SNAPSHOT_PATH = path.join(process.cwd(), "data", "pokedex.json");
@@ -107,6 +108,10 @@ async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
   return rows[0] ?? null;
 }
 
+type DexNumberRow = {
+  nationalDexNumber: number;
+};
+
 type CollectionCatalogEntryRow = {
   payload: PokemonCollectionCatalogEntry;
 };
@@ -115,10 +120,44 @@ type MyPokemonCatalogEntryRow = {
   payload: PokemonCollectionPageEntry;
 };
 
+type TeamBuilderOptionEntryRow = {
+  payload: PokemonTeamBuilderOptionEntry;
+};
+
 type TeamBuilderCatalogEntryRow = {
   payload: PokemonTeamBuilderCatalogEntry;
 };
 
+async function getAllPokemonDailyDexNumberEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<DexNumberRow[]>(
+    `
+      SELECT national_dex_number AS "nationalDexNumber"
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.nationalDexNumber);
+}
+
+async function getAllPokemonTeamBuilderOptionEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<TeamBuilderOptionEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'name', name_ko
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
 async function getAllPokemonCollectionCatalogEntries(snapshotId: number) {
   const rows = await postgresClient.unsafe<CollectionCatalogEntryRow[]>(
     `
@@ -218,6 +257,105 @@ async function getAllPokemonCatalogEntries(snapshotId: number) {
   return rows.map((row) => row.payload);
 }
 
+async function getPokemonCollectionCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
+  if (dexNumbers.length === 0) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<CollectionCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'slug', slug,
+        'name', name_ko,
+        'imageUrl', payload->>'imageUrl',
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'defaultShinyArtworkImageUrl', COALESCE(
+          (
+            SELECT form->>'shinyArtworkImageUrl'
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE COALESCE((form->>'isDefault')::boolean, false)
+            LIMIT 1
+          ),
+          (SELECT form->>'shinyArtworkImageUrl' FROM jsonb_array_elements(payload->'forms') form LIMIT 1),
+          payload->>'artworkImageUrl'
+        ),
+        'generation', payload->'generation',
+        'types', payload->'types',
+        'stats', payload->'stats'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      AND national_dex_number = ANY($2::int[])
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId, dexNumbers],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function getPokemonMyPokemonCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
+  if (dexNumbers.length === 0) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<MyPokemonCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'slug', slug,
+        'name', name_ko,
+        'imageUrl', payload->>'imageUrl',
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'defaultShinyArtworkImageUrl', COALESCE(
+          (
+            SELECT form->>'shinyArtworkImageUrl'
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE COALESCE((form->>'isDefault')::boolean, false)
+            LIMIT 1
+          ),
+          (SELECT form->>'shinyArtworkImageUrl' FROM jsonb_array_elements(payload->'forms') form LIMIT 1),
+          payload->>'artworkImageUrl'
+        ),
+        'types', payload->'types'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      AND national_dex_number = ANY($2::int[])
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId, dexNumbers],
+  );
+
+  return rows.map((row) => row.payload);
+}
+async function getPokemonTeamBuilderCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
+  if (dexNumbers.length === 0) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<TeamBuilderCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'name', name_ko,
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'types', payload->'types',
+        'stats', payload->'stats',
+        'abilities', payload->'abilities',
+        'hiddenAbility', payload->'hiddenAbility'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      AND national_dex_number = ANY($2::int[])
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId, dexNumbers],
+  );
+
+  return rows.map((row) => row.payload);
+}
 async function getPokemonCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
   if (dexNumbers.length === 0) {
     return [];
@@ -253,6 +391,22 @@ async function readPokedexCatalogSnapshot() {
   };
 }
 
+async function readPokedexDailyDexNumberSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemonDexNumbers: [],
+      totalCount: 0,
+    };
+  }
+
+  return {
+    pokemonDexNumbers: await getAllPokemonDailyDexNumberEntries(latestSnapshot.id),
+    totalCount: latestSnapshot.totalPokemon,
+  };
+}
+
 async function readPokedexCollectionCatalogSnapshot() {
   const latestSnapshot = await getLatestSnapshotRecord();
 
@@ -281,7 +435,7 @@ async function readPokedexMyPokemonCatalogSnapshot() {
   };
 }
 
-async function readPokedexTeamBuilderCatalogSnapshot() {
+async function readPokedexTeamBuilderOptionSnapshot() {
   const latestSnapshot = await getLatestSnapshotRecord();
 
   if (!latestSnapshot) {
@@ -291,11 +445,15 @@ async function readPokedexTeamBuilderCatalogSnapshot() {
   }
 
   return {
-    pokemon: await getAllPokemonTeamBuilderCatalogEntries(latestSnapshot.id),
+    pokemon: await getAllPokemonTeamBuilderOptionEntries(latestSnapshot.id),
   };
 }
 
 const getCachedPokedexCatalogSnapshot = unstable_cache(readPokedexCatalogSnapshot, ["pokedex-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexDailyDexNumberSnapshot = unstable_cache(readPokedexDailyDexNumberSnapshot, ["pokedex-daily-dex-number-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
@@ -307,7 +465,7 @@ const getCachedPokedexMyPokemonCatalogSnapshot = unstable_cache(readPokedexMyPok
   revalidate: 60 * 60 * 24,
 });
 
-const getCachedPokedexTeamBuilderCatalogSnapshot = unstable_cache(readPokedexTeamBuilderCatalogSnapshot, ["pokedex-team-builder-catalog-snapshot"], {
+const getCachedPokedexTeamBuilderOptionSnapshot = unstable_cache(readPokedexTeamBuilderOptionSnapshot, ["pokedex-team-builder-option-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
@@ -317,6 +475,14 @@ export function getPokedexCatalogSnapshot() {
   }
 
   return getCachedPokedexCatalogSnapshot();
+}
+
+export function getPokedexDailyDexNumberSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexDailyDexNumberSnapshot();
+  }
+
+  return getCachedPokedexDailyDexNumberSnapshot();
 }
 
 export function getPokedexCollectionCatalogSnapshot() {
@@ -335,12 +501,42 @@ export function getPokedexMyPokemonCatalogSnapshot() {
   return getCachedPokedexMyPokemonCatalogSnapshot();
 }
 
-export function getPokedexTeamBuilderCatalogSnapshot() {
+export function getPokedexTeamBuilderOptionSnapshot() {
   if (process.env.NODE_ENV !== "production") {
-    return readPokedexTeamBuilderCatalogSnapshot();
+    return readPokedexTeamBuilderOptionSnapshot();
   }
 
-  return getCachedPokedexTeamBuilderCatalogSnapshot();
+  return getCachedPokedexTeamBuilderOptionSnapshot();
+}
+
+export async function getPokemonCollectionEntriesByDexNumbers(dexNumbers: number[]) {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return [];
+  }
+
+  return getPokemonCollectionCatalogEntriesByDexNumbers(latestSnapshot.id, dexNumbers);
+}
+
+export async function getPokemonTeamBuilderEntriesByDexNumbers(dexNumbers: number[]) {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return [];
+  }
+
+  return getPokemonTeamBuilderCatalogEntriesByDexNumbers(latestSnapshot.id, dexNumbers);
+}
+
+export async function getPokemonMyPokemonEntriesByDexNumbers(dexNumbers: number[]) {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return [];
+  }
+
+  return getPokemonMyPokemonCatalogEntriesByDexNumbers(latestSnapshot.id, dexNumbers);
 }
 
 export async function getPokemonDetailBySlug(slug: string) {
@@ -664,14 +860,14 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
     return state;
   }
 
-  const pokemon = await getAllPokemonCatalogEntries(latestSnapshot.id);
-  const encounter = selectDailyEncounterPokemon({
-    pokemon,
+  const pokemonDexNumbers = await getAllPokemonDailyDexNumberEntries(latestSnapshot.id);
+  const encounterDexNumber = selectDailyEncounterDexNumber({
+    pokemonDexNumbers,
     capturedDexNumbers: state.capturedDexNumbers,
     dateKey,
   });
 
-  if (!encounter) {
+  if (!encounterDexNumber) {
     return state;
   }
 
@@ -680,7 +876,7 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
   await upsertDailyEncounterForSession({
     anonymousSessionId,
     dateKey,
-    nationalDexNumber: encounter.nationalDexNumber,
+    nationalDexNumber: encounterDexNumber,
     isShiny,
   });
 
@@ -688,7 +884,7 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
     ...state,
     encountersByDate: {
       ...state.encountersByDate,
-      [dateKey]: encounter.nationalDexNumber,
+      [dateKey]: encounterDexNumber,
     },
     shinyEncountersByDate: {
       ...state.shinyEncountersByDate,
@@ -784,14 +980,14 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
     return state;
   }
 
-  const pokemon = await getAllPokemonCatalogEntries(latestSnapshot.id);
-  const rerolledEncounter = selectRandomDailyEncounterPokemon({
-    pokemon,
+  const pokemonDexNumbers = await getAllPokemonDailyDexNumberEntries(latestSnapshot.id);
+  const rerolledEncounterDexNumber = selectRandomDailyEncounterDexNumber({
+    pokemonDexNumbers,
     capturedDexNumbers: state.capturedDexNumbers,
     excludedDexNumbers: [currentEncounterDexNumber],
   });
 
-  if (!rerolledEncounter) {
+  if (!rerolledEncounterDexNumber) {
     return state;
   }
 
@@ -800,7 +996,7 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
   await upsertDailyEncounterForSession({
     anonymousSessionId,
     dateKey,
-    nationalDexNumber: rerolledEncounter.nationalDexNumber,
+    nationalDexNumber: rerolledEncounterDexNumber,
     isShiny,
   });
 

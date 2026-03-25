@@ -145,8 +145,12 @@ export type PokemonCollectionPageEntry = Pick<
 export type PokemonCollectionCatalogEntry = PokemonCollectionPageEntry &
   Pick<PokemonSummary, "generation" | "stats">;
 
+export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
+
 export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
   Pick<PokemonSummary, "abilities" | "hiddenAbility">;
+
+export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name">;
 
 export type PokemonTeamBuilderCatalogEntry = Pick<
   PokemonSummary,
