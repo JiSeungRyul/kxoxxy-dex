@@ -24,13 +24,14 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - The repository is in a hybrid state.
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
-- `/daily` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/daily` now loads a collection-specific reduced Pokemon catalog payload through PostgreSQL-backed catalog queries.
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
-- `/my-pokemon` now loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/my-pokemon` now loads a slimmer collection-gallery Pokemon catalog payload through PostgreSQL-backed catalog queries.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
-- `/teams` loads Pokemon catalog data through PostgreSQL-backed catalog queries.
+- `/teams` now loads a team-builder-specific reduced Pokemon catalog payload through PostgreSQL-backed catalog queries.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
+- Local measurement on 2026-03-24 showed that production responses for `/daily`, `/my-pokemon`, and `/teams` improved after the reduced-payload change, but each route still returns roughly 1.1 MB of HTML/Flight payload.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
@@ -80,3 +81,7 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change
+
+
+
+

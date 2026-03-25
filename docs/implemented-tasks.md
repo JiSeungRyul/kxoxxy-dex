@@ -48,13 +48,15 @@
 - Added shiny encounter/capture state for daily and release support in My Pokemon
 - Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
-## Team Builder (Updated: 2026-03-23)
+## Team Builder (Updated: 2026-03-25)
 - Added `/teams` for building teams from the full catalog
 - Added `/my-teams` for browsing, editing, and deleting saved teams
 - Added anonymous-session-backed PostgreSQL storage for teams and team members
 - Added level configuration and level-based battle stat display for team members
 - Added the `0003_team_builder` and `0004_team_member_level` migrations and Drizzle schema entries
 - Hardened team save/load handling so saved member level is preserved and saved team reads stay aligned to the latest catalog snapshot
+- Split the reduced route payloads so `/daily` and `/my-pokemon` load collection-specific catalog fields while `/teams` loads only the team-builder fields it needs
+- Slimmed `/my-pokemon` again so it no longer receives daily-only catalog fields such as generation and stats
 - Verified the local team flow with `npm run typecheck`, `npm run db:migrate`, and route/API smoke checks for `/teams`, `/my-teams`, and `/api/teams/state` on 2026-03-23
 
 ## Database Groundwork
@@ -64,6 +66,10 @@
 - Added Drizzle configuration
 - Added initial catalog schema and migration files
 
+## Workflow Guardrails (Added: 2026-03-25)
+- Added a pre-commit documentation rule in AGENTS.md
+- The rule requires documenting task changes in docs/ before running git add, git commit, or git push
+- This keeps implementation notes, reasons for change, and behavior updates recorded before git history is advanced
 ## Planned Follow-Up Areas
 - Authentication
 - Server-backed user persistence
@@ -76,3 +82,27 @@
   - Prefer a direct navigation entry for favorites during the current MVP stage instead of a broader my-page shell
 - Further DB integration beyond the current hybrid stage
 - Replace anonymous browser-scoped session ownership with account-linked ownership later
+
+## UI And UX Backlog (Added: 2026-03-24)
+
+### Pokemon Detail Page
+- Fix broken Korean text in the gender-ratio display
+- Fix broken Korean text in the defensive-matchup multiplier display
+
+### Daily And My Pokemon
+- Rework the Daily Encounter background art and overall Pokemon scene styling for the main encounter CTA area
+- Improve My Pokemon gallery alignment so a single captured Pokemon does not stay left-aligned on wide screens
+- Keep My Pokemon responsive so the gallery centers cleanly and wraps downward as the viewport narrows
+- Aim for a wide-layout presentation that visually groups around five cards per row before wrapping when space allows
+
+### Team Builder
+- Add search-based Pokemon selection in addition to the current select control
+- Consider moving ability selection to a dropdown in a later step
+- Consider adding searchable item selection plus dropdown support later
+- Check whether move selection can use Pokemon-specific learnable move dropdowns later
+- Show which stat is raised and lowered when a nature is selected
+- Prevent EV inputs from exceeding the total cap during editing and add stronger over-cap feedback around the `510 / 510` indicator
+- Rebalance the layout so base stats, IVs, and EVs align more cleanly with the upper content blocks instead of feeling left-heavy
+- Rebalance the layout for nature, item, and ability controls in the same way
+- Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
+

@@ -11,6 +11,8 @@ import type {
   GenerationFilterValue,
   PokedexCollectionState,
   PokemonBaseStats,
+  PokemonCatalogListEntry,
+  PokemonCollectionPageEntry,
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
@@ -117,7 +119,7 @@ export function getDefensiveTypeMatchups(defendingTypes: PokemonTypeName[]) {
   ];
 }
 
-export function getSortValue(entry: PokemonSummary, sortKey: PokemonSortKey) {
+export function getSortValue(entry: PokemonCatalogListEntry, sortKey: PokemonSortKey) {
   if (sortKey === "nationalDexNumber") {
     return entry.nationalDexNumber;
   }
@@ -137,7 +139,7 @@ export function filterAndSortPokemon({
   sortKey = DEFAULT_SORT_KEY,
   sortDirection = DEFAULT_SORT_DIRECTION,
 }: {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCatalogListEntry[];
   searchTerm: string;
   selectedType: TypeFilterValue;
   selectedGeneration: GenerationFilterValue;
@@ -255,7 +257,7 @@ export function getAvailableDailyEncounterPokemon({
   capturedDexNumbers,
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   excludedDexNumbers?: number[];
 }) {
@@ -275,7 +277,7 @@ export function selectDailyEncounterPokemon({
   dateKey = getLocalDateKey(),
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   dateKey?: string;
   excludedDexNumbers?: number[];
@@ -298,7 +300,7 @@ export function selectRandomDailyEncounterPokemon({
   capturedDexNumbers,
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   excludedDexNumbers?: number[];
 }) {
@@ -345,7 +347,7 @@ export function getDefaultTeamLevel() {
   return 50;
 }
 
-export function getPokemonAbilityOptions(entry: Pick<PokemonSummary, "abilities" | "hiddenAbility"> | null | undefined) {
+export function getPokemonAbilityOptions(entry: Pick<PokemonCatalogListEntry, "abilities" | "hiddenAbility"> | null | undefined) {
   if (!entry) {
     return [];
   }
@@ -539,3 +541,5 @@ export function sanitizeTeamMembers(value: unknown) {
 export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
   return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
 }
+
+

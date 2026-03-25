@@ -20,12 +20,15 @@ import type {
   GenerationFilterValue,
   PokedexCollectionState,
   PokedexFilterOptions,
+  PokemonCollectionCatalogEntry,
+  PokemonCollectionPageEntry,
   PokedexListPage,
   PokedexListQuery,
   PokedexSnapshot,
   PokemonSortKey,
   PokemonSummary,
   PokemonTeam,
+  PokemonTeamBuilderCatalogEntry,
   PokemonTeamMember,
   PokemonTeamMemberDraft,
   SortDirection,
@@ -104,6 +107,103 @@ async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
   return rows[0] ?? null;
 }
 
+type CollectionCatalogEntryRow = {
+  payload: PokemonCollectionCatalogEntry;
+};
+
+type MyPokemonCatalogEntryRow = {
+  payload: PokemonCollectionPageEntry;
+};
+
+type TeamBuilderCatalogEntryRow = {
+  payload: PokemonTeamBuilderCatalogEntry;
+};
+
+async function getAllPokemonCollectionCatalogEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<CollectionCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'slug', slug,
+        'name', name_ko,
+        'imageUrl', payload->>'imageUrl',
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'defaultShinyArtworkImageUrl', COALESCE(
+          (
+            SELECT form->>'shinyArtworkImageUrl'
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE COALESCE((form->>'isDefault')::boolean, false)
+            LIMIT 1
+          ),
+          (SELECT form->>'shinyArtworkImageUrl' FROM jsonb_array_elements(payload->'forms') form LIMIT 1),
+          payload->>'artworkImageUrl'
+        ),
+        'generation', payload->'generation',
+        'types', payload->'types',
+        'stats', payload->'stats'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function getAllPokemonMyPokemonCatalogEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<MyPokemonCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'slug', slug,
+        'name', name_ko,
+        'imageUrl', payload->>'imageUrl',
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'defaultShinyArtworkImageUrl', COALESCE(
+          (
+            SELECT form->>'shinyArtworkImageUrl'
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE COALESCE((form->>'isDefault')::boolean, false)
+            LIMIT 1
+          ),
+          (SELECT form->>'shinyArtworkImageUrl' FROM jsonb_array_elements(payload->'forms') form LIMIT 1),
+          payload->>'artworkImageUrl'
+        ),
+        'types', payload->'types'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function getAllPokemonTeamBuilderCatalogEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<TeamBuilderCatalogEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'nationalDexNumber', national_dex_number,
+        'name', name_ko,
+        'artworkImageUrl', payload->>'artworkImageUrl',
+        'types', payload->'types',
+        'stats', payload->'stats',
+        'abilities', payload->'abilities',
+        'hiddenAbility', payload->'hiddenAbility'
+      ) AS payload
+      FROM pokemon_catalog
+      WHERE snapshot_id = $1
+      ORDER BY national_dex_number ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
 async function getAllPokemonCatalogEntries(snapshotId: number) {
   const rows = await postgresClient.unsafe<Array<{ payload: PokemonSummary }>>(
     `
@@ -153,7 +253,61 @@ async function readPokedexCatalogSnapshot() {
   };
 }
 
+async function readPokedexCollectionCatalogSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+    };
+  }
+
+  return {
+    pokemon: await getAllPokemonCollectionCatalogEntries(latestSnapshot.id),
+  };
+}
+
+async function readPokedexMyPokemonCatalogSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+    };
+  }
+
+  return {
+    pokemon: await getAllPokemonMyPokemonCatalogEntries(latestSnapshot.id),
+  };
+}
+
+async function readPokedexTeamBuilderCatalogSnapshot() {
+  const latestSnapshot = await getLatestSnapshotRecord();
+
+  if (!latestSnapshot) {
+    return {
+      pokemon: [],
+    };
+  }
+
+  return {
+    pokemon: await getAllPokemonTeamBuilderCatalogEntries(latestSnapshot.id),
+  };
+}
+
 const getCachedPokedexCatalogSnapshot = unstable_cache(readPokedexCatalogSnapshot, ["pokedex-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexCollectionCatalogSnapshot = unstable_cache(readPokedexCollectionCatalogSnapshot, ["pokedex-collection-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexMyPokemonCatalogSnapshot = unstable_cache(readPokedexMyPokemonCatalogSnapshot, ["pokedex-my-pokemon-catalog-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexTeamBuilderCatalogSnapshot = unstable_cache(readPokedexTeamBuilderCatalogSnapshot, ["pokedex-team-builder-catalog-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
@@ -163,6 +317,30 @@ export function getPokedexCatalogSnapshot() {
   }
 
   return getCachedPokedexCatalogSnapshot();
+}
+
+export function getPokedexCollectionCatalogSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexCollectionCatalogSnapshot();
+  }
+
+  return getCachedPokedexCollectionCatalogSnapshot();
+}
+
+export function getPokedexMyPokemonCatalogSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexMyPokemonCatalogSnapshot();
+  }
+
+  return getCachedPokedexMyPokemonCatalogSnapshot();
+}
+
+export function getPokedexTeamBuilderCatalogSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexTeamBuilderCatalogSnapshot();
+  }
+
+  return getCachedPokedexTeamBuilderCatalogSnapshot();
 }
 
 export async function getPokemonDetailBySlug(slug: string) {
@@ -952,3 +1130,5 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
+
+
