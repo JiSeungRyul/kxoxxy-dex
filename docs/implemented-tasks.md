@@ -64,6 +64,10 @@
 - Added Drizzle configuration
 - Added initial catalog schema and migration files
 
+## Workflow Guardrails (Added: 2026-03-25)
+- Added a pre-commit documentation rule in AGENTS.md
+- The rule requires documenting task changes in docs/ before running git add, git commit, or git push
+- This keeps implementation notes, reasons for change, and behavior updates recorded before git history is advanced
 ## Planned Follow-Up Areas
 - Authentication
 - Server-backed user persistence

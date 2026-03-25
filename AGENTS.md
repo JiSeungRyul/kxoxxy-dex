@@ -152,3 +152,9 @@ Before finishing:
 * Run appropriate verification
 * State assumptions and risks
 * Confirm docs still match the current runtime after the change
+
+---
+## Pre-Commit Docs
+After completing any task, document the changes in the `docs/` directory before any git operations.
+Include what changed, why it changed, and how it works.
+Do not run `git add`, `commit`, or `push` before documentation is written.
