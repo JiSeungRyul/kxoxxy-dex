@@ -24,14 +24,14 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - The repository is in a hybrid state.
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
-- `/daily` now loads a collection-specific reduced Pokemon catalog payload through PostgreSQL-backed catalog queries.
+- `/daily` now loads a dex-number-only daily candidate index through PostgreSQL-backed catalog queries and fetches encounter/recent-capture detail on demand through `app/api/pokedex/catalog`.
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
-- `/my-pokemon` now loads a slimmer collection-gallery Pokemon catalog payload through PostgreSQL-backed catalog queries.
+- `/my-pokemon` now loads captured Pokemon detail on demand through `app/api/pokedex/catalog` after anonymous-session collection state is loaded, instead of shipping the gallery catalog on first render.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
-- `/teams` now loads a team-builder-specific reduced Pokemon catalog payload through PostgreSQL-backed catalog queries.
+- `/teams` now loads a dex-number-and-name option list through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
-- Local measurement on 2026-03-24 showed that production responses for `/daily`, `/my-pokemon`, and `/teams` improved after the reduced-payload change, but each route still returns roughly 1.1 MB of HTML/Flight payload.
+- Local `npm run start` smoke measurement on 2026-03-25 showed first-response HTML/Flight payloads of about 25.9 KB for `/daily`, 21.8 KB for `/my-pokemon`, and 75.2 KB for `/teams` after the on-demand catalog-detail follow-up change.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.

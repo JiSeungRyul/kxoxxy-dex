@@ -271,6 +271,23 @@ export function getAvailableDailyEncounterPokemon({
   );
 }
 
+export function getAvailableDailyEncounterDexNumbers({
+  pokemonDexNumbers,
+  capturedDexNumbers,
+  excludedDexNumbers = [],
+}: {
+  pokemonDexNumbers: number[];
+  capturedDexNumbers: number[];
+  excludedDexNumbers?: number[];
+}) {
+  const capturedDexNumberSet = new Set(capturedDexNumbers);
+  const excludedDexNumberSet = new Set(excludedDexNumbers);
+
+  return pokemonDexNumbers.filter(
+    (dexNumber) => !capturedDexNumberSet.has(dexNumber) && !excludedDexNumberSet.has(dexNumber),
+  );
+}
+
 export function selectDailyEncounterPokemon({
   pokemon,
   capturedDexNumbers,
@@ -295,6 +312,30 @@ export function selectDailyEncounterPokemon({
   return candidates[hashString(dateKey) % candidates.length];
 }
 
+export function selectDailyEncounterDexNumber({
+  pokemonDexNumbers,
+  capturedDexNumbers,
+  dateKey = getLocalDateKey(),
+  excludedDexNumbers = [],
+}: {
+  pokemonDexNumbers: number[];
+  capturedDexNumbers: number[];
+  dateKey?: string;
+  excludedDexNumbers?: number[];
+}) {
+  const candidates = getAvailableDailyEncounterDexNumbers({
+    pokemonDexNumbers,
+    capturedDexNumbers,
+    excludedDexNumbers,
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates[hashString(dateKey) % candidates.length] ?? null;
+}
+
 export function selectRandomDailyEncounterPokemon({
   pokemon,
   capturedDexNumbers,
@@ -315,6 +356,28 @@ export function selectRandomDailyEncounterPokemon({
   }
 
   return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+export function selectRandomDailyEncounterDexNumber({
+  pokemonDexNumbers,
+  capturedDexNumbers,
+  excludedDexNumbers = [],
+}: {
+  pokemonDexNumbers: number[];
+  capturedDexNumbers: number[];
+  excludedDexNumbers?: number[];
+}) {
+  const candidates = getAvailableDailyEncounterDexNumbers({
+    pokemonDexNumbers,
+    capturedDexNumbers,
+    excludedDexNumbers,
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 }
 
 export function rollDailyEncounterShiny(odds = 4096) {

@@ -44,19 +44,21 @@
 4. `PokemonDetailPage` renders the full detail experience
 
 ### Daily And Collection Routes
-1. `app/daily/page.tsx` loads a collection-specific reduced catalog payload from PostgreSQL through `getPokedexCollectionCatalogSnapshot()`
+1. `app/daily/page.tsx` loads a dex-number-only daily candidate snapshot from PostgreSQL through `getPokedexDailyDexNumberSnapshot()`
 2. The client creates or reuses an anonymous session id in local storage
 3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
-4. `app/my-pokemon/page.tsx` loads a slimmer collection-gallery payload from PostgreSQL that omits daily-only fields such as generation and stats
-5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
-6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
+4. `PokedexPage` fetches encounter and recent-capture detail on demand through `app/api/pokedex/catalog/route.ts` when the daily client state is ready
+5. `app/my-pokemon/page.tsx` ships no gallery catalog on first render and relies on the same anonymous-session collection state to request captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
+6. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
+7. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
 ### Team Routes
-1. `app/teams/page.tsx` loads a team-builder-specific reduced catalog payload from PostgreSQL through `getPokedexTeamBuilderCatalogSnapshot()`
-2. The client creates or reuses the same anonymous session id used by daily and collection flows
-3. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
-4. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
-5. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
+1. `app/teams/page.tsx` loads a team-builder option list from PostgreSQL through `getPokedexTeamBuilderOptionSnapshot()`
+2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` so the first render does not ship the full team-builder catalog
+3. The client creates or reuses the same anonymous session id used by daily and collection flows
+4. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
+5. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
+6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
@@ -86,19 +88,12 @@
 ## Immediate Follow-Up TODO
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
 - Add a lightweight verification flow for daily and team state after migrations and server restarts.
-- Continue reducing the remaining initial route payload on `/daily`, `/my-pokemon`, and `/teams`.
-  - A reduced catalog-list payload shipped on 2026-03-24, replacing the previous full `PokemonSummary` route payload for those pages.
+- Keep monitoring the reduced first-load payload strategy across `/daily`, `/my-pokemon`, and `/teams`.
+  - A reduced catalog-list payload shipped on 2026-03-24, replacing the previous full `PokemonSummary` route payload for the daily, collection, and team-builder pages.
   - On 2026-03-25, the shared reduced payload was split again so `/daily` and `/my-pokemon` no longer receive team-builder ability data, and `/teams` no longer receives collection-only fields such as slugs, generation, and shiny image variants.
-  - In a follow-up step, `/my-pokemon` was slimmed further so it no longer receives daily-only fields such as generation and stats.
-  - Local `npm run start` measurement on 2026-03-24 showed second-request totals of about 0.052s for `/daily`, 0.040s for `/my-pokemon`, and 0.031s for `/teams`.
-  - The same production responses still returned large payloads at roughly 1.10 MB to 1.11 MB per route, so the remaining bottleneck is transfer size more than server time.
-  - Local `npm run dev` measurement on 2026-03-24 remained much slower at about 13.50s for `/daily`, 10.60s for `/my-pokemon`, and 4.70s for `/teams` on second request.
-- Rework catalog delivery for the daily, collection, and team-builder routes so they do not ship broad catalog data to the client on first load.
-  - Prefer route-specific payloads or smaller server-derived view models over broad refactors.
-  - Keep `app/` thin and keep catalog shaping inside `features/pokedex/server/`.
-  - Preserve the current `PokemonSummary` contract unless a deliberate schema migration is planned.
+  - In follow-up steps on 2026-03-25, `/daily` was reworked to ship only daily candidate dex numbers, `/teams` was reworked to ship only dex-number-and-name option entries, and `/my-pokemon` was reworked to ship no gallery catalog on first render.
+  - Local `npm run start` smoke measurement on 2026-03-25 showed first-response HTML sizes of about 25.9 KB for `/daily`, 21.8 KB for `/my-pokemon`, and 75.2 KB for `/teams`.
 - Revisit the current caching approach for reduced and full catalog reads.
   - `unstable_cache` should be re-evaluated after payload shape changes because cache effectiveness and data-cache limits may differ by route payload size.
   - Any follow-up should verify whether cache granularity, payload shape, or route-level read strategy needs to change.
 - Keep re-measuring both `npm run dev` and `npm run start` for `/`, `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, and `/api/teams/state` after each meaningful performance change so the next improvement is explicit.
-
