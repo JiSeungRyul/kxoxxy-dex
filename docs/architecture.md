@@ -44,15 +44,15 @@
 4. `PokemonDetailPage` renders the full detail experience
 
 ### Daily And Collection Routes
-1. `app/daily/page.tsx` loads a reduced catalog list payload from PostgreSQL through `getPokedexCatalogListSnapshot()`
+1. `app/daily/page.tsx` loads a collection-specific reduced catalog payload from PostgreSQL through `getPokedexCollectionCatalogSnapshot()`
 2. The client creates or reuses an anonymous session id in local storage
 3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
-4. `app/my-pokemon/page.tsx` also loads the same reduced catalog list payload from PostgreSQL
+4. `app/my-pokemon/page.tsx` loads a slimmer collection-gallery payload from PostgreSQL that omits daily-only fields such as generation and stats
 5. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
 6. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
 
 ### Team Routes
-1. `app/teams/page.tsx` loads a reduced catalog list payload from PostgreSQL through `getPokedexCatalogListSnapshot()`
+1. `app/teams/page.tsx` loads a team-builder-specific reduced catalog payload from PostgreSQL through `getPokedexTeamBuilderCatalogSnapshot()`
 2. The client creates or reuses the same anonymous session id used by daily and collection flows
 3. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
 4. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
@@ -88,6 +88,8 @@
 - Add a lightweight verification flow for daily and team state after migrations and server restarts.
 - Continue reducing the remaining initial route payload on `/daily`, `/my-pokemon`, and `/teams`.
   - A reduced catalog-list payload shipped on 2026-03-24, replacing the previous full `PokemonSummary` route payload for those pages.
+  - On 2026-03-25, the shared reduced payload was split again so `/daily` and `/my-pokemon` no longer receive team-builder ability data, and `/teams` no longer receives collection-only fields such as slugs, generation, and shiny image variants.
+  - In a follow-up step, `/my-pokemon` was slimmed further so it no longer receives daily-only fields such as generation and stats.
   - Local `npm run start` measurement on 2026-03-24 showed second-request totals of about 0.052s for `/daily`, 0.040s for `/my-pokemon`, and 0.031s for `/teams`.
   - The same production responses still returned large payloads at roughly 1.10 MB to 1.11 MB per route, so the remaining bottleneck is transfer size more than server time.
   - Local `npm run dev` measurement on 2026-03-24 remained much slower at about 13.50s for `/daily`, 10.60s for `/my-pokemon`, and 4.70s for `/teams` on second request.

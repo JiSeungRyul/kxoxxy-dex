@@ -1,10 +1,10 @@
 import { PokedexPage } from "@/features/pokedex/components/pokedex-page";
-import { getPokedexCatalogListSnapshot } from "@/features/pokedex/server/repository";
+import { getPokedexCollectionCatalogSnapshot } from "@/features/pokedex/server/repository";
 
 export default async function DailyPokemonPage() {
-  const dataset = await getPokedexCatalogListSnapshot();
+  const dataset = await getPokedexCollectionCatalogSnapshot();
 
-  return <PokedexPage pokemon={dataset.pokemon} filterOptions={dataset.filterOptions} view="daily" />;
+  return <PokedexPage pokemon={dataset.pokemon} view="daily" />;
 }
 
 
