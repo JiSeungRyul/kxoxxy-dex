@@ -85,6 +85,57 @@
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
 
+## Cache Strategy Review Scope (Added: 2026-03-25)
+
+### Purpose
+- Re-evaluate the current `repository.ts` cache layout after the route-specific payload split.
+- Keep the current MVP behavior and user-facing flows unchanged.
+- Prefer the smallest safe cache cleanup over a broader caching redesign.
+
+### In Scope
+- Review `unstable_cache` usage inside `features/pokedex/server/repository.ts`.
+- Review whether the current snapshot helpers still match the first-load behavior of `/daily`, `/my-pokemon`, and `/teams`.
+- Check whether dex-number snapshots, option-list snapshots, and by-dex detail reads have clear responsibilities and consistent naming.
+- Remove or simplify cache helpers only when they are clearly obsolete after the payload restructuring.
+- Update docs immediately when cache responsibilities or helper names change.
+
+### Out Of Scope
+- Full Next.js caching redesign.
+- Route segment cache-policy redesign.
+- New invalidation systems such as tag-based cache orchestration.
+- Broad DB query rewrites or new abstraction layers.
+- Auth- or session-aware cache invalidation work.
+- Product behavior changes.
+
+### Focus Questions
+- Does each route still use the smallest cacheable server payload that matches its first render?
+- Are any snapshot helpers now redundant after the on-demand catalog-detail change?
+- Are by-dex detail reads intentionally uncached, or do they now need a small cache layer?
+- Do cache key names still reflect the real payload and route responsibility?
+
+### Completion Criteria
+- Any cache change stays inside the current architecture and preserves behavior.
+- Any obsolete or misleading cache helper is either removed or explicitly justified.
+- Related docs remain aligned with the runtime after the change.
+- Verification should use at least `npm run typecheck` and `npm run build`, plus route or API smoke checks when cache behavior changes.
+
+### Current Review Result (2026-03-25)
+- Obsolete cached first-load helpers for the old collection-gallery and broader catalog route payloads were removed from `repository.ts`.
+- The first-load cache layer now stays focused on the active route-entry payloads: the daily dex-number snapshot and the team-builder option snapshot.
+- By-dex detail reads remain uncached for now because they are small, selection-driven follow-up reads and do not yet justify another cache layer.
+### Immediate Work
+- Review the current `unstable_cache` helpers in `features/pokedex/server/repository.ts`.
+- Check whether any snapshot helper is now redundant after the on-demand detail-fetch change.
+- Keep any cache cleanup or renaming limited to `repository.ts` unless a direct dependency requires a small related edit.
+- Preserve the current route behavior for `/daily`, `/my-pokemon`, and `/teams`.
+- Update docs and rerun lightweight verification after any cache adjustment.
+
+### Later Work
+- Revisit broader route-level cache policy after enough measurements accumulate.
+- Consider whether by-dex detail reads need a dedicated cache layer once real usage patterns are clearer.
+- Re-evaluate invalidation strategy if auth, account-linked ownership, or broader catalog mutation flows are introduced.
+- Revisit larger Next.js cache primitives only when the current smaller cleanup no longer explains the remaining bottleneck.
+
 ## Immediate Follow-Up TODO
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
 - Add a lightweight verification flow for daily and team state after migrations and server restarts.
