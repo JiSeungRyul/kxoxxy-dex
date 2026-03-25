@@ -57,7 +57,10 @@
 - Hardened team save/load handling so saved member level is preserved and saved team reads stay aligned to the latest catalog snapshot
 - Split the reduced route payloads so `/daily` and `/my-pokemon` load collection-specific catalog fields while `/teams` loads only the team-builder fields it needs
 - Slimmed `/my-pokemon` again so it no longer receives daily-only catalog fields such as generation and stats
-- Verified the local team flow with `npm run typecheck`, `npm run db:migrate`, and route/API smoke checks for `/teams`, `/my-teams`, and `/api/teams/state` on 2026-03-23
+- Reworked `/daily` so the first render now ships only daily candidate dex numbers and fetches encounter/recent-capture detail on demand through `app/api/pokedex/catalog/route.ts`
+- Reworked `/teams` so the first render now ships only dex-number-and-name option entries and fetches selected team-member detail on demand through `app/api/pokedex/catalog/route.ts`
+- Reworked `/my-pokemon` so the first render now ships no gallery catalog and fetches captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
+- Verified the route payload restructuring with `npm run typecheck`, `npm run build`, and local smoke checks for `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, `/api/teams/state`, and `/api/pokedex/catalog` on 2026-03-25
 
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup

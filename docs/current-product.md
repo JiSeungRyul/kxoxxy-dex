@@ -30,9 +30,9 @@
 
 ## Current Product Behavior
 - The main browsing experience is server-driven for list queries and detail lookup.
-- Daily encounter now uses anonymous-session-backed server persistence and a reduced server-delivered catalog payload.
-- My Pokemon now reads the same anonymous-session-backed server collection state as daily and uses a slimmer collection-gallery payload that omits daily-only fields such as generation and stats.
-- Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a team-builder-specific reduced catalog payload instead of the previous full catalog route payload.
+- Daily encounter now uses anonymous-session-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
+- My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
+- Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small dex-number-and-name option payload with on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
 - Team builder now supports per-member level input and preserves that level in saved teams.
 - Daily encounter state stores whether the current encounter is shiny.
 - My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
