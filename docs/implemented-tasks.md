@@ -48,13 +48,15 @@
 - Added shiny encounter/capture state for daily and release support in My Pokemon
 - Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
-## Team Builder (Updated: 2026-03-23)
+## Team Builder (Updated: 2026-03-25)
 - Added `/teams` for building teams from the full catalog
 - Added `/my-teams` for browsing, editing, and deleting saved teams
 - Added anonymous-session-backed PostgreSQL storage for teams and team members
 - Added level configuration and level-based battle stat display for team members
 - Added the `0003_team_builder` and `0004_team_member_level` migrations and Drizzle schema entries
 - Hardened team save/load handling so saved member level is preserved and saved team reads stay aligned to the latest catalog snapshot
+- Split the reduced route payloads so `/daily` and `/my-pokemon` load collection-specific catalog fields while `/teams` loads only the team-builder fields it needs
+- Slimmed `/my-pokemon` again so it no longer receives daily-only catalog fields such as generation and stats
 - Verified the local team flow with `npm run typecheck`, `npm run db:migrate`, and route/API smoke checks for `/teams`, `/my-teams`, and `/api/teams/state` on 2026-03-23
 
 ## Database Groundwork

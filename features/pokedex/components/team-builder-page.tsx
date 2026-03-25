@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
-import type { PokemonBaseStats, PokemonCatalogListEntry, PokemonTeam, PokemonTeamMemberDraft } from "@/features/pokedex/types";
+import type { PokemonBaseStats, PokemonTeam, PokemonTeamBuilderCatalogEntry, PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
   formatDexNumber,
@@ -57,7 +57,7 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
 ];
 
 type TeamBuilderPageProps = {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonTeamBuilderCatalogEntry[];
 };
 
 export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {

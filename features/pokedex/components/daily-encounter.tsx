@@ -4,15 +4,15 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import type { PokemonCatalogListEntry, PokemonTypeName } from "@/features/pokedex/types";
+import type { PokemonCollectionCatalogEntry, PokemonTypeName } from "@/features/pokedex/types";
 import { formatDexNumber, formatGenerationLabel, formatTypeLabel } from "@/features/pokedex/utils";
 
 type DailyEncounterProps = {
-  encounter: PokemonCatalogListEntry | null;
+  encounter: PokemonCollectionCatalogEntry | null;
   isShiny: boolean;
   capturedCount: number;
   totalCount: number;
-  recentCaptures: PokemonCatalogListEntry[];
+  recentCaptures: PokemonCollectionCatalogEntry[];
   isCaptured: boolean;
   isReady: boolean;
   isSyncing: boolean;
@@ -22,7 +22,7 @@ type DailyEncounterProps = {
   canRerollToday: boolean;
 };
 
-function TypeBadge({ type }: { type: PokemonCatalogListEntry["types"][number] }) {
+function TypeBadge({ type }: { type: PokemonCollectionCatalogEntry["types"][number] }) {
   return (
     <span
       className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.04em] ${TYPE_BADGE_STYLES[type.name]}`}

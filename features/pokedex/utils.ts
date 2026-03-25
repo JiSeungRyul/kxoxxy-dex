@@ -12,6 +12,7 @@ import type {
   PokedexCollectionState,
   PokemonBaseStats,
   PokemonCatalogListEntry,
+  PokemonCollectionPageEntry,
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
@@ -256,7 +257,7 @@ export function getAvailableDailyEncounterPokemon({
   capturedDexNumbers,
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   excludedDexNumbers?: number[];
 }) {
@@ -276,7 +277,7 @@ export function selectDailyEncounterPokemon({
   dateKey = getLocalDateKey(),
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   dateKey?: string;
   excludedDexNumbers?: number[];
@@ -299,7 +300,7 @@ export function selectRandomDailyEncounterPokemon({
   capturedDexNumbers,
   excludedDexNumbers = [],
 }: {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonCollectionPageEntry[];
   capturedDexNumbers: number[];
   excludedDexNumbers?: number[];
 }) {

@@ -130,21 +130,34 @@ export type PokemonSummary = {
   forms: PokemonForm[];
 };
 
-export type PokemonCatalogListEntry = Pick<
+export type PokemonCollectionPageEntry = Pick<
   PokemonSummary,
   | "nationalDexNumber"
   | "slug"
   | "name"
   | "imageUrl"
   | "artworkImageUrl"
-  | "generation"
+  | "types"
+> & {
+  defaultShinyArtworkImageUrl?: string | null;
+};
+
+export type PokemonCollectionCatalogEntry = PokemonCollectionPageEntry &
+  Pick<PokemonSummary, "generation" | "stats">;
+
+export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
+  Pick<PokemonSummary, "abilities" | "hiddenAbility">;
+
+export type PokemonTeamBuilderCatalogEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "name"
+  | "artworkImageUrl"
   | "types"
   | "stats"
   | "abilities"
   | "hiddenAbility"
-> & {
-  defaultShinyArtworkImageUrl?: string | null;
-};
+>;
 
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];

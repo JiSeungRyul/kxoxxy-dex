@@ -21,6 +21,8 @@ import type {
   PokedexFilterOptions,
   PokedexListQuery,
   PokemonCatalogListEntry,
+  PokemonCollectionCatalogEntry,
+  PokemonCollectionPageEntry,
   PokemonSortKey,
   SortDirection,
   TypeFilterValue,
@@ -46,8 +48,8 @@ const MyPokemonGallery = dynamic(
 );
 
 type PokedexPageProps = {
-  pokemon: PokemonCatalogListEntry[];
-  filterOptions: PokedexFilterOptions;
+  pokemon: PokemonCollectionPageEntry[];
+  filterOptions?: PokedexFilterOptions;
   view?: "daily" | "pokedex" | "my-pokemon";
   serverListState?: {
     query: PokedexListQuery;
@@ -98,20 +100,23 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const todayKey = getLocalDateKey();
+  const pokedexPokemon = pokemon as PokemonCatalogListEntry[];
   const sourcePokemon =
     view === "my-pokemon"
       ? pokemon.filter((entry) => collectionState.capturedDexNumbers.includes(entry.nationalDexNumber))
       : pokemon;
   const filteredPokemon = isServerDrivenPokedex
     ? pokemon
-    : filterAndSortPokemon({
-        pokemon: sourcePokemon,
-        searchTerm: deferredSearchTerm,
-        selectedType,
-        selectedGeneration,
-        sortKey,
-        sortDirection,
-      });
+    : view === "pokedex"
+      ? filterAndSortPokemon({
+          pokemon: pokedexPokemon,
+          searchTerm: deferredSearchTerm,
+          selectedType,
+          selectedGeneration,
+          sortKey,
+          sortDirection,
+        })
+      : sourcePokemon;
   const totalPages = isServerDrivenPokedex
     ? (serverListState?.totalPages ?? 1)
     : Math.max(1, Math.ceil(filteredPokemon.length / POKEMON_PER_PAGE));
@@ -155,7 +160,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
     .slice(-6)
     .reverse()
     .map((dexNumber) => pokemon.find((entry) => entry.nationalDexNumber === dexNumber))
-    .filter((entry): entry is PokemonCatalogListEntry => Boolean(entry));
+    .filter((entry): entry is PokemonCollectionPageEntry => Boolean(entry));
 
   function persistCollectionState(nextState: PokedexCollectionState) {
     setCollectionState(nextState);
@@ -490,11 +495,11 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
       <div className="space-y-6">
         {view === "daily" ? (
           <DailyEncounter
-            encounter={isCollectionReady ? todayEncounter : null}
+            encounter={isCollectionReady ? (todayEncounter as PokemonCollectionCatalogEntry | null) : null}
             isShiny={isCollectionReady ? isTodayEncounterShiny : false}
             capturedCount={collectionState.capturedDexNumbers.length}
             totalCount={pokemon.length}
-            recentCaptures={recentCaptures}
+            recentCaptures={recentCaptures as PokemonCollectionCatalogEntry[]}
             isCaptured={isTodayEncounterCaptured}
             isReady={isCollectionReady}
             isSyncing={isSyncingDailyState}
@@ -517,7 +522,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
         {view === "pokedex" ? (
           <>
             <PokedexControls
-              filterOptions={filterOptions}
+              filterOptions={filterOptions!}
               searchTerm={searchTerm}
               selectedType={selectedType}
               selectedGeneration={selectedGeneration}
@@ -539,7 +544,7 @@ export function PokedexPage({ pokemon, filterOptions, view = "pokedex", serverLi
             />
             <div className="w-full space-y-6">
               <PokedexTable
-                pokemon={paginatedPokemon}
+                pokemon={paginatedPokemon as PokemonCatalogListEntry[]}
                 sortKey={sortKey}
                 sortDirection={sortDirection}
                 capturedDexNumbers={collectionState.capturedDexNumbers}

@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import type { PokemonCatalogListEntry } from "@/features/pokedex/types";
+import type { PokemonCollectionPageEntry } from "@/features/pokedex/types";
 import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
 
 type MyPokemonGalleryProps = {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonCollectionPageEntry[];
   shinyCapturedDexNumbers: number[];
   isReleasing: boolean;
   onRelease: (nationalDexNumber: number) => void;
