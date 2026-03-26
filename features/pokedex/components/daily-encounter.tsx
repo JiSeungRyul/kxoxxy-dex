@@ -279,6 +279,94 @@ const ENCOUNTER_SCENE_STYLES: Record<
   },
 };
 
+type EncounterScalePreset = {
+  label: string;
+  wrapperClass: string;
+  imageClass: string;
+  auraClass: string;
+  imageWidth: number;
+  imageHeight: number;
+  sizes: string;
+};
+
+const ENCOUNTER_SCALE_PRESETS: Record<"tiny" | "small" | "medium" | "large" | "giant", EncounterScalePreset> = {
+  tiny: {
+    label: "초소형 체급",
+    wrapperClass: "h-[8.5rem] w-[8.5rem] sm:h-[9.5rem] sm:w-[9.5rem]",
+    imageClass: "h-[6.75rem] w-[6.75rem] sm:h-[7.75rem] sm:w-[7.75rem]",
+    auraClass: "h-28 w-28 sm:h-36 sm:w-36",
+    imageWidth: 124,
+    imageHeight: 124,
+    sizes: "(max-width: 640px) 108px, 124px",
+  },
+  small: {
+    label: "소형 체급",
+    wrapperClass: "h-[9.75rem] w-[9.75rem] sm:h-[10.75rem] sm:w-[10.75rem]",
+    imageClass: "h-[8rem] w-[8rem] sm:h-[9rem] sm:w-[9rem]",
+    auraClass: "h-36 w-36 sm:h-44 sm:w-44",
+    imageWidth: 144,
+    imageHeight: 144,
+    sizes: "(max-width: 640px) 128px, 144px",
+  },
+  medium: {
+    label: "중형 체급",
+    wrapperClass: "h-[11rem] w-[11rem] sm:h-[12rem] sm:w-[12rem]",
+    imageClass: "h-[9rem] w-[9rem] sm:h-[10rem] sm:w-[10rem]",
+    auraClass: "h-44 w-44 sm:h-52 sm:w-52",
+    imageWidth: 160,
+    imageHeight: 160,
+    sizes: "(max-width: 640px) 144px, 160px",
+  },
+  large: {
+    label: "대형 체급",
+    wrapperClass: "h-[12.5rem] w-[12.5rem] sm:h-[13.75rem] sm:w-[13.75rem]",
+    imageClass: "h-[10.5rem] w-[10.5rem] sm:h-[11.75rem] sm:w-[11.75rem]",
+    auraClass: "h-52 w-52 sm:h-64 sm:w-64",
+    imageWidth: 188,
+    imageHeight: 188,
+    sizes: "(max-width: 640px) 168px, 188px",
+  },
+  giant: {
+    label: "초대형 체급",
+    wrapperClass: "h-[13.5rem] w-[13.5rem] sm:h-[15rem] sm:w-[15rem]",
+    imageClass: "h-[11.5rem] w-[11.5rem] sm:h-[13rem] sm:w-[13rem]",
+    auraClass: "h-60 w-60 sm:h-72 sm:w-72",
+    imageWidth: 208,
+    imageHeight: 208,
+    sizes: "(max-width: 640px) 184px, 208px",
+  },
+};
+
+function getEncounterScalePreset(encounter: PokemonCollectionCatalogEntry | null): EncounterScalePreset {
+  if (!encounter) {
+    return ENCOUNTER_SCALE_PRESETS.medium;
+  }
+
+  const { height, weight } = encounter;
+
+  if (height <= 3 && weight <= 120) {
+    return ENCOUNTER_SCALE_PRESETS.tiny;
+  }
+
+  if (height <= 8 && weight <= 350) {
+    return ENCOUNTER_SCALE_PRESETS.small;
+  }
+
+  if (height <= 16 && weight <= 900) {
+    return ENCOUNTER_SCALE_PRESETS.medium;
+  }
+
+  if (height <= 28 && weight <= 2200) {
+    return ENCOUNTER_SCALE_PRESETS.large;
+  }
+
+  return ENCOUNTER_SCALE_PRESETS.giant;
+}
+
+function formatEncounterMetric(value: number) {
+  return Number((value / 10).toFixed(1)).toString();
+}
+
 export function DailyEncounter({
   encounter,
   isShiny,
@@ -303,6 +391,10 @@ export function DailyEncounter({
     : null;
   const captureTimeoutRef = useRef<number | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
+  const encounterScalePreset = getEncounterScalePreset(encounter);
+  const encounterScaleLabel = encounter
+    ? [formatEncounterMetric(encounter.height) + "m", formatEncounterMetric(encounter.weight) + "kg", encounterScalePreset.label].join(" · ")
+    : null;
   const [isThrowingBall, setIsThrowingBall] = useState(false);
 
   useEffect(() => {
@@ -371,7 +463,7 @@ export function DailyEncounter({
 
           {!isReady ? (
             <div className="space-y-4 rounded-[1.75rem] border border-white/60 bg-white/60 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-5">
-              <div className={`relative min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border ${sceneStyle.scene}`}>
+              <div className={`relative min-h-[440px] w-full overflow-hidden rounded-[1.75rem] border ${sceneStyle.scene} sm:min-h-[480px]`}>
                 <div aria-hidden="true" className={`absolute inset-x-0 top-0 h-[58%] ${sceneStyle.sky}`} />
                 <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[42%] ${sceneStyle.ground}`} />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -386,7 +478,7 @@ export function DailyEncounter({
                   type="button"
                   onClick={throwPokeball}
                   disabled={isCaptured || isThrowingBall || isSyncing}
-                  className={`relative block min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene}`}
+                  className={`relative block min-h-[440px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene} sm:min-h-[480px]`}
                 >
                   <div
                     aria-hidden="true"
@@ -410,15 +502,24 @@ export function DailyEncounter({
                     </div>
                   ) : null}
 
-                  <div className="absolute inset-x-0 top-[23%] flex justify-center">
-                    <div className={`relative ${isCaptured ? "capture-ring-pulse" : ""}`}>
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-x-0 top-[14%] h-40 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.3),transparent_58%)] blur-3xl sm:h-48"
+                  />
+                  <div className="absolute inset-x-0 top-[18%] flex justify-center sm:top-[16%]">
+                    <div className={`relative flex items-end justify-center ${encounterScalePreset.wrapperClass} ${isCaptured ? "capture-ring-pulse" : ""}`}>
+                      <div
+                        aria-hidden="true"
+                        className={`absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/35 blur-3xl ${encounterScalePreset.auraClass}`}
+                      />
+                      <div aria-hidden="true" className="absolute inset-x-5 bottom-4 h-8 rounded-full bg-black/25 blur-2xl sm:h-10" />
                       <Image
                         src={encounterDisplayImageUrl ?? encounter.imageUrl}
                         alt={encounter.name}
-                        width={150}
-                        height={150}
-                        sizes="(max-width: 1024px) 140px, 150px"
-                        className={`h-[140px] w-[140px] object-contain drop-shadow-[0_22px_24px_rgba(16,48,20,0.35)] sm:h-[150px] sm:w-[150px] ${
+                        width={encounterScalePreset.imageWidth}
+                        height={encounterScalePreset.imageHeight}
+                        sizes={encounterScalePreset.sizes}
+                        className={`object-contain drop-shadow-[0_28px_30px_rgba(16,48,20,0.34)] ${encounterScalePreset.imageClass} ${
                           isCaptured ? "" : "wild-pokemon-float"
                         }`}
                         unoptimized
@@ -435,6 +536,11 @@ export function DailyEncounter({
                       <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 bg-zinc-900" />
                       <span className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-zinc-900 bg-white" />
                     </div>
+                  </div>
+
+                  <div className="absolute bottom-6 left-6 rounded-2xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
+                    <p className="font-semibold tracking-[0.12em] text-white/95">조우 체급</p>
+                    <p>{encounterScaleLabel}</p>
                   </div>
 
                   <div className="absolute bottom-6 right-6 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
@@ -520,9 +626,10 @@ export function DailyEncounter({
                   ) : null}
                 </div>
 
-                <p className="text-sm leading-6 text-emerald-950/75 dark:text-emerald-50/75">
-                  능력치 총합 {Object.values(encounter.stats).reduce((sum, value) => sum + value, 0)}
-                </p>
+                <div className="space-y-1 text-sm leading-6 text-emerald-950/75 dark:text-emerald-50/75">
+                  <p>능력치 총합 {Object.values(encounter.stats).reduce((sum, value) => sum + value, 0)}</p>
+                  <p>{encounterScaleLabel}</p>
+                </div>
 
                 <div className="flex flex-wrap gap-2">
                   {encounter.types.map((type) => (
@@ -577,8 +684,5 @@ export function DailyEncounter({
     </section>
   );
 }
-
-
-
 
 

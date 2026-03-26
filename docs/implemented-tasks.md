@@ -135,3 +135,8 @@
 
 
 
+
+## Daily Encounter Presentation Refresh (Added: 2026-03-26)
+- Refined the /daily main encounter hero so the Pokemon art uses the larger artwork image by default instead of the smaller sprite when possible.
+- Added a five-tier size scale for daily encounter presentation using Pokemon height and weight so very small Pokemon no longer look over-enlarged in the hero scene.
+- Expanded the encounter stage with a stronger spotlight, scale badge, and slightly taller scene framing while keeping daily capture, reset, and reroll behavior unchanged.

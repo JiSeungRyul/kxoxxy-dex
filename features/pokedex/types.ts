@@ -143,7 +143,7 @@ export type PokemonCollectionPageEntry = Pick<
 };
 
 export type PokemonCollectionCatalogEntry = PokemonCollectionPageEntry &
-  Pick<PokemonSummary, "generation" | "stats">;
+  Pick<PokemonSummary, "generation" | "stats" | "height" | "weight">;
 
 export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
 
@@ -232,7 +232,4 @@ export type PokemonTeam = {
   updatedAt: string;
   members: PokemonTeamMember[];
 };
-
-
-
 

@@ -183,7 +183,9 @@ async function getPokemonCollectionCatalogEntriesByDexNumbers(snapshotId: number
         ),
         'generation', payload->'generation',
         'types', payload->'types',
-        'stats', payload->'stats'
+        'stats', payload->'stats',
+        'height', payload->'height',
+        'weight', payload->'weight'
       ) AS payload
       FROM pokemon_catalog
       WHERE snapshot_id = $1
@@ -1155,6 +1157,4 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
-
-
 
