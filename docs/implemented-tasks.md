@@ -73,6 +73,15 @@
 - Added a pre-commit documentation rule in AGENTS.md
 - The rule requires documenting task changes in docs/ before running git add, git commit, or git push
 - This keeps implementation notes, reasons for change, and behavior updates recorded before git history is advanced
+
+## Performance Re-Measurement Workflow (Added: 2026-03-26)
+- Added docs/performance-guide.md to standardize repeatable npm run dev and npm run start measurements for /, /daily, /my-pokemon, /teams, /api/daily/state, and /api/teams/state.
+- Recorded local 2026-03-26 dev/start payload-size and first-response timing baselines, plus an optional /api/pokedex/catalog spot check.
+## Targeted Stability Audit (Added: 2026-03-26)
+- Audited the recent payload-split and on-demand catalog-detail changes across /daily, /my-pokemon, /teams, and /api/pokedex/catalog
+- Tightened the team-builder selected-detail fetch so it reruns only when the chosen dex-number set changes, avoiding unnecessary refetches during nature, item, level, IV, and EV edits
+- Hardened /api/pokedex/catalog so non-positive dex numbers are ignored and repository failures return a controlled JSON 500 response instead of an uncaught route error
+- Verified the recent daily, my-pokemon, teams, daily-state, teams-state, and catalog flows with local DB-backed smoke checks on 2026-03-26, including daily reroll plus team save/delete round-trips
 ## Planned Follow-Up Areas
 - Authentication
 - Server-backed user persistence

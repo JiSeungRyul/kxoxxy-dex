@@ -13,7 +13,12 @@ function parseDexNumbers(value: string | null) {
     return [];
   }
 
-  return [...new Set(value.split(",").map((entry) => Number(entry.trim())).filter((entry) => Number.isInteger(entry)))];
+  return [...new Set(
+    value
+      .split(",")
+      .map((entry) => Number(entry.trim()))
+      .filter((entry) => Number.isInteger(entry) && entry > 0),
+  )];
 }
 
 export async function GET(request: Request) {
@@ -29,12 +34,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ pokemon: [] });
   }
 
-  const pokemon =
-    view === "daily"
-      ? await getPokemonCollectionEntriesByDexNumbers(dexNumbers)
-      : view === "my-pokemon"
-        ? await getPokemonMyPokemonEntriesByDexNumbers(dexNumbers)
-        : await getPokemonTeamBuilderEntriesByDexNumbers(dexNumbers);
+  try {
+    const pokemon =
+      view === "daily"
+        ? await getPokemonCollectionEntriesByDexNumbers(dexNumbers)
+        : view === "my-pokemon"
+          ? await getPokemonMyPokemonEntriesByDexNumbers(dexNumbers)
+          : await getPokemonTeamBuilderEntriesByDexNumbers(dexNumbers);
 
-  return NextResponse.json({ pokemon });
+    return NextResponse.json({ pokemon });
+  } catch {
+    return NextResponse.json({ error: "Failed to load catalog data" }, { status: 500 });
+  }
 }
