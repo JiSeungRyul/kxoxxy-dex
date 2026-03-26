@@ -537,6 +537,10 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           shinyCapturedDexNumbers: isTodayEncounterShiny
             ? [...currentState.shinyCapturedDexNumbers, todayEncounter.nationalDexNumber].sort((left, right) => left - right)
             : currentState.shinyCapturedDexNumbers,
+          capturedAtByDexNumber: {
+            ...currentState.capturedAtByDexNumber,
+            [todayEncounter.nationalDexNumber]: new Date().toISOString(),
+          },
           encountersByDate: {
             ...currentState.encountersByDate,
             [todayKey]: todayEncounter.nationalDexNumber,
@@ -567,6 +571,11 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       ),
       shinyCapturedDexNumbers: currentState.shinyCapturedDexNumbers.filter(
         (dexNumber) => dexNumber !== todayEncounter.nationalDexNumber,
+      ),
+      capturedAtByDexNumber: Object.fromEntries(
+        Object.entries(currentState.capturedAtByDexNumber).filter(
+          ([dexNumber]) => Number(dexNumber) !== todayEncounter.nationalDexNumber,
+        ),
       ),
     }));
   }
@@ -628,6 +637,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           <MyPokemonGallery
             pokemon={sourcePokemon}
             shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}
+            capturedAtByDexNumber={collectionState.capturedAtByDexNumber}
             isReleasing={isSyncingDailyState}
             onRelease={releaseCapturedPokemon}
           />
@@ -688,3 +698,4 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     </main>
   );
 }
+

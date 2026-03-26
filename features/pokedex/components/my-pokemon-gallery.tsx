@@ -6,9 +6,30 @@ import Link from "next/link";
 import type { PokemonCollectionPageEntry } from "@/features/pokedex/types";
 import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
 
+function formatCapturedAt(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const capturedAt = new Date(value);
+
+  if (Number.isNaN(capturedAt.getTime())) {
+    return null;
+  }
+
+  const year = String(capturedAt.getFullYear()).slice(-2);
+  const month = capturedAt.getMonth() + 1;
+  const day = capturedAt.getDate();
+  const hour = capturedAt.getHours();
+  const minute = capturedAt.getMinutes();
+
+  return `${year}\uB144 ${month}\uC6D4 ${day}\uC77C ${hour}\uC2DC${minute}\uBD84 \uB9CC\uB0A8`;
+}
+
 type MyPokemonGalleryProps = {
   pokemon: PokemonCollectionPageEntry[];
   shinyCapturedDexNumbers: number[];
+  capturedAtByDexNumber: Record<string, string>;
   isReleasing: boolean;
   onRelease: (nationalDexNumber: number) => void;
 };
@@ -33,6 +54,7 @@ function EmptyState() {
 export function MyPokemonGallery({
   pokemon,
   shinyCapturedDexNumbers,
+  capturedAtByDexNumber,
   isReleasing,
   onRelease,
 }: MyPokemonGalleryProps) {
@@ -44,7 +66,7 @@ export function MyPokemonGallery({
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
+      <div className="mx-auto w-full max-w-[82rem] rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">My Pokemon</p>
         <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-foreground">내 포켓몬 컬렉션</h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -52,17 +74,18 @@ export function MyPokemonGallery({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      <div className="mx-auto flex max-w-[82rem] flex-wrap justify-center gap-4 xl:gap-5">
         {pokemon.map((entry) => {
           const isShiny = shinyCapturedDexNumberSet.has(entry.nationalDexNumber);
           const displayImageUrl = isShiny
             ? entry.defaultShinyArtworkImageUrl ?? entry.artworkImageUrl
             : entry.imageUrl;
+          const capturedAtLabel = formatCapturedAt(capturedAtByDexNumber[String(entry.nationalDexNumber)]);
 
           return (
             <div
               key={entry.nationalDexNumber}
-              className="group rounded-[2rem] border border-border bg-card p-4 shadow-card transition hover:-translate-y-1 hover:border-foreground/20"
+              className="group w-full max-w-sm rounded-[2rem] border border-border bg-card p-4 shadow-card transition hover:-translate-y-1 hover:border-foreground/20 sm:w-[15rem] sm:max-w-none"
             >
               <Link href={`/pokemon/${entry.slug}`} className="flex flex-col items-center text-center">
                 <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-border bg-background shadow-inner sm:h-36 sm:w-36">
@@ -92,6 +115,10 @@ export function MyPokemonGallery({
                 </p>
               </Link>
 
+              <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+                {capturedAtLabel ?? "포획 일시 확인 중"}
+              </p>
+
               <button
                 type="button"
                 onClick={() => onRelease(entry.nationalDexNumber)}
@@ -107,5 +134,6 @@ export function MyPokemonGallery({
     </section>
   );
 }
+
 
 

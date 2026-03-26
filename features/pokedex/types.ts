@@ -201,6 +201,7 @@ export type PokedexListPage = {
 export type PokedexCollectionState = {
   capturedDexNumbers: number[];
   shinyCapturedDexNumbers: number[];
+  capturedAtByDexNumber: Record<string, string>;
   encountersByDate: Record<string, number>;
   shinyEncountersByDate: Record<string, boolean>;
 };
@@ -231,5 +232,7 @@ export type PokemonTeam = {
   updatedAt: string;
   members: PokemonTeamMember[];
 };
+
+
 
 

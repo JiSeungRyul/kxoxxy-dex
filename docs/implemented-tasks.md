@@ -77,6 +77,14 @@
 ## Performance Re-Measurement Workflow (Added: 2026-03-26)
 - Added docs/performance-guide.md to standardize repeatable npm run dev and npm run start measurements for /, /daily, /my-pokemon, /teams, /api/daily/state, and /api/teams/state.
 - Recorded local 2026-03-26 dev/start payload-size and first-response timing baselines, plus an optional /api/pokedex/catalog spot check.
+## My Pokemon Gallery Layout (Added: 2026-03-26)
+- Centered the My Pokemon gallery card layout so small capture counts no longer stay left-aligned on wide screens.
+- Switched the gallery container to a centered wrapping layout that keeps the cards grouped cleanly as the viewport narrows.
+
+## My Pokemon Capture Timestamps (Added: 2026-03-26)
+- Extended the collection state to carry each captured Pokemon's timestamp from daily persistence into the My Pokemon gallery.
+- Added a capture-time label under each My Pokemon card's type line and above the release action.
+
 ## Post-Migration Smoke Workflow (Added: 2026-03-26)
 - Expanded docs/verification-guide.md with a daily/team post-migration smoke sequence covering migrate, optional reseed, Windows server restart, and the minimum route/API checks.
 - Added failure-triage notes for missing daily/team tables, stale local catalog state, and anonymous-session reuse issues.
@@ -122,6 +130,8 @@
 - Rebalance the layout so base stats, IVs, and EVs align more cleanly with the upper content blocks instead of feeling left-heavy
 - Rebalance the layout for nature, item, and ability controls in the same way
 - Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
+
+
 
 
 
