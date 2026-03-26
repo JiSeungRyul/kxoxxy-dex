@@ -33,6 +33,47 @@
 - Run `npm run typecheck` before manual smoke checks when the task changed route, API, or repository code.
 - Run `npm run build` when the task changed data delivery, caching, or route-server behavior.
 
+
+## Post-Migration Daily And Team Smoke Flow
+- Use this flow immediately after DB schema changes that affect daily, collection, or team persistence.
+- Run the steps in order:
+  1. `docker compose up -d`
+  2. `npm run db:migrate`
+  3. `npm run db:seed:pokedex` when the local catalog may be empty or stale
+  4. Restart the local Next.js server before route checks on Windows
+  5. Run the route and API checks below with fresh session ids
+- Minimum route checks after migration:
+  - Open `/daily`
+  - Open `/teams`
+  - Open `/my-teams`
+- Minimum API checks after migration:
+  - `GET /api/daily/state?sessionId=...`
+  - `POST /api/daily/state` with `action: "reroll"`
+  - `GET /api/teams/state?sessionId=...`
+  - `POST /api/teams/state` with `action: "save"`
+  - `POST /api/teams/state` with `action: "delete"`
+- Minimum success signals after migration:
+  - `/daily` renders and returns a state payload with at least one encounter date for a fresh session
+  - `/teams` renders, allows a team save, and keeps the saved team on refresh
+  - `/my-teams` renders the saved team list for the same session
+  - deleting the saved team removes it from `/my-teams` and from `GET /api/teams/state`
+
+## Failure Triage After Migration
+- If `/daily` or `/teams` fails immediately after a migration:
+  - confirm `docker compose up -d` completed successfully
+  - rerun `npm run db:migrate`
+  - rerun `npm run db:seed:pokedex` if catalog-backed reads may be empty
+  - restart the local Next.js server before retrying on Windows
+- If `/api/daily/state` fails:
+  - confirm `anonymous_sessions`, `daily_encounters`, and `daily_captures` exist
+  - confirm `DATABASE_URL` points at the expected local PostgreSQL instance
+- If `/api/teams/state`, `/teams`, or `/my-teams` fails:
+  - confirm `teams` and `team_members` exist
+  - confirm the same anonymous session id is being reused across `/teams` and `/my-teams`
+- If route HTML loads but the UI does not behave correctly:
+  - check the matching state API first
+  - then check `/api/pokedex/catalog` for the follow-up detail payload
+
 ## Route Smoke Flow
 
 ### `/daily`
@@ -143,3 +184,4 @@ curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: appli
 - After changing cache helpers tied to reduced first-load payloads
 - After applying DB migrations for daily, collection, or team tables
 - After restarting the local server to recover from Windows `.next/trace` lock issues
+
