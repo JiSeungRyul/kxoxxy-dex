@@ -138,13 +138,14 @@
 
 ## Immediate Follow-Up TODO
 - Replace browser-generated anonymous session handling with a stronger server-managed session boundary when auth work begins.
-- Add a lightweight verification flow for daily and team state after migrations and server restarts.
+- Keep docs/verification-guide.md aligned with the current daily, collection, and team verification flow after migrations, payload changes, and server restarts.
 - Keep monitoring the reduced first-load payload strategy across `/daily`, `/my-pokemon`, and `/teams`.
   - A reduced catalog-list payload shipped on 2026-03-24, replacing the previous full `PokemonSummary` route payload for the daily, collection, and team-builder pages.
   - On 2026-03-25, the shared reduced payload was split again so `/daily` and `/my-pokemon` no longer receive team-builder ability data, and `/teams` no longer receives collection-only fields such as slugs, generation, and shiny image variants.
   - In follow-up steps on 2026-03-25, `/daily` was reworked to ship only daily candidate dex numbers, `/teams` was reworked to ship only dex-number-and-name option entries, and `/my-pokemon` was reworked to ship no gallery catalog on first render.
-  - Local `npm run start` smoke measurement on 2026-03-25 showed first-response HTML sizes of about 25.9 KB for `/daily`, 21.8 KB for `/my-pokemon`, and 75.2 KB for `/teams`.
+  - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and API measurements.
 - Revisit the current caching approach for reduced and full catalog reads.
   - `unstable_cache` should be re-evaluated after payload shape changes because cache effectiveness and data-cache limits may differ by route payload size.
   - Any follow-up should verify whether cache granularity, payload shape, or route-level read strategy needs to change.
-- Keep re-measuring both `npm run dev` and `npm run start` for `/`, `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, and `/api/teams/state` after each meaningful performance change so the next improvement is explicit.
+- Keep `docs/performance-guide.md` aligned with the current dev/start measurement workflow and rerun it after each meaningful performance change across `/`, `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, and `/api/teams/state`.
+
