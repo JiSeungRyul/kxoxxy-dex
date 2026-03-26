@@ -1,4 +1,4 @@
-import { boolean, date, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+﻿import { boolean, date, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const pokedexSnapshots = pgTable("pokedex_snapshots", {
   id: serial("id").primaryKey(),
@@ -34,14 +34,18 @@ export const pokemonCatalog = pgTable(
   }),
 );
 
-export const anonymousSessions = pgTable("anonymous_sessions", {
-  id: serial("id").primaryKey(),
-  sessionId: text("session_id").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  anonymousSessionsSessionIdKey: uniqueIndex("anonymous_sessions_session_id_key").on(table.sessionId),
-}));
+export const anonymousSessions = pgTable(
+  "anonymous_sessions",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: text("session_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    anonymousSessionsSessionIdKey: uniqueIndex("anonymous_sessions_session_id_key").on(table.sessionId),
+  }),
+);
 
 export const dailyEncounters = pgTable(
   "daily_encounters",
@@ -84,5 +88,41 @@ export const dailyCaptures = pgTable(
       table.anonymousSessionId,
       table.nationalDexNumber,
     ),
+  }),
+);
+
+export const teams = pgTable("teams", {
+  id: serial("id").primaryKey(),
+  anonymousSessionId: integer("anonymous_session_id")
+    .notNull()
+    .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    nationalDexNumber: integer("national_dex_number")
+      .notNull()
+      .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    level: integer("level").default(50).notNull(),
+    nature: text("nature").notNull(),
+    item: text("item").notNull(),
+    ability: text("ability").notNull(),
+    moves: jsonb("moves").notNull(),
+    ivs: jsonb("ivs").notNull(),
+    evs: jsonb("evs").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    teamMembersTeamSlotKey: uniqueIndex("team_members_team_slot_key").on(table.teamId, table.slot),
   }),
 );

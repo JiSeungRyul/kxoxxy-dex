@@ -18,6 +18,7 @@
 - Navigate paginated results
 - View Pokemon detail pages with forms, evolution, abilities, and matchup references
 - Use anonymous-session-backed daily encounter and captured-Pokemon collection flows
+- Build and browse anonymous-session-backed Pokemon teams
 - Use light and dark theme modes
 
 ## Tech Stack

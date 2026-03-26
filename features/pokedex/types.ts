@@ -130,6 +130,39 @@ export type PokemonSummary = {
   forms: PokemonForm[];
 };
 
+export type PokemonCollectionPageEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "slug"
+  | "name"
+  | "imageUrl"
+  | "artworkImageUrl"
+  | "types"
+> & {
+  defaultShinyArtworkImageUrl?: string | null;
+};
+
+export type PokemonCollectionCatalogEntry = PokemonCollectionPageEntry &
+  Pick<PokemonSummary, "generation" | "stats">;
+
+export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
+
+export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
+  Pick<PokemonSummary, "abilities" | "hiddenAbility">;
+
+export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name">;
+
+export type PokemonTeamBuilderCatalogEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "name"
+  | "artworkImageUrl"
+  | "types"
+  | "stats"
+  | "abilities"
+  | "hiddenAbility"
+>;
+
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];
   types: PokemonType[];
@@ -171,3 +204,32 @@ export type PokedexCollectionState = {
   encountersByDate: Record<string, number>;
   shinyEncountersByDate: Record<string, boolean>;
 };
+
+export type PokemonTeamStatSpread = PokemonBaseStats;
+
+export type PokemonTeamMemberDraft = {
+  slot: number;
+  nationalDexNumber: number | null;
+  level: number;
+  nature: string;
+  item: string;
+  ability: string;
+  moves: string[];
+  ivs: PokemonTeamStatSpread;
+  evs: PokemonTeamStatSpread;
+};
+
+export type PokemonTeamMember = PokemonTeamMemberDraft & {
+  id: number;
+  pokemon: PokemonSummary | null;
+};
+
+export type PokemonTeam = {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  members: PokemonTeamMember[];
+};
+
+

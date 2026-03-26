@@ -25,8 +25,8 @@ MUST:
 * Treat the runtime as hybrid unless current code proves otherwise
 
 Current runtime truth:
-* `/`, `/pokedex`, `/pokemon/[slug]`, and `/daily` use DB-backed catalog reads
-* `/my-pokemon` still depends on snapshot/local browser state
+* `/`, `/pokedex`, `/pokemon/[slug]`, `/daily`, and `/my-pokemon` use DB-backed catalog reads
+* `/my-pokemon` reads captured collection state through the same anonymous-session API used by `/daily`, with `localStorage` mirrored as a fallback compatibility layer
 * Daily encounter persistence is anonymous-session-backed in PostgreSQL
 * Assume DB-backed flows where code indicates usage. Do not assume DB availability in environments without confirmation.
 
@@ -152,3 +152,9 @@ Before finishing:
 * Run appropriate verification
 * State assumptions and risks
 * Confirm docs still match the current runtime after the change
+
+---
+## Pre-Commit Docs
+After completing any task, document the changes in the `docs/` directory before any git operations.
+Include what changed, why it changed, and how it works.
+Do not run `git add`, `commit`, or `push` before documentation is written.
