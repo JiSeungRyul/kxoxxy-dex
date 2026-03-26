@@ -77,6 +77,11 @@
 ## Performance Re-Measurement Workflow (Added: 2026-03-26)
 - Added docs/performance-guide.md to standardize repeatable npm run dev and npm run start measurements for /, /daily, /my-pokemon, /teams, /api/daily/state, and /api/teams/state.
 - Recorded local 2026-03-26 dev/start payload-size and first-response timing baselines, plus an optional /api/pokedex/catalog spot check.
+## Post-Migration Smoke Workflow (Added: 2026-03-26)
+- Expanded docs/verification-guide.md with a daily/team post-migration smoke sequence covering migrate, optional reseed, Windows server restart, and the minimum route/API checks.
+- Added failure-triage notes for missing daily/team tables, stale local catalog state, and anonymous-session reuse issues.
+- Verified the post-migration route/API sequence locally on 2026-03-26 for /daily, /teams, /my-teams, /api/daily/state, and /api/teams/state, including daily reroll plus team save/delete round-trips.
+
 ## Targeted Stability Audit (Added: 2026-03-26)
 - Audited the recent payload-split and on-demand catalog-detail changes across /daily, /my-pokemon, /teams, and /api/pokedex/catalog
 - Tightened the team-builder selected-detail fetch so it reruns only when the chosen dex-number set changes, avoiding unnecessary refetches during nature, item, level, IV, and EV edits
@@ -117,4 +122,6 @@
 - Rebalance the layout so base stats, IVs, and EVs align more cleanly with the upper content blocks instead of feeling left-heavy
 - Rebalance the layout for nature, item, and ability controls in the same way
 - Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
+
+
 
