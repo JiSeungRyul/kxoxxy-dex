@@ -6,7 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
-import type { PokemonBaseStats, PokemonSummary, PokemonTeam, PokemonTeamMemberDraft } from "@/features/pokedex/types";
+import type {
+  PokemonBaseStats,
+  PokemonTeam,
+  PokemonTeamBuilderCatalogEntry,
+  PokemonTeamBuilderOptionEntry,
+  PokemonTeamMemberDraft,
+} from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
   formatDexNumber,
@@ -15,7 +21,6 @@ import {
   getEmptyTeamMember,
   getPokemonAbilityOptions,
   getTeamEvTotal,
-  getTeamValidationError,
   sanitizeTeamMembers,
 } from "@/features/pokedex/utils";
 
@@ -57,10 +62,14 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
 ];
 
 type TeamBuilderPageProps = {
-  pokemon: PokemonSummary[];
+  pokemonOptions: PokemonTeamBuilderOptionEntry[];
 };
 
-export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
+type TeamBuilderCatalogResponse = {
+  pokemon?: PokemonTeamBuilderCatalogEntry[];
+};
+
+export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -70,11 +79,19 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
   const [members, setMembers] = useState<PokemonTeamMemberDraft[]>(() =>
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
+  const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const selectedTeamId = Number(searchParams.get("teamId"));
+  const selectedPokemonByDexNumber = new Map(
+    selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
+  );
+  const selectedDexNumbers = [...new Set(
+    members.flatMap((member) => (member.nationalDexNumber === null ? [] : [member.nationalDexNumber])),
+  )].sort((left, right) => left - right);
+  const selectedDexNumbersKey = selectedDexNumbers.join(",");
 
   async function loadTeams(nextSessionId: string) {
     const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
@@ -141,6 +158,72 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
     applyTeam(matchedTeam);
   }, [isLoading, selectedTeamId, teams]);
 
+  useEffect(() => {
+    if (selectedDexNumbers.length === 0) {
+      setSelectedPokemonCatalog([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/pokedex/catalog?view=teams&dexNumbers=${selectedDexNumbers.join(",")}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load team builder catalog details.");
+        }
+
+        const payload = (await response.json()) as TeamBuilderCatalogResponse;
+        setSelectedPokemonCatalog(Array.isArray(payload.pokemon) ? payload.pokemon : []);
+      } catch {
+        if (!controller.signal.aborted) {
+          setSelectedPokemonCatalog([]);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedDexNumbersKey]);
+
+  useEffect(() => {
+    setMembers((currentMembers) => {
+      let changed = false;
+
+      const nextMembers = currentMembers.map((member) => {
+        if (member.nationalDexNumber === null) {
+          return member;
+        }
+
+        const selectedPokemon = selectedPokemonByDexNumber.get(member.nationalDexNumber);
+
+        if (!selectedPokemon) {
+          return member;
+        }
+
+        const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
+        const nextAbility = abilityOptions.includes(member.ability) ? member.ability : abilityOptions[0] ?? "";
+
+        if (nextAbility === member.ability) {
+          return member;
+        }
+
+        changed = true;
+        return {
+          ...member,
+          ability: nextAbility,
+        };
+      });
+
+      return changed ? nextMembers : currentMembers;
+    });
+  }, [selectedPokemonCatalog]);
+
   function updateMember(slot: number, updater: (current: PokemonTeamMemberDraft) => PokemonTeamMemberDraft) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
@@ -149,8 +232,7 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
 
   function handlePokemonChange(slot: number, nextValue: string) {
     const nationalDexNumber = nextValue.length > 0 ? Number(nextValue) : null;
-    const selectedPokemon = pokemon.find((entry) => entry.nationalDexNumber === nationalDexNumber);
-
+    const selectedPokemon = nationalDexNumber === null ? undefined : selectedPokemonByDexNumber.get(nationalDexNumber);
     const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
 
     updateMember(slot, (currentMember) => ({
@@ -305,7 +387,7 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
       <div className="grid gap-6 xl:grid-cols-2">
         {members.map((member) => {
           const selectedPokemon = member.nationalDexNumber
-            ? pokemon.find((entry) => entry.nationalDexNumber === member.nationalDexNumber)
+            ? selectedPokemonByDexNumber.get(member.nationalDexNumber)
             : undefined;
           const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
           const evTotal = getTeamEvTotal(member.evs);
@@ -363,7 +445,7 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
                     className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
                   >
                     <option value="">포켓몬 선택</option>
-                    {pokemon.map((entry) => (
+                    {pokemonOptions.map((entry) => (
                       <option key={entry.nationalDexNumber} value={entry.nationalDexNumber}>
                         {formatDexNumber(entry.nationalDexNumber)} · {entry.name}
                       </option>
@@ -517,6 +599,20 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
                       ))}
                     </div>
                   </div>
+
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
+                    <p className="text-sm font-semibold text-foreground">실전 능력치</p>
+                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      {STAT_FIELDS.map((field) => (
+                        <div key={`${member.slot}-battle-${field.key}`} className="flex items-center justify-between gap-3">
+                          <span>{field.label}</span>
+                          <span className="font-semibold text-foreground">
+                            {battleStats?.[field.key] ?? "-"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </article>
@@ -526,3 +622,4 @@ export function TeamBuilderPage({ pokemon }: TeamBuilderPageProps) {
     </section>
   );
 }
+

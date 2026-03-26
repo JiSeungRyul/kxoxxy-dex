@@ -48,14 +48,19 @@
 - Added shiny encounter/capture state for daily and release support in My Pokemon
 - Added client-side mirroring of daily server state back into local collection storage for hybrid compatibility
 
-## Team Builder (Updated: 2026-03-23)
+## Team Builder (Updated: 2026-03-25)
 - Added `/teams` for building teams from the full catalog
 - Added `/my-teams` for browsing, editing, and deleting saved teams
 - Added anonymous-session-backed PostgreSQL storage for teams and team members
 - Added level configuration and level-based battle stat display for team members
 - Added the `0003_team_builder` and `0004_team_member_level` migrations and Drizzle schema entries
 - Hardened team save/load handling so saved member level is preserved and saved team reads stay aligned to the latest catalog snapshot
-- Verified the local team flow with `npm run typecheck`, `npm run db:migrate`, and route/API smoke checks for `/teams`, `/my-teams`, and `/api/teams/state` on 2026-03-23
+- Split the reduced route payloads so `/daily` and `/my-pokemon` load collection-specific catalog fields while `/teams` loads only the team-builder fields it needs
+- Slimmed `/my-pokemon` again so it no longer receives daily-only catalog fields such as generation and stats
+- Reworked `/daily` so the first render now ships only daily candidate dex numbers and fetches encounter/recent-capture detail on demand through `app/api/pokedex/catalog/route.ts`
+- Reworked `/teams` so the first render now ships only dex-number-and-name option entries and fetches selected team-member detail on demand through `app/api/pokedex/catalog/route.ts`
+- Reworked `/my-pokemon` so the first render now ships no gallery catalog and fetches captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
+- Verified the route payload restructuring with `npm run typecheck`, `npm run build`, and local smoke checks for `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, `/api/teams/state`, and `/api/pokedex/catalog` on 2026-03-25
 
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
@@ -64,6 +69,19 @@
 - Added Drizzle configuration
 - Added initial catalog schema and migration files
 
+## Workflow Guardrails (Added: 2026-03-25)
+- Added a pre-commit documentation rule in AGENTS.md
+- The rule requires documenting task changes in docs/ before running git add, git commit, or git push
+- This keeps implementation notes, reasons for change, and behavior updates recorded before git history is advanced
+
+## Performance Re-Measurement Workflow (Added: 2026-03-26)
+- Added docs/performance-guide.md to standardize repeatable npm run dev and npm run start measurements for /, /daily, /my-pokemon, /teams, /api/daily/state, and /api/teams/state.
+- Recorded local 2026-03-26 dev/start payload-size and first-response timing baselines, plus an optional /api/pokedex/catalog spot check.
+## Targeted Stability Audit (Added: 2026-03-26)
+- Audited the recent payload-split and on-demand catalog-detail changes across /daily, /my-pokemon, /teams, and /api/pokedex/catalog
+- Tightened the team-builder selected-detail fetch so it reruns only when the chosen dex-number set changes, avoiding unnecessary refetches during nature, item, level, IV, and EV edits
+- Hardened /api/pokedex/catalog so non-positive dex numbers are ignored and repository failures return a controlled JSON 500 response instead of an uncaught route error
+- Verified the recent daily, my-pokemon, teams, daily-state, teams-state, and catalog flows with local DB-backed smoke checks on 2026-03-26, including daily reroll plus team save/delete round-trips
 ## Planned Follow-Up Areas
 - Authentication
 - Server-backed user persistence
@@ -76,3 +94,27 @@
   - Prefer a direct navigation entry for favorites during the current MVP stage instead of a broader my-page shell
 - Further DB integration beyond the current hybrid stage
 - Replace anonymous browser-scoped session ownership with account-linked ownership later
+
+## UI And UX Backlog (Added: 2026-03-24)
+
+### Pokemon Detail Page
+- Fix broken Korean text in the gender-ratio display
+- Fix broken Korean text in the defensive-matchup multiplier display
+
+### Daily And My Pokemon
+- Rework the Daily Encounter background art and overall Pokemon scene styling for the main encounter CTA area
+- Improve My Pokemon gallery alignment so a single captured Pokemon does not stay left-aligned on wide screens
+- Keep My Pokemon responsive so the gallery centers cleanly and wraps downward as the viewport narrows
+- Aim for a wide-layout presentation that visually groups around five cards per row before wrapping when space allows
+
+### Team Builder
+- Add search-based Pokemon selection in addition to the current select control
+- Consider moving ability selection to a dropdown in a later step
+- Consider adding searchable item selection plus dropdown support later
+- Check whether move selection can use Pokemon-specific learnable move dropdowns later
+- Show which stat is raised and lowered when a nature is selected
+- Prevent EV inputs from exceeding the total cap during editing and add stronger over-cap feedback around the `510 / 510` indicator
+- Rebalance the layout so base stats, IVs, and EVs align more cleanly with the upper content blocks instead of feeling left-heavy
+- Rebalance the layout for nature, item, and ability controls in the same way
+- Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
+
