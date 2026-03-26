@@ -16,9 +16,15 @@ while snapshot generation and DB-backed runtime flows currently coexist.
 (Optional)
 4. docs/database-plan.md
 5. docs/implemented-tasks.md
+6. docs/verification-guide.md
+7. docs/performance-guide.md
 
 If the task depends on local PostgreSQL, read `docs/database-plan.md` for the required startup order:
 `docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex`.
+
+If the task depends on /daily, /my-pokemon, /teams, or their state APIs, read docs/verification-guide.md before changing the verification flow.
+
+If the task depends on route or API performance measurement, read docs/performance-guide.md before changing the measurement workflow.
 
 ## Current Runtime Truth
 - The repository is in a hybrid state.
@@ -31,7 +37,7 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
 - `/teams` now loads a dex-number-and-name option list through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
-- Local `npm run start` smoke measurement on 2026-03-25 showed first-response HTML/Flight payloads of about 25.9 KB for `/daily`, 21.8 KB for `/my-pokemon`, and 75.2 KB for `/teams` after the on-demand catalog-detail follow-up change.
+- Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
@@ -81,7 +87,5 @@ If the task depends on local PostgreSQL, read `docs/database-plan.md` for the re
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change
-
-
 
 

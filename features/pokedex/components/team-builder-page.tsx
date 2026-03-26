@@ -88,6 +88,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const selectedPokemonByDexNumber = new Map(
     selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
   );
+  const selectedDexNumbers = [...new Set(
+    members.flatMap((member) => (member.nationalDexNumber === null ? [] : [member.nationalDexNumber])),
+  )].sort((left, right) => left - right);
+  const selectedDexNumbersKey = selectedDexNumbers.join(",");
 
   async function loadTeams(nextSessionId: string) {
     const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
@@ -155,10 +159,6 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   }, [isLoading, selectedTeamId, teams]);
 
   useEffect(() => {
-    const selectedDexNumbers = [...new Set(
-      members.flatMap((member) => (member.nationalDexNumber === null ? [] : [member.nationalDexNumber])),
-    )].sort((left, right) => left - right);
-
     if (selectedDexNumbers.length === 0) {
       setSelectedPokemonCatalog([]);
       return;
@@ -189,7 +189,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     return () => {
       controller.abort();
     };
-  }, [members]);
+  }, [selectedDexNumbersKey]);
 
   useEffect(() => {
     setMembers((currentMembers) => {
@@ -622,3 +622,4 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     </section>
   );
 }
+
