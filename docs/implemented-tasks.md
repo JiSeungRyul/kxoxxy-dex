@@ -159,3 +159,13 @@
 ## Team Builder Searchable Pokemon Selector (Added: 2026-03-27)
 - Replaced the full 1025-option Pokemon dropdown in /teams with a searchable selector that filters by Pokemon name.
 - Kept the existing team draft editing flow and on-demand selected-detail fetch behavior unchanged while limiting the visible search results list.
+
+## Team Builder Format Selection (Added: 2026-03-27)
+- Added a team-level format selector for `default`, `gen6`, `gen7`, `gen8`, and `gen9` in /teams with `default` as the default for new drafts.
+- Extended team save/load handling so the selected format is persisted in PostgreSQL and older saved teams safely fall back to `default` when the new field is absent.
+
+## Team Builder Format-Based Gimmick Visibility (Added: 2026-03-27)
+- Added a `default` team format that hides the gimmick controls until a specific generation format is selected.
+- Added minimal per-member gimmick persistence with generation-scoped options so `/teams` now shows only the baseline gimmicks allowed by `gen6`, `gen7`, `gen8`, and `gen9`.
+- Kept Pokemon-specific gimmick eligibility and generation-filtered Pokemon option lists out of this step so the current change stays limited to format-based UI gating.
+

@@ -208,6 +208,9 @@ export type PokedexCollectionState = {
 
 export type PokemonTeamStatSpread = PokemonBaseStats;
 
+export type TeamFormatId = "default" | "gen6" | "gen7" | "gen8" | "gen9";
+export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "terastal";
+
 export type PokemonTeamMemberDraft = {
   slot: number;
   nationalDexNumber: number | null;
@@ -218,6 +221,7 @@ export type PokemonTeamMemberDraft = {
   moves: string[];
   ivs: PokemonTeamStatSpread;
   evs: PokemonTeamStatSpread;
+  gimmick: TeamGimmickId;
 };
 
 export type PokemonTeamMember = PokemonTeamMemberDraft & {
@@ -228,6 +232,7 @@ export type PokemonTeamMember = PokemonTeamMemberDraft & {
 export type PokemonTeam = {
   id: number;
   name: string;
+  format: TeamFormatId;
   createdAt: string;
   updatedAt: string;
   members: PokemonTeamMember[];

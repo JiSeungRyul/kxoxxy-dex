@@ -19,6 +19,8 @@ import type {
   SortDirection,
   PokemonTeamMemberDraft,
   PokemonTeamStatSpread,
+  TeamFormatId,
+  TeamGimmickId,
   PokemonTypeName,
   TypeFilterValue,
 } from "@/features/pokedex/types";
@@ -52,6 +54,68 @@ export function formatHeight(height: number) {
 
 export function formatWeight(weight: number) {
   return `${(weight / 10).toFixed(1)} kg`;
+}
+
+export const TEAM_FORMAT_IDS = ["default", "gen6", "gen7", "gen8", "gen9"] as const;
+
+export function getDefaultTeamFormat(): TeamFormatId {
+  return "default";
+}
+
+export function sanitizeTeamFormat(value: unknown): TeamFormatId {
+  return typeof value === "string" && TEAM_FORMAT_IDS.includes(value as TeamFormatId)
+    ? (value as TeamFormatId)
+    : getDefaultTeamFormat();
+}
+
+export function formatTeamFormatLabel(format: TeamFormatId) {
+  return format === "default" ? "기본" : `${format.replace("gen", "")}세대`;
+}
+
+export const TEAM_GIMMICK_IDS = ["none", "mega", "zmove", "dynamax", "terastal"] as const;
+
+export function getDefaultTeamGimmick(): TeamGimmickId {
+  return "none";
+}
+
+export function sanitizeTeamGimmick(value: unknown): TeamGimmickId {
+  return typeof value === "string" && TEAM_GIMMICK_IDS.includes(value as TeamGimmickId)
+    ? (value as TeamGimmickId)
+    : getDefaultTeamGimmick();
+}
+
+export function formatTeamGimmickLabel(gimmick: TeamGimmickId) {
+  switch (gimmick) {
+    case "mega":
+      return "메가진화";
+    case "zmove":
+      return "Z기술";
+    case "dynamax":
+      return "다이맥스";
+    case "terastal":
+      return "테라스탈";
+    default:
+      return "사용 안 함";
+  }
+}
+
+export function getAllowedTeamGimmicks(format: TeamFormatId): TeamGimmickId[] {
+  switch (format) {
+    case "gen6":
+      return ["none", "mega"];
+    case "gen7":
+      return ["none", "mega", "zmove"];
+    case "gen8":
+      return ["none", "dynamax"];
+    case "gen9":
+      return ["none", "terastal"];
+    default:
+      return ["none"];
+  }
+}
+
+export function shouldShowTeamGimmickControls(format: TeamFormatId) {
+  return format !== "default";
 }
 
 export function formatCaptureRate(captureRate: number) {
@@ -543,6 +607,7 @@ export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
     moves: ["", "", "", ""],
     ivs: getDefaultTeamIvs(),
     evs: getDefaultTeamEvs(),
+    gimmick: getDefaultTeamGimmick(),
   };
 }
 
@@ -602,6 +667,7 @@ export function sanitizeTeamMembers(value: unknown) {
         : ["", "", "", ""],
       ivs: sanitizeTeamStatSpread(candidate.ivs, getDefaultTeamIvs(), { min: 0, max: 31 }),
       evs: sanitizeTeamStatSpread(candidate.evs, getDefaultTeamEvs(), { min: 0, max: 252 }),
+      gimmick: sanitizeTeamGimmick(candidate.gimmick),
     };
   }
 

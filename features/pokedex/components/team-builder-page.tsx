@@ -12,11 +12,18 @@ import type {
   PokemonTeamBuilderCatalogEntry,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamMemberDraft,
+  TeamFormatId,
+  TeamGimmickId,
 } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
   formatDexNumber,
+  formatTeamFormatLabel,
+  formatTeamGimmickLabel,
   formatTypeLabel,
+  getAllowedTeamGimmicks,
+  getDefaultTeamFormat,
+  shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
   getEmptyTeamMember,
   getPokemonAbilityOptions,
@@ -70,6 +77,7 @@ type TeamBuilderCatalogResponse = {
 };
 
 const TEAM_BUILDER_SEARCH_RESULT_LIMIT = 12;
+const TEAM_FORMAT_OPTIONS: TeamFormatId[] = ["default", "gen6", "gen7", "gen8", "gen9"];
 
 
 export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
@@ -79,6 +87,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const [teams, setTeams] = useState<PokemonTeam[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
+  const [teamFormat, setTeamFormat] = useState<TeamFormatId>(getDefaultTeamFormat());
   const [members, setMembers] = useState<PokemonTeamMemberDraft[]>(() =>
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
@@ -119,12 +128,14 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     if (!nextTeam) {
       setTeamId(null);
       setTeamName("");
+      setTeamFormat(getDefaultTeamFormat());
       setMembers(Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)));
       return;
     }
 
     setTeamId(nextTeam.id);
     setTeamName(nextTeam.name);
+    setTeamFormat(nextTeam.format ?? getDefaultTeamFormat());
     setMembers(
       sanitizeTeamMembers(
         Array.from({ length: 6 }, (_, index) => {
@@ -166,6 +177,27 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
     applyTeam(matchedTeam);
   }, [isLoading, selectedTeamId, teams]);
+
+  useEffect(() => {
+    setMembers((currentMembers) => {
+      const allowedGimmicks = getAllowedTeamGimmicks(teamFormat);
+      let changed = false;
+
+      const nextMembers = currentMembers.map((member) => {
+        if (allowedGimmicks.includes(member.gimmick)) {
+          return member;
+        }
+
+        changed = true;
+        return {
+          ...member,
+          gimmick: "none" as TeamGimmickId,
+        };
+      });
+
+      return changed ? nextMembers : currentMembers;
+    });
+  }, [teamFormat]);
 
   useEffect(() => {
     if (selectedDexNumbers.length === 0) {
@@ -335,6 +367,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           team: {
             id: teamId,
             name: normalizedTeamName,
+            format: teamFormat,
             members,
           },
         }),
@@ -400,7 +433,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       </div>
 
       <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(11rem,14rem)_auto] md:items-end">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">팀 이름</span>
             <input
@@ -409,6 +442,20 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               placeholder="예: 싱글 밸런스 1안"
               className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
             />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-foreground">포맷</span>
+            <select
+              value={teamFormat}
+              onChange={(event) => setTeamFormat(event.target.value as TeamFormatId)}
+              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+            >
+              {TEAM_FORMAT_OPTIONS.map((format) => (
+                <option key={format} value={format}>
+                  {formatTeamFormatLabel(format)}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="button"
@@ -440,6 +487,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                 nature: member.nature,
               })
             : null;
+
+          const allowedGimmicks = getAllowedTeamGimmicks(teamFormat);
+          const showGimmickControls = shouldShowTeamGimmickControls(teamFormat);
+          const normalizedMemberGimmick = allowedGimmicks.includes(member.gimmick) ? member.gimmick : "none";
 
           return (
             <article key={member.slot} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
@@ -544,6 +595,42 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                     ) : null}
                   </div>
                 </div>
+                {showGimmickControls ? (
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">배틀 기믹</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatTeamFormatLabel(teamFormat)}에서 허용되는 기믹만 표시됩니다.</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] md:items-end">
+                      <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
+                        포켓몬별 가능 여부 판별과 상세 기믹 설정은 다음 단계에서 추가됩니다. 현재는 포맷 기준의 기본 선택만 제공합니다.
+                      </div>
+                      <label className="space-y-2">
+                        <span className="text-sm font-semibold text-foreground">기믹 선택</span>
+                        <select
+                          value={normalizedMemberGimmick}
+                          onChange={(event) =>
+                            updateMember(member.slot, (currentMember) => ({
+                              ...currentMember,
+                              gimmick: event.target.value as TeamGimmickId,
+                            }))
+                          }
+                          disabled={!selectedPokemon}
+                          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {allowedGimmicks.map((gimmick) => (
+                            <option key={gimmick} value={gimmick}>
+                              {formatTeamGimmickLabel(gimmick)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-4 md:grid-cols-4">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>

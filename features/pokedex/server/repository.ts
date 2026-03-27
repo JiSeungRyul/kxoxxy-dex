@@ -29,6 +29,8 @@ import type {
   PokemonSummary,
   PokemonTeam,
   PokemonTeamBuilderCatalogEntry,
+  TeamFormatId,
+  TeamGimmickId,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamMember,
   PokemonTeamMemberDraft,
@@ -36,6 +38,8 @@ import type {
   TypeFilterValue,
 } from "@/features/pokedex/types";
 import {
+  getDefaultTeamFormat,
+  getDefaultTeamGimmick,
   getLocalDateKey,
   getTeamValidationError,
   rollDailyEncounterShiny,
@@ -861,6 +865,7 @@ export async function releaseCapturedPokemon(sessionId: string, nationalDexNumbe
 type TeamRow = {
   id: number;
   name: string;
+  format: TeamFormatId;
   createdAt: string;
   updatedAt: string;
 };
@@ -877,6 +882,7 @@ type TeamMemberRow = {
   moves: string[];
   ivs: PokemonTeamMemberDraft["ivs"];
   evs: PokemonTeamMemberDraft["evs"];
+  gimmick: TeamGimmickId;
   pokemon: PokemonSummary;
 };
 
@@ -904,6 +910,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
       SELECT
         id,
         name,
+        format,
         created_at::text AS "createdAt",
         updated_at::text AS "updatedAt"
       FROM teams
@@ -933,6 +940,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
             tm.moves,
             tm.ivs,
             tm.evs,
+            tm.gimmick,
             pc.payload AS pokemon
           FROM team_members tm
           INNER JOIN pokemon_catalog pc
@@ -964,6 +972,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
     return {
       id: teamRow.id,
       name: teamRow.name,
+      format: teamRow.format ?? getDefaultTeamFormat(),
       createdAt: teamRow.createdAt,
       updatedAt: teamRow.updatedAt,
       members,
@@ -986,6 +995,7 @@ export async function saveTeam(
   team: {
     id?: number | null;
     name: string;
+    format: TeamFormatId;
     members: PokemonTeamMemberDraft[];
   },
 ): Promise<{ teams: PokemonTeam[]; savedTeamId: number | null; error?: string }> {
@@ -999,6 +1009,7 @@ export async function saveTeam(
   }
 
   const normalizedTeamName = team.name.trim().slice(0, 60);
+  const normalizedTeamFormat = team.format ?? getDefaultTeamFormat();
   const sanitizedMembers = sanitizeTeamMembers(team.members);
   const selectedMembers = sanitizedMembers.filter((member) => member.nationalDexNumber !== null);
   const existingTeams = await getTeamsByAnonymousSessionId(anonymousSessionId);
@@ -1069,10 +1080,10 @@ export async function saveTeam(
       await transaction.unsafe(
         `
           UPDATE teams
-          SET name = $1, updated_at = NOW()
-          WHERE id = $2
+          SET name = $1, format = $2, updated_at = NOW()
+          WHERE id = $3
         `,
-        [normalizedTeamName, teamId],
+        [normalizedTeamName, normalizedTeamFormat, teamId],
       );
       await transaction.unsafe(
         `
@@ -1084,11 +1095,11 @@ export async function saveTeam(
     } else {
       const insertedTeamRows = await transaction.unsafe<Array<{ id: number }>>(
         `
-          INSERT INTO teams (anonymous_session_id, name)
-          VALUES ($1, $2)
+          INSERT INTO teams (anonymous_session_id, name, format)
+          VALUES ($1, $2, $3)
           RETURNING id
         `,
-        [anonymousSessionId, normalizedTeamName],
+        [anonymousSessionId, normalizedTeamName, normalizedTeamFormat],
       );
 
       teamId = insertedTeamRows[0]?.id ?? null;
@@ -1111,9 +1122,10 @@ export async function saveTeam(
             ability,
             moves,
             ivs,
-            evs
+            evs,
+            gimmick
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11)
         `,
         [
           teamId,
@@ -1126,6 +1138,7 @@ export async function saveTeam(
           JSON.stringify(member.moves),
           JSON.stringify(member.ivs),
           JSON.stringify(member.evs),
+          member.gimmick ?? getDefaultTeamGimmick(),
         ],
       );
     }
