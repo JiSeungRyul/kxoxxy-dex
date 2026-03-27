@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type {
@@ -69,6 +69,9 @@ type TeamBuilderCatalogResponse = {
   pokemon?: PokemonTeamBuilderCatalogEntry[];
 };
 
+const TEAM_BUILDER_SEARCH_RESULT_LIMIT = 12;
+
+
 export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,6 +83,8 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
   const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
+  const [pokemonSearchBySlot, setPokemonSearchBySlot] = useState<Record<number, string>>({});
+  const [activePokemonSearchSlot, setActivePokemonSearchSlot] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +97,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     members.flatMap((member) => (member.nationalDexNumber === null ? [] : [member.nationalDexNumber])),
   )].sort((left, right) => left - right);
   const selectedDexNumbersKey = selectedDexNumbers.join(",");
+  const pokemonOptionByDexNumber = useMemo(
+    () => new Map(pokemonOptions.map((entry) => [entry.nationalDexNumber, entry])),
+    [pokemonOptions],
+  );
 
   async function loadTeams(nextSessionId: string) {
     const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
@@ -224,6 +233,31 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     });
   }, [selectedPokemonCatalog]);
 
+  useEffect(() => {
+    setPokemonSearchBySlot((currentState) => {
+      const nextState: Record<number, string> = {};
+      let changed = false;
+
+      for (const member of members) {
+        const selectedOption = member.nationalDexNumber === null ? null : pokemonOptionByDexNumber.get(member.nationalDexNumber) ?? null;
+        const selectedName = selectedOption?.name ?? "";
+        const currentValue = currentState[member.slot] ?? "";
+        const nextValue =
+          activePokemonSearchSlot === member.slot && currentValue.length > 0 && currentValue !== selectedName
+            ? currentValue
+            : selectedName;
+
+        nextState[member.slot] = nextValue;
+
+        if (currentValue !== nextValue) {
+          changed = true;
+        }
+      }
+
+      return changed ? nextState : currentState;
+    });
+  }, [activePokemonSearchSlot, members, pokemonOptionByDexNumber]);
+
   function updateMember(slot: number, updater: (current: PokemonTeamMemberDraft) => PokemonTeamMemberDraft) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
@@ -234,12 +268,18 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     const nationalDexNumber = nextValue.length > 0 ? Number(nextValue) : null;
     const selectedPokemon = nationalDexNumber === null ? undefined : selectedPokemonByDexNumber.get(nationalDexNumber);
     const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
+    const selectedOption = nationalDexNumber === null ? null : pokemonOptionByDexNumber.get(nationalDexNumber) ?? null;
 
     updateMember(slot, (currentMember) => ({
       ...currentMember,
       nationalDexNumber,
       ability: abilityOptions.includes(currentMember.ability) ? currentMember.ability : abilityOptions[0] ?? "",
     }));
+    setPokemonSearchBySlot((currentState) => ({
+      ...currentState,
+      [slot]: selectedOption ? selectedOption.name : "",
+    }));
+    setActivePokemonSearchSlot((currentSlot) => (currentSlot === slot ? null : currentSlot));
   }
 
   function resetDraft() {
@@ -437,22 +477,73 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               </div>
 
               <div className="mt-6 space-y-5">
-                <label className="space-y-2">
+                <div
+                  className="space-y-2"
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      setActivePokemonSearchSlot((currentSlot) => (currentSlot === member.slot ? null : currentSlot));
+                    }
+                  }}
+                >
                   <span className="text-sm font-semibold text-foreground">포켓몬 선택</span>
-                  <select
-                    value={member.nationalDexNumber ?? ""}
-                    onChange={(event) => handlePokemonChange(member.slot, event.target.value)}
-                    className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                  >
-                    <option value="">포켓몬 선택</option>
-                    {pokemonOptions.map((entry) => (
-                      <option key={entry.nationalDexNumber} value={entry.nationalDexNumber}>
-                        {formatDexNumber(entry.nationalDexNumber)} · {entry.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="relative">
+                    <input
+                      value={pokemonSearchBySlot[member.slot] ?? ""}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setPokemonSearchBySlot((currentState) => ({
+                          ...currentState,
+                          [member.slot]: nextValue,
+                        }));
+                        setActivePokemonSearchSlot(member.slot);
+                      }}
+                      onFocus={() => setActivePokemonSearchSlot(member.slot)}
+                      placeholder="이름으로 포켓몬 검색"
+                      className="w-full rounded-2xl border border-border bg-background px-4 py-3 pr-28 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                    />
+                    {member.nationalDexNumber !== null ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePokemonChange(member.slot, "")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+                      >
+                        선택 해제
+                      </button>
+                    ) : null}
+                    {activePokemonSearchSlot === member.slot ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-[1.5rem] border border-border bg-card shadow-card">
+                        <div className="max-h-72 overflow-y-auto p-2">
+                          {(() => {
+                            const normalizedSearchTerm = (pokemonSearchBySlot[member.slot] ?? "").trim();
+                            const visibleOptions = (normalizedSearchTerm.length > 0
+                              ? pokemonOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
+                              : pokemonOptions
+                            ).slice(0, TEAM_BUILDER_SEARCH_RESULT_LIMIT);
 
+                            if (visibleOptions.length === 0) {
+                              return <p className="px-3 py-4 text-sm text-muted-foreground">검색 결과가 없습니다.</p>;
+                            }
+
+                            return visibleOptions.map((entry) => (
+                              <button
+                                key={entry.nationalDexNumber}
+                                type="button"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => handlePokemonChange(member.slot, String(entry.nationalDexNumber))}
+                                className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition hover:bg-muted ${
+                                  member.nationalDexNumber === entry.nationalDexNumber ? "bg-muted" : ""
+                                }`}
+                              >
+                                <span className="font-medium text-foreground">{entry.name}</span>
+                                <span className="text-xs font-semibold text-muted-foreground">{formatDexNumber(entry.nationalDexNumber)}</span>
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 <div className="grid gap-4 md:grid-cols-4">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>

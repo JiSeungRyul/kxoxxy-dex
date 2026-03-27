@@ -123,5 +123,6 @@
 - Rebalance the layout for nature, item, and ability controls in the same way
 - Move My Teams under the Team Builder navigation as a child option and rename the creation action to a clearer label than the current wording
 
-
-
+## Team Builder Searchable Pokemon Selector (Added: 2026-03-27)
+- Replaced the full 1025-option Pokemon dropdown in /teams with a searchable selector that filters by Pokemon name.
+- Kept the existing team draft editing flow and on-demand selected-detail fetch behavior unchanged while limiting the visible search results list.
