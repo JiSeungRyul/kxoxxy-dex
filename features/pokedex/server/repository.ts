@@ -183,7 +183,9 @@ async function getPokemonCollectionCatalogEntriesByDexNumbers(snapshotId: number
         ),
         'generation', payload->'generation',
         'types', payload->'types',
-        'stats', payload->'stats'
+        'stats', payload->'stats',
+        'height', payload->'height',
+        'weight', payload->'weight'
       ) AS payload
       FROM pokemon_catalog
       WHERE snapshot_id = $1
@@ -599,9 +601,9 @@ async function getOrCreateAnonymousSessionId(sessionId: string) {
 }
 
 async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId: number): Promise<PokedexCollectionState> {
-  const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number; isShiny: boolean }>>(
+  const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number; isShiny: boolean; capturedAt: string }>>(
     `
-      SELECT national_dex_number AS "nationalDexNumber", is_shiny AS "isShiny"
+      SELECT national_dex_number AS "nationalDexNumber", is_shiny AS "isShiny", captured_at::text AS "capturedAt"
       FROM daily_captures
       WHERE anonymous_session_id = $1
       ORDER BY national_dex_number ASC
@@ -626,6 +628,9 @@ async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessio
   return {
     capturedDexNumbers: capturedRows.map((row) => row.nationalDexNumber),
     shinyCapturedDexNumbers: capturedRows.filter((row) => row.isShiny).map((row) => row.nationalDexNumber),
+    capturedAtByDexNumber: Object.fromEntries(
+      capturedRows.map((row) => [String(row.nationalDexNumber), row.capturedAt]),
+    ),
     encountersByDate: Object.fromEntries(
       encounterRows.map((row) => [row.encounterDate, row.nationalDexNumber]),
     ),
@@ -664,6 +669,7 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
     return {
       capturedDexNumbers: [],
       shinyCapturedDexNumbers: [],
+      capturedAtByDexNumber: {},
       encountersByDate: {},
       shinyEncountersByDate: {},
     };
@@ -721,6 +727,7 @@ export async function captureDailyEncounter(sessionId: string, dateKey = getLoca
     return {
       capturedDexNumbers: [],
       shinyCapturedDexNumbers: [],
+      capturedAtByDexNumber: {},
       encountersByDate: {},
       shinyEncountersByDate: {},
     };
@@ -754,6 +761,7 @@ export async function resetDailyEncounterCapture(sessionId: string, dateKey = ge
     return {
       capturedDexNumbers: [],
       shinyCapturedDexNumbers: [],
+      capturedAtByDexNumber: {},
       encountersByDate: {},
       shinyEncountersByDate: {},
     };
@@ -783,6 +791,7 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
     return {
       capturedDexNumbers: [],
       shinyCapturedDexNumbers: [],
+      capturedAtByDexNumber: {},
       encountersByDate: {},
       shinyEncountersByDate: {},
     };
@@ -831,6 +840,7 @@ export async function releaseCapturedPokemon(sessionId: string, nationalDexNumbe
     return {
       capturedDexNumbers: [],
       shinyCapturedDexNumbers: [],
+      capturedAtByDexNumber: {},
       encountersByDate: {},
       shinyEncountersByDate: {},
     };
@@ -1147,5 +1157,4 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
-
 

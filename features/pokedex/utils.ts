@@ -209,6 +209,7 @@ export function getInitialCollectionState(): PokedexCollectionState {
   return {
     capturedDexNumbers: [],
     shinyCapturedDexNumbers: [],
+    capturedAtByDexNumber: {},
     encountersByDate: {},
     shinyEncountersByDate: {},
   };
@@ -226,6 +227,14 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
   const shinyCapturedDexNumbers = Array.isArray(candidate.shinyCapturedDexNumbers)
     ? candidate.shinyCapturedDexNumbers.filter((entry): entry is number => Number.isInteger(entry))
     : [];
+  const capturedAtByDexNumber =
+    candidate.capturedAtByDexNumber && typeof candidate.capturedAtByDexNumber === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.capturedAtByDexNumber).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim().length > 0,
+          ),
+        )
+      : {};
 
   const encountersByDate =
     candidate.encountersByDate && typeof candidate.encountersByDate === "object"
@@ -247,6 +256,7 @@ export function sanitizeCollectionState(value: unknown): PokedexCollectionState 
   return {
     capturedDexNumbers: [...new Set(capturedDexNumbers)].sort((left, right) => left - right),
     shinyCapturedDexNumbers: [...new Set(shinyCapturedDexNumbers)].sort((left, right) => left - right),
+    capturedAtByDexNumber,
     encountersByDate,
     shinyEncountersByDate,
   };
@@ -604,5 +614,6 @@ export function sanitizeTeamMembers(value: unknown) {
 export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
   return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
 }
+
 
 

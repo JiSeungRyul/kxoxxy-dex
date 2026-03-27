@@ -16,6 +16,7 @@ type DailyEncounterProps = {
   isCaptured: boolean;
   isReady: boolean;
   isSyncing: boolean;
+  isTransitioning: boolean;
   onCapture: () => void;
   onResetToday: () => void;
   onRerollToday: () => void;
@@ -279,6 +280,94 @@ const ENCOUNTER_SCENE_STYLES: Record<
   },
 };
 
+type EncounterScalePreset = {
+  label: string;
+  wrapperClass: string;
+  imageClass: string;
+  auraClass: string;
+  imageWidth: number;
+  imageHeight: number;
+  sizes: string;
+};
+
+const ENCOUNTER_SCALE_PRESETS: Record<"tiny" | "small" | "medium" | "large" | "giant", EncounterScalePreset> = {
+  tiny: {
+    label: "초소형 체급",
+    wrapperClass: "h-[5.75rem] w-[5.75rem] sm:h-[6.5rem] sm:w-[6.5rem]",
+    imageClass: "h-[3.9rem] w-[3.9rem] sm:h-[4.6rem] sm:w-[4.6rem]",
+    auraClass: "h-20 w-20 sm:h-24 sm:w-24",
+    imageWidth: 80,
+    imageHeight: 80,
+    sizes: "(max-width: 640px) 64px, 80px",
+  },
+  small: {
+    label: "소형 체급",
+    wrapperClass: "h-[8rem] w-[8rem] sm:h-[9rem] sm:w-[9rem]",
+    imageClass: "h-[5.75rem] w-[5.75rem] sm:h-[6.75rem] sm:w-[6.75rem]",
+    auraClass: "h-28 w-28 sm:h-36 sm:w-36",
+    imageWidth: 112,
+    imageHeight: 112,
+    sizes: "(max-width: 640px) 92px, 112px",
+  },
+  medium: {
+    label: "중형 체급",
+    wrapperClass: "h-[11rem] w-[11rem] sm:h-[12rem] sm:w-[12rem]",
+    imageClass: "h-[8.25rem] w-[8.25rem] sm:h-[9.25rem] sm:w-[9.25rem]",
+    auraClass: "h-40 w-40 sm:h-52 sm:w-52",
+    imageWidth: 160,
+    imageHeight: 160,
+    sizes: "(max-width: 640px) 144px, 160px",
+  },
+  large: {
+    label: "대형 체급",
+    wrapperClass: "h-[14.5rem] w-[14.5rem] sm:h-[16rem] sm:w-[16rem]",
+    imageClass: "h-[11rem] w-[11rem] sm:h-[12.5rem] sm:w-[12.5rem]",
+    auraClass: "h-60 w-60 sm:h-72 sm:w-72",
+    imageWidth: 208,
+    imageHeight: 208,
+    sizes: "(max-width: 640px) 188px, 208px",
+  },
+  giant: {
+    label: "초대형 체급",
+    wrapperClass: "h-[19rem] w-[19rem] sm:h-[21rem] sm:w-[21rem]",
+    imageClass: "h-[15rem] w-[15rem] sm:h-[17rem] sm:w-[17rem]",
+    auraClass: "h-72 w-72 sm:h-[22rem] sm:w-[22rem]",
+    imageWidth: 256,
+    imageHeight: 256,
+    sizes: "(max-width: 640px) 224px, 256px",
+  },
+};
+
+function getEncounterScalePreset(encounter: PokemonCollectionCatalogEntry | null): EncounterScalePreset {
+  if (!encounter) {
+    return ENCOUNTER_SCALE_PRESETS.medium;
+  }
+
+  const { height, weight } = encounter;
+
+  if (height <= 6) {
+    return ENCOUNTER_SCALE_PRESETS.tiny;
+  }
+
+  if (height <= 12) {
+    return ENCOUNTER_SCALE_PRESETS.small;
+  }
+
+  if (height <= 20) {
+    return ENCOUNTER_SCALE_PRESETS.medium;
+  }
+
+  if (height <= 32) {
+    return ENCOUNTER_SCALE_PRESETS.large;
+  }
+
+  return ENCOUNTER_SCALE_PRESETS.giant;
+}
+
+function formatEncounterMetric(value: number) {
+  return Number((value / 10).toFixed(1)).toString();
+}
+
 export function DailyEncounter({
   encounter,
   isShiny,
@@ -288,6 +377,7 @@ export function DailyEncounter({
   isCaptured,
   isReady,
   isSyncing,
+  isTransitioning,
   onCapture,
   onResetToday,
   onRerollToday,
@@ -303,6 +393,10 @@ export function DailyEncounter({
     : null;
   const captureTimeoutRef = useRef<number | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
+  const encounterScalePreset = getEncounterScalePreset(encounter);
+  const encounterScaleLabel = encounter
+    ? [formatEncounterMetric(encounter.height) + "m", formatEncounterMetric(encounter.weight) + "kg", encounterScalePreset.label].join(" · ")
+    : null;
   const [isThrowingBall, setIsThrowingBall] = useState(false);
 
   useEffect(() => {
@@ -326,7 +420,7 @@ export function DailyEncounter({
   }, []);
 
   function throwPokeball() {
-    if (!encounter || isCaptured || isThrowingBall || isSyncing) {
+    if (!encounter || isCaptured || isThrowingBall || isSyncing || isTransitioning) {
       return;
     }
 
@@ -371,9 +465,9 @@ export function DailyEncounter({
 
           {!isReady ? (
             <div className="space-y-4 rounded-[1.75rem] border border-white/60 bg-white/60 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-5">
-              <div className={`relative min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border ${sceneStyle.scene}`}>
-                <div aria-hidden="true" className={`absolute inset-x-0 top-0 h-[58%] ${sceneStyle.sky}`} />
-                <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[42%] ${sceneStyle.ground}`} />
+              <div className={`relative min-h-[440px] w-full overflow-hidden rounded-[1.75rem] border ${sceneStyle.scene} sm:min-h-[480px]`}>
+                <div aria-hidden="true" className={`absolute inset-x-0 top-0 h-[60%] ${sceneStyle.sky}`} />
+                <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-[46%] ${sceneStyle.ground}`} />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <p className={`text-sm font-semibold ${sceneStyle.text}`}>오늘의 포켓몬을 불러오는 중...</p>
                 </div>
@@ -385,20 +479,22 @@ export function DailyEncounter({
                 <button
                   type="button"
                   onClick={throwPokeball}
-                  disabled={isCaptured || isThrowingBall || isSyncing}
-                  className={`relative block min-h-[420px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene}`}
+                  disabled={isCaptured || isThrowingBall || isSyncing || isTransitioning}
+                  className={`relative block min-h-[440px] w-full overflow-hidden rounded-[1.75rem] border text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] transition hover:brightness-[1.02] disabled:cursor-default disabled:hover:brightness-100 ${sceneStyle.scene} sm:min-h-[480px]`}
                 >
                   <div
                     aria-hidden="true"
-                    className={`absolute inset-x-0 top-0 h-[58%] ${sceneStyle.sky}`}
+                    className={`absolute inset-x-0 top-0 h-[60%] ${sceneStyle.sky}`}
                   />
                   <div
                     aria-hidden="true"
-                    className={`absolute inset-x-0 bottom-0 h-[42%] ${sceneStyle.ground}`}
+                    className={`absolute inset-x-0 bottom-0 h-[46%] ${sceneStyle.ground}`}
                   />
-                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-28 wild-grass-sway bg-[linear-gradient(180deg,transparent,rgba(43,91,39,0.22)_18%,rgba(42,94,37,0.85))]" />
-                  <div aria-hidden="true" className={`absolute inset-x-0 bottom-10 h-24 wild-grass-sway opacity-80 ${sceneStyle.grass}`} />
-                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-20 bg-[linear-gradient(180deg,rgba(34,76,31,0),rgba(25,60,27,0.35)_36%,rgba(22,54,24,0.92))]" />
+                  <div aria-hidden="true" className="absolute inset-x-0 top-[50%] h-[20%] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0)_28%,rgba(34,84,39,0.16)_72%,rgba(22,58,27,0.32))] blur-xl" />
+                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-36 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_38%),linear-gradient(180deg,rgba(41,89,40,0)_0%,rgba(43,91,39,0.18)_24%,rgba(38,84,36,0.62)_68%,rgba(24,58,27,0.92)_100%)]" />
+                  <div aria-hidden="true" className={`absolute inset-x-0 bottom-8 h-28 wild-grass-sway opacity-70 blur-[1px] ${sceneStyle.grass}`} />
+                  <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-24 wild-grass-sway opacity-95 ${sceneStyle.grass}`} />
+                  <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(16,40,19,0),rgba(18,46,22,0.24)_34%,rgba(18,44,22,0.78)_100%)]" />
 
                   <div className="absolute left-6 top-6 rounded-full bg-black/25 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-white/90 backdrop-blur-md">
                     야생의 {encounter.name}
@@ -410,15 +506,24 @@ export function DailyEncounter({
                     </div>
                   ) : null}
 
-                  <div className="absolute inset-x-0 top-[23%] flex justify-center">
-                    <div className={`relative ${isCaptured ? "capture-ring-pulse" : ""}`}>
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-x-0 top-[14%] h-40 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.3),transparent_58%)] blur-3xl sm:h-48"
+                  />
+                  <div className="absolute inset-x-0 top-[18%] flex justify-center sm:top-[16%]">
+                    <div className={`relative flex items-end justify-center ${encounterScalePreset.wrapperClass} ${isCaptured ? "capture-ring-pulse" : ""}`}>
+                      <div
+                        aria-hidden="true"
+                        className={`absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/35 blur-3xl ${encounterScalePreset.auraClass}`}
+                      />
+                      <div aria-hidden="true" className="absolute inset-x-5 bottom-4 h-8 rounded-full bg-black/25 blur-2xl sm:h-10" />
                       <Image
                         src={encounterDisplayImageUrl ?? encounter.imageUrl}
                         alt={encounter.name}
-                        width={150}
-                        height={150}
-                        sizes="(max-width: 1024px) 140px, 150px"
-                        className={`h-[140px] w-[140px] object-contain drop-shadow-[0_22px_24px_rgba(16,48,20,0.35)] sm:h-[150px] sm:w-[150px] ${
+                        width={encounterScalePreset.imageWidth}
+                        height={encounterScalePreset.imageHeight}
+                        sizes={encounterScalePreset.sizes}
+                        className={`object-contain drop-shadow-[0_28px_30px_rgba(16,48,20,0.34)] ${encounterScalePreset.imageClass} ${
                           isCaptured ? "" : "wild-pokemon-float"
                         }`}
                         unoptimized
@@ -437,12 +542,19 @@ export function DailyEncounter({
                     </div>
                   </div>
 
+                  <div className="absolute bottom-6 left-6 rounded-2xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
+                    <p className="font-semibold tracking-[0.12em] text-white/95">조우 체급</p>
+                    <p>{encounterScaleLabel}</p>
+                  </div>
+
                   <div className="absolute bottom-6 right-6 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
                     {isCaptured
                       ? "오늘의 포획 완료"
-                      : isThrowingBall || isSyncing
-                        ? "포켓볼이 날아갑니다..."
-                        : "화면을 클릭해 포켓볼을 던지세요"}
+                      : isTransitioning
+                        ? "새 포켓몬을 불러오는 중..."
+                        : isThrowingBall || isSyncing
+                          ? "포켓볼이 날아갑니다..."
+                          : "화면을 클릭해 포켓볼을 던져 보세요"}
                   </div>
                 </button>
               </div>
@@ -452,10 +564,10 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={throwPokeball}
-                    disabled={isCaptured || isThrowingBall || isSyncing}
+                    disabled={isCaptured || isThrowingBall || isSyncing || isTransitioning}
                     className="inline-flex h-12 items-center justify-center rounded-2xl bg-emerald-950 px-5 text-sm font-semibold text-emerald-50 transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-emerald-950/35 disabled:text-emerald-50/70 dark:bg-emerald-100 dark:text-emerald-950 dark:disabled:bg-emerald-100/30 dark:disabled:text-emerald-950/60"
                   >
-                    {isCaptured ? "포획 완료" : isThrowingBall ? "포획 시도 중" : "포켓볼 던지기"}
+                    {isCaptured ? "포획 완료" : isTransitioning ? "새 포켓몬 불러오는 중" : isThrowingBall ? "포획 시도 중" : "포켓볼 던지기"}
                   </button>
                   <button
                     type="button"
@@ -468,7 +580,7 @@ export function DailyEncounter({
                   <button
                     type="button"
                     onClick={onRerollToday}
-                    disabled={!canRerollToday}
+                    disabled={!canRerollToday || isTransitioning}
                     className="inline-flex h-12 items-center justify-center rounded-2xl border border-emerald-950/15 bg-white/80 px-5 text-sm font-semibold text-emerald-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/10 dark:text-emerald-50 dark:hover:bg-white/15"
                   >
                     포켓몬 바꾸기
@@ -520,9 +632,10 @@ export function DailyEncounter({
                   ) : null}
                 </div>
 
-                <p className="text-sm leading-6 text-emerald-950/75 dark:text-emerald-50/75">
-                  능력치 총합 {Object.values(encounter.stats).reduce((sum, value) => sum + value, 0)}
-                </p>
+                <div className="space-y-1 text-sm leading-6 text-emerald-950/75 dark:text-emerald-50/75">
+                  <p>능력치 총합 {Object.values(encounter.stats).reduce((sum, value) => sum + value, 0)}</p>
+                  <p>{encounterScaleLabel}</p>
+                </div>
 
                 <div className="flex flex-wrap gap-2">
                   {encounter.types.map((type) => (
@@ -577,8 +690,5 @@ export function DailyEncounter({
     </section>
   );
 }
-
-
-
 
 
