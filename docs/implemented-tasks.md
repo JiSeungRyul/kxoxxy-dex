@@ -140,3 +140,20 @@
 - Refined the /daily main encounter hero so the Pokemon art uses the larger artwork image by default instead of the smaller sprite when possible.
 - Added a five-tier size scale for daily encounter presentation using Pokemon height and weight so very small Pokemon no longer look over-enlarged in the hero scene.
 - Expanded the encounter stage with a stronger spotlight, scale badge, and slightly taller scene framing while keeping daily capture, reset, and reroll behavior unchanged.
+
+## Pokedex Capture Badge Regression Fix (Added: 2026-03-27)
+- Stopped the main Pokedex list from rendering the daily collection capture badge so anonymous-session capture progress remains scoped to /daily and /my-pokemon.
+- Kept the existing daily capture persistence and My Pokemon gallery behavior unchanged.
+
+## Daily Encounter Scale Rebalance (Added: 2026-03-27)
+- Rebalanced the /daily five-stage encounter size thresholds around more real-world perceived size ranges, using wider height and weight bands from very small through very large presentation.
+- Increased the visual separation between each stage so tiny Pokemon read noticeably smaller and giant Pokemon claim much more of the encounter scene without changing daily capture behavior.
+## Daily Encounter Height-Only Scale Tuning (Added: 2026-03-27)
+- Simplified the /daily size-stage logic to use height-only thresholds so short Pokemon no longer jump into oversized presentation because of weight.
+- Increased the visual gap between the smallest and largest encounter stages so sub-1m Pokemon read clearly smaller in the hero scene.
+## Daily Encounter Background Smoothing (Added: 2026-03-27)
+- Softened the /daily scene horizon by overlapping the sky and ground layers with a transition haze instead of a hard visual seam.
+- Reworked the lower grass and ground overlays so the encounter backdrop reads more like a continuous stage and less like broken image bands.
+## Daily Encounter Reroll Transition Stabilization (Added: 2026-03-27)
+- Kept the previous /daily encounter visible while the rerolled Pokemon detail is still loading so the scene no longer flashes into an empty-state layout.
+- Disabled encounter actions during that short transition window so the UI stays stable until the new reroll detail arrives.

@@ -103,6 +103,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [dailyAnonymousSessionId, setDailyAnonymousSessionId] = useState<string | null>(null);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
   const [dailyPokemonDetails, setDailyPokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
+  const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
   const [myPokemonDetails, setMyPokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
   const usesServerCollectionState = view === "daily" || view === "my-pokemon";
 
@@ -147,6 +148,8 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const todayEncounter = todayEncounterDexNumber
     ? dailyPokemonDetails.find((entry) => entry.nationalDexNumber === todayEncounterDexNumber) ?? null
     : null;
+  const isDailyEncounterTransitioning = view === "daily" && Boolean(todayEncounterDexNumber) && !todayEncounter;
+  const displayedTodayEncounter = view === "daily" ? (todayEncounter ?? lastResolvedDailyEncounter) : todayEncounter;
   const isTodayEncounterShiny = Boolean(collectionState.shinyEncountersByDate[todayKey]);
   const capturedDexNumberSet = new Set(collectionState.capturedDexNumbers);
   const isTodayEncounterCaptured = todayEncounter
@@ -228,6 +231,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   useEffect(() => {
     if (view !== "daily") {
       setDailyPokemonDetails([]);
+      setLastResolvedDailyEncounter(null);
       return;
     }
 
@@ -271,6 +275,21 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       controller.abort();
     };
   }, [collectionState.capturedDexNumbers, isCollectionReady, todayEncounterDexNumber, view]);
+
+  useEffect(() => {
+    if (view !== "daily") {
+      return;
+    }
+
+    if (todayEncounter) {
+      setLastResolvedDailyEncounter(todayEncounter);
+      return;
+    }
+
+    if (!todayEncounterDexNumber) {
+      setLastResolvedDailyEncounter(null);
+    }
+  }, [todayEncounter, todayEncounterDexNumber, view]);
 
   useEffect(() => {
     if (view !== "my-pokemon") {
@@ -618,7 +637,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       <div className="space-y-6">
         {view === "daily" ? (
           <DailyEncounter
-            encounter={isCollectionReady ? todayEncounter : null}
+            encounter={isCollectionReady ? displayedTodayEncounter : null}
             isShiny={isCollectionReady ? isTodayEncounterShiny : false}
             capturedCount={collectionState.capturedDexNumbers.length}
             totalCount={dailyCandidateDexNumbers.length}
@@ -626,6 +645,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             isCaptured={isTodayEncounterCaptured}
             isReady={isCollectionReady}
             isSyncing={isSyncingDailyState}
+            isTransitioning={isDailyEncounterTransitioning}
             onCapture={captureTodayEncounter}
             onResetToday={resetTodayEncounter}
             onRerollToday={rerollTodayEncounter}
@@ -671,7 +691,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
                 pokemon={paginatedPokemon as PokemonCatalogListEntry[]}
                 sortKey={sortKey}
                 sortDirection={sortDirection}
-                capturedDexNumbers={collectionState.capturedDexNumbers}
+                capturedDexNumbers={[]}
                 onSortChange={(nextSortKey) => {
                   if (sortKey === nextSortKey) {
                     setSortDirection((currentDirection) => (currentDirection === "asc" ? "desc" : "asc"));
