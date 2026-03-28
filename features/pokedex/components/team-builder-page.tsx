@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
+import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type {
   PokemonBaseStats,
@@ -19,7 +20,10 @@ import {
   TEAM_TERA_TYPE_OPTIONS,
   getAvailableTeamGimmicks,
   calculatePokemonBattleStats,
+  formatMegaFormOptionLabel,
   formatDexNumber,
+  formatTeamTeraTypeLabel,
+  getPokemonTeamMegaForms,
   getTeamNatureEffect,
   formatTeamFormatLabel,
   formatTeamGimmickLabel,
@@ -273,12 +277,17 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
         const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
         const nextAbility = abilityOptions.includes(member.ability) ? member.ability : abilityOptions[0] ?? "";
+        const megaForms = getPokemonTeamMegaForms(selectedPokemon);
+        const nextMegaFormKey =
+          member.gimmick === "mega"
+            ? megaForms.find((form) => form.key === member.megaFormKey)?.key ?? megaForms[0]?.key ?? null
+            : null;
         const nextTeraType =
           member.gimmick === "terastal"
-            ? member.teraType ?? selectedPokemon.types[0]?.name ?? null
+            ? member.teraType ?? (selectedPokemon.name === "테라파고스" ? "stellar" : (selectedPokemon.types[0]?.name ?? null))
             : null;
 
-        if (nextAbility === member.ability && nextTeraType === member.teraType) {
+        if (nextAbility === member.ability && nextMegaFormKey === member.megaFormKey && nextTeraType === member.teraType) {
           return member;
         }
 
@@ -286,6 +295,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
         return {
           ...member,
           ability: nextAbility,
+          megaFormKey: nextMegaFormKey,
           teraType: nextTeraType,
         };
       });
@@ -390,16 +400,71 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     });
   }
 
+  function handleIvStep(slot: number, stat: keyof PokemonBaseStats, delta: number) {
+    updateMember(slot, (currentMember) => ({
+      ...currentMember,
+      ivs: {
+        ...currentMember.ivs,
+        [stat]: Math.min(31, Math.max(0, currentMember.ivs[stat] + delta)),
+      },
+    }));
+  }
+
+  function handleEvStep(slot: number, stat: keyof PokemonBaseStats, delta: number) {
+    const key = getEvDraftKey(slot, stat);
+
+    updateMember(slot, (currentMember) => {
+      const normalized = normalizeTeamEvsOnBlur(
+        currentMember.evs,
+        stat,
+        String((evInputDrafts[key] !== undefined ? Number(evInputDrafts[key]) || 0 : currentMember.evs[stat]) + delta),
+      );
+
+      return {
+        ...currentMember,
+        evs: normalized.evs,
+      };
+    });
+
+    setEvInputDrafts((currentDrafts) => {
+      if (!(key in currentDrafts)) {
+        return currentDrafts;
+      }
+
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[key];
+      return nextDrafts;
+    });
+    setEvFeedbackBySlot((currentFeedback) => {
+      if (!currentFeedback[slot]) {
+        return currentFeedback;
+      }
+
+      const nextFeedback = { ...currentFeedback };
+      delete nextFeedback[slot];
+      return nextFeedback;
+    });
+  }
+
   function handlePokemonChange(slot: number, nextValue: string) {
     const nationalDexNumber = nextValue.length > 0 ? Number(nextValue) : null;
     const selectedPokemon = nationalDexNumber === null ? undefined : selectedPokemonByDexNumber.get(nationalDexNumber);
     const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
     const selectedOption = nationalDexNumber === null ? null : pokemonOptionByDexNumber.get(nationalDexNumber) ?? null;
+    const defaultTeraType = selectedPokemon?.name === "테라파고스" ? "stellar" : (selectedPokemon?.types[0]?.name ?? null);
 
     updateMember(slot, (currentMember) => ({
       ...currentMember,
       nationalDexNumber,
       ability: abilityOptions.includes(currentMember.ability) ? currentMember.ability : abilityOptions[0] ?? "",
+      gimmick:
+        nationalDexNumber === null
+          ? "none"
+          : teamFormat === "gen9"
+            ? "terastal"
+            : currentMember.gimmick,
+      megaFormKey: null,
+      teraType: nationalDexNumber !== null && teamFormat === "gen9" ? defaultTeraType : null,
     }));
     setPokemonSearchBySlot((currentState) => ({
       ...currentState,
@@ -480,7 +545,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
-      setNotice("팀을 저장했습니다.");
+      setNotice(teamId ? "변경사항을 저장했습니다." : "팀을 저장했습니다.");
 
       if (Number.isInteger(payload.savedTeamId)) {
         const savedTeam = nextTeams.find((entry) => entry.id === payload.savedTeamId) ?? null;
@@ -523,7 +588,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               onClick={resetDraft}
               className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
             >
-              새 팀 시작
+              새로 작성
             </button>
           </div>
         </div>
@@ -560,7 +625,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
             disabled={isLoading || isSaving}
             className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSaving ? "저장 중..." : teamId ? "팀 수정 저장" : "팀 저장"}
+            {isSaving ? "저장 중..." : teamId ? "변경사항 저장" : "팀 저장"}
           </button>
         </div>
 
@@ -590,18 +655,24 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           const showGimmickControls = shouldShowTeamGimmickControls(teamFormat);
           const normalizedMemberGimmick = availableGimmicks.includes(member.gimmick) ? member.gimmick : "none";
           const canUseMega = availableGimmicks.includes("mega");
+          const supportsMega = teamFormat === "gen6" || teamFormat === "gen7";
           const isMegaEnabled = normalizedMemberGimmick === "mega";
           const canUseZMove = availableGimmicks.includes("zmove");
           const isZMoveEnabled = normalizedMemberGimmick === "zmove";
           const canUseDynamax = availableGimmicks.includes("dynamax");
           const isDynamaxEnabled = normalizedMemberGimmick === "dynamax";
+          const canUseGigantamax = availableGimmicks.includes("gigantamax");
+          const isGigantamaxEnabled = normalizedMemberGimmick === "gigantamax";
           const canUseTerastal = availableGimmicks.includes("terastal");
           const isTerastalEnabled = normalizedMemberGimmick === "terastal";
           const selectableManualGimmicks = availableGimmicks.filter(
-            (gimmick) => gimmick !== "mega" && gimmick !== "zmove" && gimmick !== "dynamax" && gimmick !== "terastal",
+            (gimmick) => gimmick !== "mega" && gimmick !== "zmove" && gimmick !== "dynamax" && gimmick !== "gigantamax" && gimmick !== "terastal",
           );
-          const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
+          const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isGigantamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
           const selectedTeraType = member.teraType ?? selectedPokemon?.types[0]?.name ?? "normal";
+          const isTerapagos = selectedPokemon?.name === "테라파고스";
+          const megaForms = getPokemonTeamMegaForms(selectedPokemon);
+          const selectedMegaFormKey = megaForms.find((form) => form.key === member.megaFormKey)?.key ?? megaForms[0]?.key ?? null;
           const evFeedback = evFeedbackBySlot[member.slot] ?? null;
 
           return (
@@ -609,17 +680,34 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Slot {member.slot}
+                    포켓몬 {member.slot}
                   </p>
-                  <h3 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
-                    {selectedPokemon?.name ?? `포켓몬 ${member.slot}`}
-                  </h3>
                   {selectedPokemon ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {formatDexNumber(selectedPokemon.nationalDexNumber)} · {selectedPokemon.types.map((type) => formatTypeLabel(type.name)).join(" / ")}
-                    </p>
+                    <>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h3 className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+                          {selectedPokemon.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{formatDexNumber(selectedPokemon.nationalDexNumber)}</p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedPokemon.types.map((type) => (
+                          <span
+                            key={type.name}
+                            className={`inline-flex rounded-xl border px-3 py-1.5 text-xs font-semibold tracking-[0.04em] ${TYPE_BADGE_STYLES[type.name]}`}
+                          >
+                            {formatTypeLabel(type.name)}
+                          </span>
+                        ))}
+                      </div>
+                    </>
                   ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">먼저 포켓몬을 선택해주세요.</p>
+                    <>
+                      <h3 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+                        {`포켓몬 ${member.slot}`}
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground">먼저 포켓몬을 선택해주세요.</p>
+                    </>
                   )}
                 </div>
 
@@ -708,140 +796,191 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   </div>
                 </div>
                 {showGimmickControls ? (
-                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">배틀 기믹</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatTeamFormatLabel(teamFormat)} 규칙과 현재 포켓몬 기준으로 가능한 기믹만 표시됩니다.</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] md:items-end">
-                      <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
-                        {selectedPokemon ? (
-                          teamFormat === "gen8" && selectedPokemon.gimmickAvailability.canGigantamax
-                            ? "이 포켓몬은 거다이맥스 대상입니다. 거다이맥스 전용 상세 설정 UI는 다음 단계에서 추가됩니다."
-                            : selectedPokemon.gimmickAvailability.canMega
-                              ? "메가 폼이 있는 포켓몬이라 메가진화 선택이 표시됩니다."
-                              : "현재 포켓몬에서 사용할 수 없는 기믹은 목록에서 숨겨집니다."
-                        ) : (
-                          "포켓몬을 선택하면 세대 규칙과 종별 가능 여부를 함께 반영해 기믹 목록을 보여줍니다."
-                        )}
-                      </div>
-                      <div className="space-y-3">
-                        {canUseMega ? (
-                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-                            <div>
-                              <span className="block text-sm font-semibold text-foreground">메가진화 사용</span>
-                              <span className="mt-1 block text-xs text-muted-foreground">
-                                메가 가능한 포켓몬일 때만 이 토글이 표시됩니다.
-                              </span>
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-foreground">기믹</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {supportsMega ? (
+                          selectedPokemon ? (
+                            megaForms.length > 0 ? (
+                              <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                                <span className="block text-sm font-semibold text-foreground">메가진화</span>
+                                <div className="mt-3 space-y-2">
+                                  <label className="flex items-center gap-3 text-sm text-foreground">
+                                    <input
+                                      type="radio"
+                                      name={`mega-${member.slot}`}
+                                      checked={!isMegaEnabled}
+                                      onChange={() =>
+                                        updateMember(member.slot, (currentMember) => ({
+                                          ...currentMember,
+                                          gimmick: "none",
+                                          megaFormKey: null,
+                                        }))
+                                      }
+                                      className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                    />
+                                    <span>선택 안 함</span>
+                                  </label>
+                                  {megaForms.map((megaForm) => (
+                                    <label key={megaForm.key} className="flex items-center gap-3 text-sm text-foreground">
+                                      <input
+                                        type="radio"
+                                        name={`mega-${member.slot}`}
+                                        checked={isMegaEnabled && selectedMegaFormKey === megaForm.key}
+                                        onChange={() =>
+                                          updateMember(member.slot, (currentMember) => ({
+                                            ...currentMember,
+                                            gimmick: "mega",
+                                            megaFormKey: megaForm.key,
+                                          }))
+                                        }
+                                        className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                      />
+                                      <span>{formatMegaFormOptionLabel(selectedPokemon.name, megaForm)}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                                <span className="block text-sm font-semibold text-foreground">메가진화</span>
+                                <p className="mt-3 text-sm font-medium text-muted-foreground">메가진화 불가</p>
+                              </div>
+                            )
+                          ) : (
+                            <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                              <span className="block text-sm font-semibold text-foreground">메가진화</span>
+                              <p className="mt-3 text-sm font-medium text-muted-foreground">포켓몬 선택 필요</p>
                             </div>
-                            <input
-                              type="checkbox"
-                              checked={isMegaEnabled}
-                              onChange={(event) =>
-                                updateMember(member.slot, (currentMember) => ({
-                                  ...currentMember,
-                                  gimmick: event.target.checked ? "mega" : "none",
-                                }))
-                              }
-                              disabled={!selectedPokemon}
-                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-                            />
-                          </label>
+                          )
                         ) : null}
                         {canUseDynamax ? (
-                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-                            <div>
-                              <span className="block text-sm font-semibold text-foreground">다이맥스 사용</span>
-                              <span className="mt-1 block text-xs text-muted-foreground">
-                                {selectedPokemon?.gimmickAvailability.canGigantamax
-                                  ? "거다이맥스 대상 포켓몬입니다. 세부 설정은 다음 단계에서 추가됩니다."
-                                  : "gen8 포맷에서만 보이는 최소 토글입니다."}
-                              </span>
+                          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                            <span className="block text-sm font-semibold text-foreground">다이맥스</span>
+                            <div className="mt-3 space-y-2">
+                              <label className="flex items-center gap-3 text-sm text-foreground">
+                                <input
+                                  type="radio"
+                                  name={`dynamax-${member.slot}`}
+                                  checked={!isDynamaxEnabled && !isGigantamaxEnabled}
+                                  onChange={() =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      gimmick: "none",
+                                      megaFormKey: null,
+                                    }))
+                                  }
+                                  disabled={!selectedPokemon}
+                                  className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                />
+                                <span>미사용</span>
+                              </label>
+                              <label className="flex items-center gap-3 text-sm text-foreground">
+                                <input
+                                  type="radio"
+                                  name={`dynamax-${member.slot}`}
+                                  checked={isDynamaxEnabled}
+                                  onChange={() =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      gimmick: "dynamax",
+                                      megaFormKey: null,
+                                    }))
+                                  }
+                                  disabled={!selectedPokemon}
+                                  className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                />
+                                <span>다이맥스</span>
+                              </label>
+                              {canUseGigantamax ? (
+                                <label className="flex items-center gap-3 text-sm text-foreground">
+                                  <input
+                                    type="radio"
+                                    name={`dynamax-${member.slot}`}
+                                    checked={isGigantamaxEnabled}
+                                    onChange={() =>
+                                      updateMember(member.slot, (currentMember) => ({
+                                        ...currentMember,
+                                        gimmick: "gigantamax",
+                                        megaFormKey: null,
+                                      }))
+                                    }
+                                    disabled={!selectedPokemon}
+                                    className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                  />
+                                  <span>거다이맥스</span>
+                                </label>
+                              ) : null}
                             </div>
-                            <input
-                              type="checkbox"
-                              checked={isDynamaxEnabled}
-                              onChange={(event) =>
-                                updateMember(member.slot, (currentMember) => ({
-                                  ...currentMember,
-                                  gimmick: event.target.checked ? "dynamax" : "none",
-                                }))
-                              }
-                              disabled={!selectedPokemon}
-                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-                            />
-                          </label>
+                          </div>
                         ) : null}
                         {canUseZMove ? (
-                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-                            <div>
-                              <span className="block text-sm font-semibold text-foreground">Z기술 사용</span>
-                              <span className="mt-1 block text-xs text-muted-foreground">
-                                gen7 전용 최소 토글입니다. 전용 Z기술, Z크리스탈 종류, 기술 조건은 다음 단계에서 다룹니다.
-                              </span>
+                          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                            <span className="block text-sm font-semibold text-foreground">Z기술</span>
+                            <div className="mt-3 space-y-2">
+                              <label className="flex items-center gap-3 text-sm text-foreground">
+                                <input
+                                  type="radio"
+                                  name={`zmove-${member.slot}`}
+                                  checked={!isZMoveEnabled}
+                                  onChange={() =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      gimmick: "none",
+                                      megaFormKey: null,
+                                    }))
+                                  }
+                                  disabled={!selectedPokemon}
+                                  className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                />
+                                <span>미사용</span>
+                              </label>
+                              <label className="flex items-center gap-3 text-sm text-foreground">
+                                <input
+                                  type="radio"
+                                  name={`zmove-${member.slot}`}
+                                  checked={isZMoveEnabled}
+                                  onChange={() =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      gimmick: "zmove",
+                                      megaFormKey: null,
+                                    }))
+                                  }
+                                  disabled={!selectedPokemon}
+                                  className="h-4 w-4 shrink-0 appearance-auto accent-[var(--color-accent)]"
+                                />
+                                <span>사용</span>
+                              </label>
                             </div>
-                            <input
-                              type="checkbox"
-                              checked={isZMoveEnabled}
-                              onChange={(event) =>
-                                updateMember(member.slot, (currentMember) => ({
-                                  ...currentMember,
-                                  gimmick: event.target.checked ? "zmove" : "none",
-                                }))
-                              }
-                              disabled={!selectedPokemon}
-                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-                            />
-                          </label>
+                          </div>
                         ) : null}
                         {canUseTerastal ? (
                           <div className="rounded-2xl border border-border bg-card px-4 py-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <span className="block text-sm font-semibold text-foreground">테라스탈 사용</span>
-                                <span className="mt-1 block text-xs text-muted-foreground">
-                                  gen9 전용 최소 UI입니다. 이번 단계에서는 테라 타입만 선택합니다.
-                                </span>
-                              </div>
-                              <input
-                                type="checkbox"
-                                checked={isTerastalEnabled}
-                                onChange={(event) =>
-                                  updateMember(member.slot, (currentMember) => ({
-                                    ...currentMember,
-                                    gimmick: event.target.checked ? "terastal" : "none",
-                                    teraType: event.target.checked
-                                      ? currentMember.teraType ?? selectedPokemon?.types[0]?.name ?? "normal"
-                                      : null,
-                                  }))
-                                }
-                                disabled={!selectedPokemon}
-                                className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-                              />
-                            </div>
-                            {isTerastalEnabled ? (
-                              <label className="mt-3 block space-y-2">
-                                <span className="text-sm font-semibold text-foreground">테라 타입</span>
-                                <select
-                                  value={selectedTeraType}
-                                  onChange={(event) =>
-                                    updateMember(member.slot, (currentMember) => ({
-                                      ...currentMember,
-                                      teraType: event.target.value as typeof currentMember.teraType,
-                                    }))
-                                  }
-                                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                                >
-                                  {TEAM_TERA_TYPE_OPTIONS.map((typeName) => (
-                                    <option key={typeName} value={typeName}>
-                                      {formatTypeLabel(typeName)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            ) : null}
+                            <span className="block text-sm font-semibold text-foreground">테라스탈</span>
+                            <select
+                              value={isTerastalEnabled ? (isTerapagos ? "stellar" : selectedTeraType) : "__none__"}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.value === "__none__" ? "none" : "terastal",
+                                  megaFormKey: null,
+                                  teraType:
+                                    event.target.value === "__none__"
+                                      ? null
+                                      : (event.target.value as typeof currentMember.teraType),
+                                }))
+                              }
+                              disabled={!selectedPokemon || isTerapagos}
+                              className="mt-3 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <option value="__none__">미사용</option>
+                              {(isTerapagos ? (["stellar"] as const) : TEAM_TERA_TYPE_OPTIONS).map((typeName) => (
+                                <option key={typeName} value={typeName}>
+                                  {formatTeamTeraTypeLabel(typeName)}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         ) : null}
                         {selectableManualGimmicks.length > 1 ? (
@@ -855,6 +994,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                                 updateMember(member.slot, (currentMember) => ({
                                   ...currentMember,
                                   gimmick: event.target.value as TeamGimmickId,
+                                  megaFormKey: null,
                                 }))
                               }
                               disabled={!selectedPokemon || isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled}
@@ -868,7 +1008,6 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                             </select>
                           </label>
                         ) : null}
-                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -959,22 +1098,28 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   </div>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-4">
-                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-3.5">
                     <p className="text-sm font-semibold text-foreground">종족값</p>
-                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <div className="mt-3 space-y-1.5">
                       {STAT_FIELDS.map((field) => (
-                        <div key={`${member.slot}-base-${field.key}`} className="flex items-center justify-between gap-3">
-                          <span>{field.label}</span>
-                          <span className="font-semibold text-foreground">
-                            {selectedPokemon?.stats[field.key] ?? "-"}
-                          </span>
+                        <div
+                          key={`${member.slot}-base-${field.key}`}
+                          className="flex min-h-9 items-center justify-between gap-3 py-1"
+                        >
+                          <span className="w-10 shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">{field.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="w-14 text-right text-sm font-semibold text-foreground">
+                              {selectedPokemon?.stats[field.key] ?? "-"}
+                            </span>
+                            <span className="h-8 w-5 shrink-0" aria-hidden="true" />
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-3.5">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-foreground">개체값</p>
                       <button
@@ -985,68 +1130,120 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                         31로 채우기
                       </button>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3 space-y-1.5">
                       {STAT_FIELDS.map((field) => (
-                        <label key={`${member.slot}-iv-${field.key}`} className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{field.label}</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={31}
-                            value={member.ivs[field.key]}
-                            onChange={(event) =>
-                              updateMember(member.slot, (currentMember) => ({
-                                ...currentMember,
-                                ivs: {
-                                  ...currentMember.ivs,
-                                  [field.key]: Math.min(31, Math.max(0, Number(event.target.value) || 0)),
-                                },
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                          />
-                        </label>
+                        <div
+                          key={`${member.slot}-iv-${field.key}`}
+                          className="flex min-h-9 items-center justify-between gap-3 py-1"
+                        >
+                          <span className="w-10 shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">{field.label}</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={31}
+                              value={member.ivs[field.key]}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  ivs: {
+                                    ...currentMember.ivs,
+                                    [field.key]: Math.min(31, Math.max(0, Number(event.target.value) || 0)),
+                                  },
+                                }))
+                              }
+                              className="w-14 border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none"
+                            />
+                            <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-background">
+                              <button
+                                type="button"
+                                onClick={() => handleIvStep(member.slot, field.key, 1)}
+                                className="flex h-4 w-5 items-center justify-center text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                aria-label={`${field.label} 개체값 증가`}
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleIvStep(member.slot, field.key, -1)}
+                                className="flex h-4 w-5 items-center justify-center border-t border-border text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                aria-label={`${field.label} 개체값 감소`}
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-3.5">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-foreground">노력치</p>
                       <span className={`text-xs font-semibold ${evTotal > 510 ? "text-red-500" : "text-muted-foreground"}`}>
-                        총합 {evTotal} / 510
+                        {evTotal}/510
                       </span>
                     </div>
                     {evFeedback ? (
                       <p className="mt-2 text-xs font-medium text-red-500">{evFeedback}</p>
                     ) : null}
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3 space-y-1.5">
                       {STAT_FIELDS.map((field) => (
-                        <label key={`${member.slot}-ev-${field.key}`} className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{field.label}</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={252}
-                            value={evInputDrafts[getEvDraftKey(member.slot, field.key)] ?? member.evs[field.key]}
-                            onChange={(event) => handleEvDraftChange(member.slot, field.key, event.target.value)}
-                            onBlur={() => handleEvDraftBlur(member.slot, field.key)}
-                            className="w-full rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                          />
-                        </label>
+                        <div
+                          key={`${member.slot}-ev-${field.key}`}
+                          className="flex min-h-9 items-center justify-between gap-3 py-1"
+                        >
+                          <span className="w-10 shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">{field.label}</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={252}
+                              value={evInputDrafts[getEvDraftKey(member.slot, field.key)] ?? member.evs[field.key]}
+                              onChange={(event) => handleEvDraftChange(member.slot, field.key, event.target.value)}
+                              onBlur={() => handleEvDraftBlur(member.slot, field.key)}
+                              className="w-14 border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none"
+                            />
+                            <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-background">
+                              <button
+                                type="button"
+                                onClick={() => handleEvStep(member.slot, field.key, 1)}
+                                className="flex h-4 w-5 items-center justify-center text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                aria-label={`${field.label} 노력치 증가`}
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleEvStep(member.slot, field.key, -1)}
+                                className="flex h-4 w-5 items-center justify-center border-t border-border text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                aria-label={`${field.label} 노력치 감소`}
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4 lg:col-span-1">
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-3.5">
                     <p className="text-sm font-semibold text-foreground">실전 능력치</p>
-                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <div className="mt-3 space-y-1.5">
                       {STAT_FIELDS.map((field) => (
-                        <div key={`${member.slot}-battle-${field.key}`} className="flex items-center justify-between gap-3">
-                          <span>{field.label}</span>
-                          <span className="font-semibold text-foreground">
-                            {battleStats?.[field.key] ?? "-"}
-                          </span>
+                        <div
+                          key={`${member.slot}-battle-${field.key}`}
+                          className="flex min-h-9 items-center justify-between gap-3 py-1"
+                        >
+                          <span className="w-10 shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">{field.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="w-14 text-right text-sm font-semibold text-foreground">
+                              {battleStats?.[field.key] ?? "-"}
+                            </span>
+                            <span className="h-8 w-5 shrink-0" aria-hidden="true" />
+                          </div>
                         </div>
                       ))}
                     </div>

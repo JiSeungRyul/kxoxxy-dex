@@ -121,6 +121,7 @@ export const teamMembers = pgTable(
     ivs: jsonb("ivs").notNull(),
     evs: jsonb("evs").notNull(),
     gimmick: text("gimmick").default("none").notNull(),
+    megaFormKey: text("mega_form_key"),
     teraType: text("tera_type"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
