@@ -159,6 +159,11 @@ export type PokemonTeamGimmickAvailability = {
   canGigantamax: boolean;
 };
 
+export type PokemonTeamMegaFormOption = {
+  key: string;
+  label: string;
+};
+
 export type PokemonTeamBuilderCatalogEntry = Pick<
   PokemonSummary,
   | "nationalDexNumber"
@@ -170,6 +175,7 @@ export type PokemonTeamBuilderCatalogEntry = Pick<
   | "hiddenAbility"
 > & {
   gimmickAvailability: PokemonTeamGimmickAvailability;
+  megaForms: PokemonTeamMegaFormOption[];
 };
 
 export type PokedexFilterOptions = {
@@ -218,7 +224,8 @@ export type PokedexCollectionState = {
 export type PokemonTeamStatSpread = PokemonBaseStats;
 
 export type TeamFormatId = "default" | "gen6" | "gen7" | "gen8" | "gen9";
-export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "terastal";
+export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "gigantamax" | "terastal";
+export type TeamTeraType = PokemonTypeName | "stellar";
 
 export type PokemonTeamMemberDraft = {
   slot: number;
@@ -231,7 +238,8 @@ export type PokemonTeamMemberDraft = {
   ivs: PokemonTeamStatSpread;
   evs: PokemonTeamStatSpread;
   gimmick: TeamGimmickId;
-  teraType: PokemonTypeName | null;
+  megaFormKey: string | null;
+  teraType: TeamTeraType | null;
 };
 
 export type PokemonTeamMember = PokemonTeamMemberDraft & {

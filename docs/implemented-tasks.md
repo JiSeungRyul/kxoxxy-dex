@@ -213,3 +213,8 @@
 - Fixed the Korean gender-rate labels in the Pokemon detail page so genderless, male-only, female-only, and mixed ratios render readable Korean text again.
 - Fixed the defensive matchup multiplier labels so the detail page now shows `4배`, `2배`, `1배`, `0.5배`, and `0배` instead of broken characters.
 - Kept the change limited to shared formatting helpers so the current detail-page structure and data flow stay unchanged.
+
+## Team Navigation Grouping (Added: 2026-03-29)
+- Changed the header navigation so the team section is exposed as a single `팀빌딩` entry with a hover/focus dropdown.
+- Grouped `/teams` and `/my-teams` under that dropdown as `팀 빌더` and `내 팀 보기` instead of keeping them as separate top-level navigation concepts.
+- Kept the active-state logic shared so both `/teams` and `/my-teams` still highlight the same team section in the header.

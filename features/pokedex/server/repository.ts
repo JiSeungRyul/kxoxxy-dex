@@ -43,6 +43,7 @@ import {
   getLocalDateKey,
   getTeamValidationError,
   normalizeTeamGimmick,
+  normalizeTeamMegaFormKey,
   normalizeTeamTeraType,
   rollDailyEncounterShiny,
   sanitizeTeamMembers,
@@ -262,6 +263,19 @@ async function getPokemonTeamBuilderCatalogEntriesByDexNumbers(snapshotId: numbe
         'stats', payload->'stats',
         'abilities', payload->'abilities',
         'hiddenAbility', payload->'hiddenAbility',
+        'megaForms', COALESCE(
+          (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'key', form->>'key',
+                'label', form->>'label'
+              )
+            )
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE form->>'key' LIKE 'mega%'
+          ),
+          '[]'::jsonb
+        ),
         'gimmickAvailability', jsonb_build_object(
           'canMega', EXISTS(
             SELECT 1
@@ -905,6 +919,7 @@ type TeamMemberRow = {
   ivs: PokemonTeamMemberDraft["ivs"];
   evs: PokemonTeamMemberDraft["evs"];
   gimmick: TeamGimmickId;
+  megaFormKey: PokemonTeamMemberDraft["megaFormKey"];
   teraType: PokemonTeamMemberDraft["teraType"];
   pokemon: PokemonSummary;
 };
@@ -964,6 +979,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
             tm.ivs,
             tm.evs,
             tm.gimmick,
+            tm.mega_form_key AS "megaFormKey",
             tm.tera_type AS "teraType",
             pc.payload AS pokemon
           FROM team_members tm
@@ -990,6 +1006,12 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
         id: memberRow.id,
         ...sanitizedMember,
         gimmick: normalizeTeamGimmick(teamRow.format ?? getDefaultTeamFormat(), sanitizedMember.gimmick, memberRow.pokemon),
+        megaFormKey: normalizeTeamMegaFormKey(
+          teamRow.format ?? getDefaultTeamFormat(),
+          sanitizedMember.gimmick,
+          sanitizedMember.megaFormKey,
+          memberRow.pokemon,
+        ),
         teraType: normalizeTeamTeraType(
           teamRow.format ?? getDefaultTeamFormat(),
           sanitizedMember.gimmick,
@@ -1081,6 +1103,19 @@ export async function saveTeam(
         : normalizeTeamGimmick(
             normalizedTeamFormat,
             member.gimmick ?? getDefaultTeamGimmick(),
+            pokemonByDexNumber.get(member.nationalDexNumber),
+          ),
+    megaFormKey:
+      member.nationalDexNumber === null
+        ? null
+        : normalizeTeamMegaFormKey(
+            normalizedTeamFormat,
+            normalizeTeamGimmick(
+              normalizedTeamFormat,
+              member.gimmick ?? getDefaultTeamGimmick(),
+              pokemonByDexNumber.get(member.nationalDexNumber),
+            ),
+            member.megaFormKey ?? null,
             pokemonByDexNumber.get(member.nationalDexNumber),
           ),
     teraType:
@@ -1179,9 +1214,10 @@ export async function saveTeam(
             ivs,
             evs,
             gimmick,
+            mega_form_key,
             tera_type
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11, $12)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11, $12, $13)
         `,
         [
           teamId,
@@ -1195,6 +1231,7 @@ export async function saveTeam(
           JSON.stringify(member.ivs),
           JSON.stringify(member.evs),
           member.gimmick,
+          member.megaFormKey,
           member.teraType,
         ],
       );
