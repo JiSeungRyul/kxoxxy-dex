@@ -193,3 +193,8 @@
 - Added a minimal Terastallization toggle in `/teams` for Pokemon selected under `gen9`.
 - Added a persisted tera-type field for team members so the selected tera type survives save/load round-trips.
 - Kept this MVP step limited to tera-type selection only, without Stellar support or deeper terastal validation rules.
+
+## Team Builder Format-Based Option Narrowing (Added: 2026-03-29)
+- Narrowed `/teams` search candidates by the selected team format instead of always showing the full Pokemon list.
+- Kept the filter intentionally conservative so Pokemon already covered by the selected format generation remain visible, and Pokemon with matching format-era Pokedex entries are also kept to avoid false negatives.
+- Kept already selected team members intact when the team format changes, so the candidate filter only affects new searches and replacements in this MVP step.

@@ -34,7 +34,7 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
 - `/my-pokemon` now loads captured Pokemon detail on demand through `app/api/pokedex/catalog` after anonymous-session collection state is loaded, instead of shipping the gallery catalog on first render.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
-- `/teams` now loads a dex-number-and-name option list through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
+- `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
@@ -87,5 +87,4 @@ If the task depends on route or API performance measurement, read docs/performan
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change
-
 

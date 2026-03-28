@@ -27,6 +27,7 @@ import {
   shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
   getEmptyTeamMember,
+  isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
   getTeamEvTotal,
   sanitizeTeamMembers,
@@ -110,6 +111,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const pokemonOptionByDexNumber = useMemo(
     () => new Map(pokemonOptions.map((entry) => [entry.nationalDexNumber, entry])),
     [pokemonOptions],
+  );
+  const availablePokemonOptions = useMemo(
+    () => pokemonOptions.filter((entry) => isPokemonTeamBuilderOptionAvailableForFormat(entry, teamFormat)),
+    [pokemonOptions, teamFormat],
   );
 
   async function loadTeams(nextSessionId: string) {
@@ -426,6 +431,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               전체 포켓몬 도감에서 최대 6마리를 골라 팀을 구성하고, 각 멤버별 성격, 아이템, 특성, 기술,
               개체값, 노력치를 저장할 수 있습니다.
             </p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+              포맷을 고르면 검색 후보는 해당 세대 기준으로 보수적으로 축소됩니다. 이미 선택한 포켓몬은 자동으로 제거하지 않습니다.
+            </p>
           </div>
           <div className="flex gap-3">
             <Link
@@ -593,8 +601,8 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                           {(() => {
                             const normalizedSearchTerm = (pokemonSearchBySlot[member.slot] ?? "").trim();
                             const visibleOptions = (normalizedSearchTerm.length > 0
-                              ? pokemonOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
-                              : pokemonOptions
+                              ? availablePokemonOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
+                              : availablePokemonOptions
                             ).slice(0, TEAM_BUILDER_SEARCH_RESULT_LIMIT);
 
                             if (visibleOptions.length === 0) {

@@ -112,7 +112,8 @@
 - Open `/teams` in a clean browser session.
 - Confirm the page renders without a server error.
 - Confirm the browser creates or reuses `kxoxxy-anonymous-session`.
-- Confirm the first render ships only team-builder option entries, not the full selected-detail catalog.
+- Confirm the first render ships only the reduced team-builder option payload, not the full selected-detail catalog.
+  - The reduced payload now includes dex number, Korean name, generation, and Pokedex-name metadata for conservative format-based candidate narrowing.
 - Select one or more Pokemon and confirm the client requests:
   - `GET /api/teams/state?sessionId=...`
   - `GET /api/pokedex/catalog?view=teams&dexNumbers=...` after selection
@@ -176,7 +177,7 @@ curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: appli
 ## Payload-Split Regression Checks
 - `/daily` should still receive only daily candidate dex numbers on first render, then fetch encounter and recent-capture detail through `/api/pokedex/catalog`.
 - `/my-pokemon` should still ship no gallery catalog on first render, then fetch captured-card detail through `/api/pokedex/catalog`.
-- `/teams` should still receive only dex-number-and-name option entries on first render, then fetch selected detail through `/api/pokedex/catalog`.
+- `/teams` should still receive only the reduced team-builder option payload on first render, then fetch selected detail through `/api/pokedex/catalog`.
 
 ## When To Re-Run This Flow
 - After changing `features/pokedex/server/repository.ts`
@@ -184,4 +185,3 @@ curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: appli
 - After changing cache helpers tied to reduced first-load payloads
 - After applying DB migrations for daily, collection, or team tables
 - After restarting the local server to recover from Windows `.next/trace` lock issues
-

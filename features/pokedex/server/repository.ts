@@ -153,7 +153,15 @@ async function getAllPokemonTeamBuilderOptionEntries(snapshotId: number) {
     `
       SELECT jsonb_build_object(
         'nationalDexNumber', national_dex_number,
-        'name', name_ko
+        'name', name_ko,
+        'generation', payload->'generation',
+        'pokedexNames', COALESCE(
+          (
+            SELECT jsonb_agg(entry->>'name')
+            FROM jsonb_array_elements(payload->'pokedexEntries') entry
+          ),
+          '[]'::jsonb
+        )
       ) AS payload
       FROM pokemon_catalog
       WHERE snapshot_id = $1

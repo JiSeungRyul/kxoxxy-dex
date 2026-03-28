@@ -18,6 +18,7 @@ import type {
   PokemonSortKey,
   PokemonSummary,
   PokemonTeamGimmickAvailability,
+  PokemonTeamBuilderOptionEntry,
   PokemonTeamBuilderCatalogEntry,
   SortDirection,
   PokemonTeamMemberDraft,
@@ -48,6 +49,12 @@ export function formatTypeLabel(typeName: PokemonTypeName) {
 }
 
 export const TEAM_TERA_TYPE_OPTIONS = Object.keys(POKEMON_TYPE_LABELS) as PokemonTypeName[];
+export const TEAM_BUILDER_POKEDEX_NAMES_BY_FORMAT: Record<Exclude<TeamFormatId, "default">, string[]> = {
+  gen6: ["칼로스중앙도감", "칼로스해안도감", "칼로스산악도감"],
+  gen7: ["알로라도감", "멜레멜레도감", "아칼라도감", "울라우라도감", "포니도감"],
+  gen8: ["가라도감", "갑옷섬도감", "왕관설원도감"],
+  gen9: ["팔데아도감", "북신도감", "블루베리도감"],
+};
 
 export function formatGenerationLabel(generationId: PokemonGenerationId) {
   return GENERATION_LABELS[generationId];
@@ -75,6 +82,38 @@ export function sanitizeTeamFormat(value: unknown): TeamFormatId {
 
 export function formatTeamFormatLabel(format: TeamFormatId) {
   return format === "default" ? "기본" : `${format.replace("gen", "")}세대`;
+}
+
+export function getTeamFormatGenerationLimit(format: TeamFormatId) {
+  switch (format) {
+    case "gen6":
+      return 6;
+    case "gen7":
+      return 7;
+    case "gen8":
+      return 8;
+    case "gen9":
+      return 9;
+    default:
+      return null;
+  }
+}
+
+export function isPokemonTeamBuilderOptionAvailableForFormat(
+  entry: PokemonTeamBuilderOptionEntry,
+  format: TeamFormatId,
+) {
+  if (format === "default") {
+    return true;
+  }
+
+  const generationLimit = getTeamFormatGenerationLimit(format);
+
+  if (generationLimit === null || entry.generation.id <= generationLimit) {
+    return true;
+  }
+
+  return entry.pokedexNames.some((name) => TEAM_BUILDER_POKEDEX_NAMES_BY_FORMAT[format].includes(name));
 }
 
 export const TEAM_GIMMICK_IDS = ["none", "mega", "zmove", "dynamax", "terastal"] as const;

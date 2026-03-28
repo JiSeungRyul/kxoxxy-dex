@@ -150,7 +150,9 @@ export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
 export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
   Pick<PokemonSummary, "abilities" | "hiddenAbility">;
 
-export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name">;
+export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name" | "generation"> & {
+  pokedexNames: string[];
+};
 
 export type PokemonTeamGimmickAvailability = {
   canMega: boolean;
