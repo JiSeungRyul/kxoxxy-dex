@@ -97,6 +97,7 @@ export const teams = pgTable("teams", {
     .notNull()
     .references(() => anonymousSessions.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  format: text("format").default("default").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -119,6 +120,8 @@ export const teamMembers = pgTable(
     moves: jsonb("moves").notNull(),
     ivs: jsonb("ivs").notNull(),
     evs: jsonb("evs").notNull(),
+    gimmick: text("gimmick").default("none").notNull(),
+    teraType: text("tera_type"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

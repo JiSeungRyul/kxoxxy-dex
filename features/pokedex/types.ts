@@ -150,7 +150,14 @@ export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
 export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
   Pick<PokemonSummary, "abilities" | "hiddenAbility">;
 
-export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name">;
+export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name" | "generation"> & {
+  pokedexNames: string[];
+};
+
+export type PokemonTeamGimmickAvailability = {
+  canMega: boolean;
+  canGigantamax: boolean;
+};
 
 export type PokemonTeamBuilderCatalogEntry = Pick<
   PokemonSummary,
@@ -161,7 +168,9 @@ export type PokemonTeamBuilderCatalogEntry = Pick<
   | "stats"
   | "abilities"
   | "hiddenAbility"
->;
+> & {
+  gimmickAvailability: PokemonTeamGimmickAvailability;
+};
 
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];
@@ -208,6 +217,9 @@ export type PokedexCollectionState = {
 
 export type PokemonTeamStatSpread = PokemonBaseStats;
 
+export type TeamFormatId = "default" | "gen6" | "gen7" | "gen8" | "gen9";
+export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "terastal";
+
 export type PokemonTeamMemberDraft = {
   slot: number;
   nationalDexNumber: number | null;
@@ -218,6 +230,8 @@ export type PokemonTeamMemberDraft = {
   moves: string[];
   ivs: PokemonTeamStatSpread;
   evs: PokemonTeamStatSpread;
+  gimmick: TeamGimmickId;
+  teraType: PokemonTypeName | null;
 };
 
 export type PokemonTeamMember = PokemonTeamMemberDraft & {
@@ -228,8 +242,8 @@ export type PokemonTeamMember = PokemonTeamMemberDraft & {
 export type PokemonTeam = {
   id: number;
   name: string;
+  format: TeamFormatId;
   createdAt: string;
   updatedAt: string;
   members: PokemonTeamMember[];
 };
-

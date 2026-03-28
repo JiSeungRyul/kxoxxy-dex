@@ -159,3 +159,52 @@
 ## Team Builder Searchable Pokemon Selector (Added: 2026-03-27)
 - Replaced the full 1025-option Pokemon dropdown in /teams with a searchable selector that filters by Pokemon name.
 - Kept the existing team draft editing flow and on-demand selected-detail fetch behavior unchanged while limiting the visible search results list.
+
+## Team Builder Format Selection (Added: 2026-03-27)
+- Added a team-level format selector for `default`, `gen6`, `gen7`, `gen8`, and `gen9` in /teams with `default` as the default for new drafts.
+- Extended team save/load handling so the selected format is persisted in PostgreSQL and older saved teams safely fall back to `default` when the new field is absent.
+
+## Team Builder Format-Based Gimmick Visibility (Added: 2026-03-27)
+- Added a `default` team format that hides the gimmick controls until a specific generation format is selected.
+- Added minimal per-member gimmick persistence with generation-scoped options so `/teams` now shows only the baseline gimmicks allowed by `gen6`, `gen7`, `gen8`, and `gen9`.
+- Kept Pokemon-specific gimmick eligibility and generation-filtered Pokemon option lists out of this step so the current change stays limited to format-based UI gating.
+
+## Team Builder Species-Based Gimmick Filtering (Added: 2026-03-28)
+- Updated `/teams` so gimmick choices are filtered by both team format and the currently selected Pokemon species.
+- Hid Mega Evolution for Pokemon that do not have a mega form while keeping Z-Moves, Dynamax, and Terastallization on their current format-based rules.
+- Added team-builder payload metadata for mega-form and Gigantamax availability so the current filtering works from catalog data and later gimmick-detail UI can reuse the same source.
+
+## Team Builder Mega Toggle (Added: 2026-03-29)
+- Added a minimal Mega Evolution toggle in `/teams` for Pokemon that can mega evolve in formats where mega is allowed.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while mega is toggled on for the same slot.
+- Left Z-Move and Terastallization UI for later follow-up steps.
+
+## Team Builder Dynamax Toggle (Added: 2026-03-29)
+- Added a minimal Dynamax toggle in `/teams` for Pokemon selected under `gen8`.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while Dynamax is toggled on for the same slot.
+- Added a lightweight Gigantamax hint for eligible Pokemon without introducing separate Gigantamax-detail controls yet.
+
+## Team Builder Z-Move Toggle (Added: 2026-03-29)
+- Added a minimal Z-Move toggle in `/teams` for Pokemon selected under `gen7`.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while the Z-Move toggle is on for the same slot.
+- Explicitly kept Z-Crystal selection, signature Z-Move handling, and move-validity checks out of this MVP step.
+
+## Team Builder Terastallization Type Selection (Added: 2026-03-29)
+- Added a minimal Terastallization toggle in `/teams` for Pokemon selected under `gen9`.
+- Added a persisted tera-type field for team members so the selected tera type survives save/load round-trips.
+- Kept this MVP step limited to tera-type selection only, without Stellar support or deeper terastal validation rules.
+
+## Team Builder Format-Based Option Narrowing (Added: 2026-03-29)
+- Narrowed `/teams` search candidates by the selected team format instead of always showing the full Pokemon list.
+- Kept the filter intentionally conservative so Pokemon already covered by the selected format generation remain visible, and Pokemon with matching format-era Pokedex entries are also kept to avoid false negatives.
+- Kept already selected team members intact when the team format changes, so the candidate filter only affects new searches and replacements in this MVP step.
+
+## Team Builder Nature Stat Indicators (Added: 2026-03-29)
+- Added a compact nature indicator below the nature selector in `/teams` so boosted and reduced stats are visible without inspecting the derived stat table.
+- Displayed boosted stats as red `▲ 1.1x` pills and reduced stats as blue `▼ 0.9x` pills using the existing nature modifier rules.
+- Kept neutral natures visually subdued with a gray `--` indicator instead of introducing extra explanatory text in this MVP step.
+
+## Team Builder EV Blur Normalization (Added: 2026-03-29)
+- Changed `/teams` EV inputs so users can type freely and have values normalized only when the field loses focus.
+- Automatically clamp individual EVs to `0..252` and reduce the just-edited field when the team member's EV total would exceed `510`.
+- Added short inline feedback in the EV panel so users can see when values were adjusted to the per-stat or total cap.

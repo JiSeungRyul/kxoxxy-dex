@@ -12,14 +12,25 @@ import type {
   PokemonTeamBuilderCatalogEntry,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamMemberDraft,
+  TeamFormatId,
+  TeamGimmickId,
 } from "@/features/pokedex/types";
 import {
+  TEAM_TERA_TYPE_OPTIONS,
+  getAvailableTeamGimmicks,
   calculatePokemonBattleStats,
   formatDexNumber,
+  getTeamNatureEffect,
+  formatTeamFormatLabel,
+  formatTeamGimmickLabel,
   formatTypeLabel,
+  getDefaultTeamFormat,
+  shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
   getEmptyTeamMember,
+  isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
+  normalizeTeamEvsOnBlur,
   getTeamEvTotal,
   sanitizeTeamMembers,
 } from "@/features/pokedex/utils";
@@ -60,6 +71,10 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
   { key: "specialDefense", label: "특방" },
   { key: "speed", label: "스피드" },
 ];
+const STAT_LABELS = Object.fromEntries(STAT_FIELDS.map((field) => [field.key, field.label])) as Record<
+  keyof PokemonBaseStats,
+  string
+>;
 
 type TeamBuilderPageProps = {
   pokemonOptions: PokemonTeamBuilderOptionEntry[];
@@ -70,6 +85,7 @@ type TeamBuilderCatalogResponse = {
 };
 
 const TEAM_BUILDER_SEARCH_RESULT_LIMIT = 12;
+const TEAM_FORMAT_OPTIONS: TeamFormatId[] = ["default", "gen6", "gen7", "gen8", "gen9"];
 
 
 export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
@@ -79,12 +95,15 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const [teams, setTeams] = useState<PokemonTeam[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
+  const [teamFormat, setTeamFormat] = useState<TeamFormatId>(getDefaultTeamFormat());
   const [members, setMembers] = useState<PokemonTeamMemberDraft[]>(() =>
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
   const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
   const [pokemonSearchBySlot, setPokemonSearchBySlot] = useState<Record<number, string>>({});
   const [activePokemonSearchSlot, setActivePokemonSearchSlot] = useState<number | null>(null);
+  const [evInputDrafts, setEvInputDrafts] = useState<Record<string, string>>({});
+  const [evFeedbackBySlot, setEvFeedbackBySlot] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +120,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     () => new Map(pokemonOptions.map((entry) => [entry.nationalDexNumber, entry])),
     [pokemonOptions],
   );
+  const availablePokemonOptions = useMemo(
+    () => pokemonOptions.filter((entry) => isPokemonTeamBuilderOptionAvailableForFormat(entry, teamFormat)),
+    [pokemonOptions, teamFormat],
+  );
 
   async function loadTeams(nextSessionId: string) {
     const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
@@ -116,15 +139,20 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   }
 
   function applyTeam(nextTeam: PokemonTeam | null) {
+    setEvInputDrafts({});
+    setEvFeedbackBySlot({});
+
     if (!nextTeam) {
       setTeamId(null);
       setTeamName("");
+      setTeamFormat(getDefaultTeamFormat());
       setMembers(Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)));
       return;
     }
 
     setTeamId(nextTeam.id);
     setTeamName(nextTeam.name);
+    setTeamFormat(nextTeam.format ?? getDefaultTeamFormat());
     setMembers(
       sanitizeTeamMembers(
         Array.from({ length: 6 }, (_, index) => {
@@ -166,6 +194,34 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
     applyTeam(matchedTeam);
   }, [isLoading, selectedTeamId, teams]);
+
+  useEffect(() => {
+    setMembers((currentMembers) => {
+      const selectedPokemonByDexNumber = new Map(
+        selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
+      );
+      let changed = false;
+
+      const nextMembers = currentMembers.map((member) => {
+        const selectedPokemon = member.nationalDexNumber === null
+          ? null
+          : selectedPokemonByDexNumber.get(member.nationalDexNumber);
+        const allowedGimmicks = getAvailableTeamGimmicks(teamFormat, selectedPokemon);
+
+        if (allowedGimmicks.includes(member.gimmick)) {
+          return member;
+        }
+
+        changed = true;
+        return {
+          ...member,
+          gimmick: "none" as TeamGimmickId,
+        };
+      });
+
+      return changed ? nextMembers : currentMembers;
+    });
+  }, [selectedPokemonCatalog, teamFormat]);
 
   useEffect(() => {
     if (selectedDexNumbers.length === 0) {
@@ -217,8 +273,12 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
         const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
         const nextAbility = abilityOptions.includes(member.ability) ? member.ability : abilityOptions[0] ?? "";
+        const nextTeraType =
+          member.gimmick === "terastal"
+            ? member.teraType ?? selectedPokemon.types[0]?.name ?? null
+            : null;
 
-        if (nextAbility === member.ability) {
+        if (nextAbility === member.ability && nextTeraType === member.teraType) {
           return member;
         }
 
@@ -226,6 +286,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
         return {
           ...member,
           ability: nextAbility,
+          teraType: nextTeraType,
         };
       });
 
@@ -262,6 +323,71 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
     );
+  }
+
+  function getEvDraftKey(slot: number, stat: keyof PokemonBaseStats) {
+    return `${slot}-${stat}`;
+  }
+
+  function handleEvDraftChange(slot: number, stat: keyof PokemonBaseStats, value: string) {
+    const key = getEvDraftKey(slot, stat);
+    setEvInputDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [key]: value,
+    }));
+    setEvFeedbackBySlot((currentFeedback) => {
+      if (!currentFeedback[slot]) {
+        return currentFeedback;
+      }
+
+      const nextFeedback = { ...currentFeedback };
+      delete nextFeedback[slot];
+      return nextFeedback;
+    });
+  }
+
+  function handleEvDraftBlur(slot: number, stat: keyof PokemonBaseStats) {
+    const key = getEvDraftKey(slot, stat);
+    const draftValue = evInputDrafts[key];
+    let nextFeedback = "";
+
+    updateMember(slot, (currentMember) => {
+      const normalized = normalizeTeamEvsOnBlur(currentMember.evs, stat, draftValue ?? currentMember.evs[stat]);
+
+      if (normalized.adjustedToStatCap && normalized.adjustedToTotalCap) {
+        nextFeedback = "개별 노력치는 최대 252, 총합은 510에 맞게 조정되었습니다.";
+      } else if (normalized.adjustedToStatCap) {
+        nextFeedback = "개별 노력치는 0부터 252까지만 설정할 수 있습니다.";
+      } else if (normalized.adjustedToTotalCap) {
+        nextFeedback = "노력치 총합은 510에 맞게 조정되었습니다.";
+      }
+
+      return {
+        ...currentMember,
+        evs: normalized.evs,
+      };
+    });
+
+    setEvInputDrafts((currentDrafts) => {
+      if (!(key in currentDrafts)) {
+        return currentDrafts;
+      }
+
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[key];
+      return nextDrafts;
+    });
+    setEvFeedbackBySlot((currentFeedback) => {
+      const nextFeedbackBySlot = { ...currentFeedback };
+
+      if (nextFeedback.length > 0) {
+        nextFeedbackBySlot[slot] = nextFeedback;
+      } else {
+        delete nextFeedbackBySlot[slot];
+      }
+
+      return nextFeedbackBySlot;
+    });
   }
 
   function handlePokemonChange(slot: number, nextValue: string) {
@@ -335,6 +461,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           team: {
             id: teamId,
             name: normalizedTeamName,
+            format: teamFormat,
             members,
           },
         }),
@@ -380,6 +507,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               전체 포켓몬 도감에서 최대 6마리를 골라 팀을 구성하고, 각 멤버별 성격, 아이템, 특성, 기술,
               개체값, 노력치를 저장할 수 있습니다.
             </p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+              포맷을 고르면 검색 후보는 해당 세대 기준으로 보수적으로 축소됩니다. 이미 선택한 포켓몬은 자동으로 제거하지 않습니다.
+            </p>
           </div>
           <div className="flex gap-3">
             <Link
@@ -400,7 +530,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       </div>
 
       <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(11rem,14rem)_auto] md:items-end">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">팀 이름</span>
             <input
@@ -409,6 +539,20 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               placeholder="예: 싱글 밸런스 1안"
               className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
             />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-foreground">포맷</span>
+            <select
+              value={teamFormat}
+              onChange={(event) => setTeamFormat(event.target.value as TeamFormatId)}
+              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+            >
+              {TEAM_FORMAT_OPTIONS.map((format) => (
+                <option key={format} value={format}>
+                  {formatTeamFormatLabel(format)}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="button"
@@ -440,6 +584,25 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                 nature: member.nature,
               })
             : null;
+          const natureEffect = getTeamNatureEffect(member.nature);
+
+          const availableGimmicks = getAvailableTeamGimmicks(teamFormat, selectedPokemon);
+          const showGimmickControls = shouldShowTeamGimmickControls(teamFormat);
+          const normalizedMemberGimmick = availableGimmicks.includes(member.gimmick) ? member.gimmick : "none";
+          const canUseMega = availableGimmicks.includes("mega");
+          const isMegaEnabled = normalizedMemberGimmick === "mega";
+          const canUseZMove = availableGimmicks.includes("zmove");
+          const isZMoveEnabled = normalizedMemberGimmick === "zmove";
+          const canUseDynamax = availableGimmicks.includes("dynamax");
+          const isDynamaxEnabled = normalizedMemberGimmick === "dynamax";
+          const canUseTerastal = availableGimmicks.includes("terastal");
+          const isTerastalEnabled = normalizedMemberGimmick === "terastal";
+          const selectableManualGimmicks = availableGimmicks.filter(
+            (gimmick) => gimmick !== "mega" && gimmick !== "zmove" && gimmick !== "dynamax" && gimmick !== "terastal",
+          );
+          const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
+          const selectedTeraType = member.teraType ?? selectedPokemon?.types[0]?.name ?? "normal";
+          const evFeedback = evFeedbackBySlot[member.slot] ?? null;
 
           return (
             <article key={member.slot} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
@@ -516,8 +679,8 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                           {(() => {
                             const normalizedSearchTerm = (pokemonSearchBySlot[member.slot] ?? "").trim();
                             const visibleOptions = (normalizedSearchTerm.length > 0
-                              ? pokemonOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
-                              : pokemonOptions
+                              ? availablePokemonOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
+                              : availablePokemonOptions
                             ).slice(0, TEAM_BUILDER_SEARCH_RESULT_LIMIT);
 
                             if (visibleOptions.length === 0) {
@@ -544,20 +707,208 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                     ) : null}
                   </div>
                 </div>
-                <div className="grid gap-4 md:grid-cols-4">
+                {showGimmickControls ? (
+                  <div className="rounded-[1.5rem] border border-border bg-background/70 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">배틀 기믹</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatTeamFormatLabel(teamFormat)} 규칙과 현재 포켓몬 기준으로 가능한 기믹만 표시됩니다.</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] md:items-end">
+                      <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
+                        {selectedPokemon ? (
+                          teamFormat === "gen8" && selectedPokemon.gimmickAvailability.canGigantamax
+                            ? "이 포켓몬은 거다이맥스 대상입니다. 거다이맥스 전용 상세 설정 UI는 다음 단계에서 추가됩니다."
+                            : selectedPokemon.gimmickAvailability.canMega
+                              ? "메가 폼이 있는 포켓몬이라 메가진화 선택이 표시됩니다."
+                              : "현재 포켓몬에서 사용할 수 없는 기믹은 목록에서 숨겨집니다."
+                        ) : (
+                          "포켓몬을 선택하면 세대 규칙과 종별 가능 여부를 함께 반영해 기믹 목록을 보여줍니다."
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        {canUseMega ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">메가진화 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                메가 가능한 포켓몬일 때만 이 토글이 표시됩니다.
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isMegaEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "mega" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseDynamax ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">다이맥스 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {selectedPokemon?.gimmickAvailability.canGigantamax
+                                  ? "거다이맥스 대상 포켓몬입니다. 세부 설정은 다음 단계에서 추가됩니다."
+                                  : "gen8 포맷에서만 보이는 최소 토글입니다."}
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isDynamaxEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "dynamax" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseZMove ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">Z기술 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                gen7 전용 최소 토글입니다. 전용 Z기술, Z크리스탈 종류, 기술 조건은 다음 단계에서 다룹니다.
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isZMoveEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "zmove" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseTerastal ? (
+                          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <span className="block text-sm font-semibold text-foreground">테라스탈 사용</span>
+                                <span className="mt-1 block text-xs text-muted-foreground">
+                                  gen9 전용 최소 UI입니다. 이번 단계에서는 테라 타입만 선택합니다.
+                                </span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isTerastalEnabled}
+                                onChange={(event) =>
+                                  updateMember(member.slot, (currentMember) => ({
+                                    ...currentMember,
+                                    gimmick: event.target.checked ? "terastal" : "none",
+                                    teraType: event.target.checked
+                                      ? currentMember.teraType ?? selectedPokemon?.types[0]?.name ?? "normal"
+                                      : null,
+                                  }))
+                                }
+                                disabled={!selectedPokemon}
+                                className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                            </div>
+                            {isTerastalEnabled ? (
+                              <label className="mt-3 block space-y-2">
+                                <span className="text-sm font-semibold text-foreground">테라 타입</span>
+                                <select
+                                  value={selectedTeraType}
+                                  onChange={(event) =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      teraType: event.target.value as typeof currentMember.teraType,
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                                >
+                                  {TEAM_TERA_TYPE_OPTIONS.map((typeName) => (
+                                    <option key={typeName} value={typeName}>
+                                      {formatTypeLabel(typeName)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {selectableManualGimmicks.length > 1 ? (
+                          <label className="space-y-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {canUseMega || canUseZMove || canUseDynamax ? "다른 기믹 선택" : "기믹 선택"}
+                            </span>
+                            <select
+                              value={selectedManualGimmick}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.value as TeamGimmickId,
+                                }))
+                              }
+                              disabled={!selectedPokemon || isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled}
+                              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {selectableManualGimmicks.map((gimmick) => (
+                                <option key={gimmick} value={gimmick}>
+                                  {formatTeamGimmickLabel(gimmick)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 md:grid-cols-3">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>
-                    <select
-                      value={member.nature}
-                      onChange={(event) => updateMember(member.slot, (currentMember) => ({ ...currentMember, nature: event.target.value }))}
-                      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                    >
-                      {NATURE_OPTIONS.map((nature) => (
-                        <option key={nature} value={nature}>
-                          {nature}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        value={member.nature}
+                        onChange={(event) => updateMember(member.slot, (currentMember) => ({ ...currentMember, nature: event.target.value }))}
+                        className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                      >
+                        {NATURE_OPTIONS.map((nature) => (
+                          <option key={nature} value={nature}>
+                            {nature}
+                          </option>
+                        ))}
+                      </select>
+                      {natureEffect.isNeutral ? (
+                        <div className="flex min-h-7 items-center gap-2">
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            무보정
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-7 items-center gap-2 overflow-x-auto whitespace-nowrap">
+                          {natureEffect.increasedStat && natureEffect.increasedMultiplier ? (
+                            <span className="inline-flex shrink-0 items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-600">
+                              {STAT_LABELS[natureEffect.increasedStat]} ▲ {natureEffect.increasedMultiplier.toFixed(1)}x
+                            </span>
+                          ) : null}
+                          {natureEffect.decreasedStat && natureEffect.decreasedMultiplier ? (
+                            <span className="inline-flex shrink-0 items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-600">
+                              {STAT_LABELS[natureEffect.decreasedStat]} ▼ {natureEffect.decreasedMultiplier.toFixed(1)}x
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   </label>
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">아이템</span>
@@ -666,6 +1017,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                         총합 {evTotal} / 510
                       </span>
                     </div>
+                    {evFeedback ? (
+                      <p className="mt-2 text-xs font-medium text-red-500">{evFeedback}</p>
+                    ) : null}
                     <div className="mt-3 grid grid-cols-2 gap-3">
                       {STAT_FIELDS.map((field) => (
                         <label key={`${member.slot}-ev-${field.key}`} className="space-y-1">
@@ -674,16 +1028,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                             type="number"
                             min={0}
                             max={252}
-                            value={member.evs[field.key]}
-                            onChange={(event) =>
-                              updateMember(member.slot, (currentMember) => ({
-                                ...currentMember,
-                                evs: {
-                                  ...currentMember.evs,
-                                  [field.key]: Math.min(252, Math.max(0, Number(event.target.value) || 0)),
-                                },
-                              }))
-                            }
+                            value={evInputDrafts[getEvDraftKey(member.slot, field.key)] ?? member.evs[field.key]}
+                            onChange={(event) => handleEvDraftChange(member.slot, field.key, event.target.value)}
+                            onBlur={() => handleEvDraftBlur(member.slot, field.key)}
                             className="w-full rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-foreground/30"
                           />
                         </label>
@@ -713,4 +1060,3 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     </section>
   );
 }
-
