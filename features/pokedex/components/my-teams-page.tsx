@@ -6,7 +6,13 @@ import { useEffect, useState } from "react";
 
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type { PokemonBaseStats, PokemonTeam } from "@/features/pokedex/types";
-import { calculatePokemonBattleStats, formatDexNumber, formatTypeLabel, getTeamEvTotal } from "@/features/pokedex/utils";
+import {
+  calculatePokemonBattleStats,
+  formatDexNumber,
+  formatTypeLabel,
+  getTeamEvTotal,
+  getTeamNatureEffect,
+} from "@/features/pokedex/utils";
 
 const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
   { key: "hp", label: "HP" },
@@ -16,6 +22,10 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
   { key: "specialDefense", label: "특방" },
   { key: "speed", label: "스피드" },
 ];
+const STAT_LABELS = Object.fromEntries(STAT_FIELDS.map((field) => [field.key, field.label])) as Record<
+  keyof PokemonBaseStats,
+  string
+>;
 
 function EmptyState() {
   return (
@@ -234,6 +244,7 @@ export function MyTeamsPage() {
                       evs: member.evs,
                       nature: member.nature,
                     });
+                    const natureEffect = getTeamNatureEffect(member.nature);
 
                     return (
                       <div key={`${team.id}-member-${member.slot}`} className="rounded-[1.5rem] border border-border bg-background/60 p-5">
@@ -264,6 +275,26 @@ export function MyTeamsPage() {
                             <p className="font-semibold text-foreground">기본 정보</p>
                             <p className="text-muted-foreground">레벨: <span className="font-medium text-foreground">Lv. {member.level}</span></p>
                             <p className="text-muted-foreground">성격: <span className="font-medium text-foreground">{member.nature || "-"}</span></p>
+                            {natureEffect.isNeutral ? (
+                              <div className="flex min-h-7 items-center gap-2">
+                                <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                                  무보정
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex min-h-7 items-center gap-2 overflow-x-auto whitespace-nowrap">
+                                {natureEffect.increasedStat && natureEffect.increasedMultiplier ? (
+                                  <span className="inline-flex shrink-0 items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-600">
+                                    {STAT_LABELS[natureEffect.increasedStat]} ▲ {natureEffect.increasedMultiplier.toFixed(1)}x
+                                  </span>
+                                ) : null}
+                                {natureEffect.decreasedStat && natureEffect.decreasedMultiplier ? (
+                                  <span className="inline-flex shrink-0 items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-600">
+                                    {STAT_LABELS[natureEffect.decreasedStat]} ▼ {natureEffect.decreasedMultiplier.toFixed(1)}x
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
                             <p className="text-muted-foreground">아이템: <span className="font-medium text-foreground">{member.item || "-"}</span></p>
                             <p className="text-muted-foreground">특성: <span className="font-medium text-foreground">{member.ability || "-"}</span></p>
                           </div>
