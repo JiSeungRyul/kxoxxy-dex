@@ -13,9 +13,12 @@ import type {
   PokemonBaseStats,
   PokemonCatalogListEntry,
   PokemonCollectionPageEntry,
+  PokemonForm,
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
+  PokemonTeamGimmickAvailability,
+  PokemonTeamBuilderCatalogEntry,
   SortDirection,
   PokemonTeamMemberDraft,
   PokemonTeamStatSpread,
@@ -43,6 +46,8 @@ export function formatPokemonNumber(nationalDexNumber: number) {
 export function formatTypeLabel(typeName: PokemonTypeName) {
   return POKEMON_TYPE_LABELS[typeName];
 }
+
+export const TEAM_TERA_TYPE_OPTIONS = Object.keys(POKEMON_TYPE_LABELS) as PokemonTypeName[];
 
 export function formatGenerationLabel(generationId: PokemonGenerationId) {
   return GENERATION_LABELS[generationId];
@@ -84,6 +89,12 @@ export function sanitizeTeamGimmick(value: unknown): TeamGimmickId {
     : getDefaultTeamGimmick();
 }
 
+export function sanitizeTeamTeraType(value: unknown): PokemonTypeName | null {
+  return typeof value === "string" && TEAM_TERA_TYPE_OPTIONS.includes(value as PokemonTypeName)
+    ? (value as PokemonTypeName)
+    : null;
+}
+
 export function formatTeamGimmickLabel(gimmick: TeamGimmickId) {
   switch (gimmick) {
     case "mega":
@@ -112,6 +123,81 @@ export function getAllowedTeamGimmicks(format: TeamFormatId): TeamGimmickId[] {
     default:
       return ["none"];
   }
+}
+
+export function getPokemonTeamGimmickAvailability(
+  pokemon:
+    | Pick<PokemonSummary, "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "gimmickAvailability">
+    | null
+    | undefined,
+): PokemonTeamGimmickAvailability {
+  if (!pokemon) {
+    return {
+      canMega: false,
+      canGigantamax: false,
+    };
+  }
+
+  if ("gimmickAvailability" in pokemon) {
+    return pokemon.gimmickAvailability;
+  }
+
+  return {
+    canMega: pokemon.forms.some((form: PokemonForm) => form.key.startsWith("mega")),
+    canGigantamax: pokemon.forms.some((form: PokemonForm) => form.key === "gmax"),
+  };
+}
+
+export function getAvailableTeamGimmicks(
+  format: TeamFormatId,
+  pokemon:
+    | Pick<PokemonSummary, "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "gimmickAvailability">
+    | null
+    | undefined,
+) {
+  const allowedGimmicks = getAllowedTeamGimmicks(format);
+  const gimmickAvailability = getPokemonTeamGimmickAvailability(pokemon);
+
+  if (!pokemon) {
+    return allowedGimmicks;
+  }
+
+  return allowedGimmicks.filter((gimmick) => {
+    if (gimmick === "mega") {
+      return gimmickAvailability.canMega;
+    }
+
+    return true;
+  });
+}
+
+export function normalizeTeamGimmick(
+  format: TeamFormatId,
+  gimmick: TeamGimmickId,
+  pokemon:
+    | Pick<PokemonSummary, "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "gimmickAvailability">
+    | null
+    | undefined,
+) {
+  const availableGimmicks = getAvailableTeamGimmicks(format, pokemon);
+
+  return availableGimmicks.includes(gimmick) ? gimmick : getDefaultTeamGimmick();
+}
+
+export function normalizeTeamTeraType(
+  format: TeamFormatId,
+  gimmick: TeamGimmickId,
+  teraType: PokemonTypeName | null,
+  pokemon: Pick<PokemonSummary, "types"> | null | undefined,
+) {
+  if (gimmick !== "terastal" || format !== "gen9") {
+    return null;
+  }
+
+  return sanitizeTeamTeraType(teraType) ?? pokemon?.types[0]?.name ?? "normal";
 }
 
 export function shouldShowTeamGimmickControls(format: TeamFormatId) {
@@ -608,6 +694,7 @@ export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
     ivs: getDefaultTeamIvs(),
     evs: getDefaultTeamEvs(),
     gimmick: getDefaultTeamGimmick(),
+    teraType: null,
   };
 }
 
@@ -668,6 +755,7 @@ export function sanitizeTeamMembers(value: unknown) {
       ivs: sanitizeTeamStatSpread(candidate.ivs, getDefaultTeamIvs(), { min: 0, max: 31 }),
       evs: sanitizeTeamStatSpread(candidate.evs, getDefaultTeamEvs(), { min: 0, max: 252 }),
       gimmick: sanitizeTeamGimmick(candidate.gimmick),
+      teraType: sanitizeTeamTeraType(candidate.teraType),
     };
   }
 
@@ -680,6 +768,3 @@ export function sanitizeTeamMembers(value: unknown) {
 export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
   return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
 }
-
-
-

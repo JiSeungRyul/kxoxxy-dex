@@ -169,3 +169,27 @@
 - Added minimal per-member gimmick persistence with generation-scoped options so `/teams` now shows only the baseline gimmicks allowed by `gen6`, `gen7`, `gen8`, and `gen9`.
 - Kept Pokemon-specific gimmick eligibility and generation-filtered Pokemon option lists out of this step so the current change stays limited to format-based UI gating.
 
+## Team Builder Species-Based Gimmick Filtering (Added: 2026-03-28)
+- Updated `/teams` so gimmick choices are filtered by both team format and the currently selected Pokemon species.
+- Hid Mega Evolution for Pokemon that do not have a mega form while keeping Z-Moves, Dynamax, and Terastallization on their current format-based rules.
+- Added team-builder payload metadata for mega-form and Gigantamax availability so the current filtering works from catalog data and later gimmick-detail UI can reuse the same source.
+
+## Team Builder Mega Toggle (Added: 2026-03-29)
+- Added a minimal Mega Evolution toggle in `/teams` for Pokemon that can mega evolve in formats where mega is allowed.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while mega is toggled on for the same slot.
+- Left Z-Move and Terastallization UI for later follow-up steps.
+
+## Team Builder Dynamax Toggle (Added: 2026-03-29)
+- Added a minimal Dynamax toggle in `/teams` for Pokemon selected under `gen8`.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while Dynamax is toggled on for the same slot.
+- Added a lightweight Gigantamax hint for eligible Pokemon without introducing separate Gigantamax-detail controls yet.
+
+## Team Builder Z-Move Toggle (Added: 2026-03-29)
+- Added a minimal Z-Move toggle in `/teams` for Pokemon selected under `gen7`.
+- Kept the existing single `gimmick` persistence model and disabled other gimmick selection while the Z-Move toggle is on for the same slot.
+- Explicitly kept Z-Crystal selection, signature Z-Move handling, and move-validity checks out of this MVP step.
+
+## Team Builder Terastallization Type Selection (Added: 2026-03-29)
+- Added a minimal Terastallization toggle in `/teams` for Pokemon selected under `gen9`.
+- Added a persisted tera-type field for team members so the selected tera type survives save/load round-trips.
+- Kept this MVP step limited to tera-type selection only, without Stellar support or deeper terastal validation rules.

@@ -16,12 +16,13 @@ import type {
   TeamGimmickId,
 } from "@/features/pokedex/types";
 import {
+  TEAM_TERA_TYPE_OPTIONS,
+  getAvailableTeamGimmicks,
   calculatePokemonBattleStats,
   formatDexNumber,
   formatTeamFormatLabel,
   formatTeamGimmickLabel,
   formatTypeLabel,
-  getAllowedTeamGimmicks,
   getDefaultTeamFormat,
   shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
@@ -180,10 +181,17 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
   useEffect(() => {
     setMembers((currentMembers) => {
-      const allowedGimmicks = getAllowedTeamGimmicks(teamFormat);
+      const selectedPokemonByDexNumber = new Map(
+        selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
+      );
       let changed = false;
 
       const nextMembers = currentMembers.map((member) => {
+        const selectedPokemon = member.nationalDexNumber === null
+          ? null
+          : selectedPokemonByDexNumber.get(member.nationalDexNumber);
+        const allowedGimmicks = getAvailableTeamGimmicks(teamFormat, selectedPokemon);
+
         if (allowedGimmicks.includes(member.gimmick)) {
           return member;
         }
@@ -197,7 +205,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
       return changed ? nextMembers : currentMembers;
     });
-  }, [teamFormat]);
+  }, [selectedPokemonCatalog, teamFormat]);
 
   useEffect(() => {
     if (selectedDexNumbers.length === 0) {
@@ -249,8 +257,12 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
         const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
         const nextAbility = abilityOptions.includes(member.ability) ? member.ability : abilityOptions[0] ?? "";
+        const nextTeraType =
+          member.gimmick === "terastal"
+            ? member.teraType ?? selectedPokemon.types[0]?.name ?? null
+            : null;
 
-        if (nextAbility === member.ability) {
+        if (nextAbility === member.ability && nextTeraType === member.teraType) {
           return member;
         }
 
@@ -258,6 +270,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
         return {
           ...member,
           ability: nextAbility,
+          teraType: nextTeraType,
         };
       });
 
@@ -488,9 +501,22 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               })
             : null;
 
-          const allowedGimmicks = getAllowedTeamGimmicks(teamFormat);
+          const availableGimmicks = getAvailableTeamGimmicks(teamFormat, selectedPokemon);
           const showGimmickControls = shouldShowTeamGimmickControls(teamFormat);
-          const normalizedMemberGimmick = allowedGimmicks.includes(member.gimmick) ? member.gimmick : "none";
+          const normalizedMemberGimmick = availableGimmicks.includes(member.gimmick) ? member.gimmick : "none";
+          const canUseMega = availableGimmicks.includes("mega");
+          const isMegaEnabled = normalizedMemberGimmick === "mega";
+          const canUseZMove = availableGimmicks.includes("zmove");
+          const isZMoveEnabled = normalizedMemberGimmick === "zmove";
+          const canUseDynamax = availableGimmicks.includes("dynamax");
+          const isDynamaxEnabled = normalizedMemberGimmick === "dynamax";
+          const canUseTerastal = availableGimmicks.includes("terastal");
+          const isTerastalEnabled = normalizedMemberGimmick === "terastal";
+          const selectableManualGimmicks = availableGimmicks.filter(
+            (gimmick) => gimmick !== "mega" && gimmick !== "zmove" && gimmick !== "dynamax" && gimmick !== "terastal",
+          );
+          const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
+          const selectedTeraType = member.teraType ?? selectedPokemon?.types[0]?.name ?? "normal";
 
           return (
             <article key={member.slot} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
@@ -600,33 +626,163 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">배틀 기믹</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatTeamFormatLabel(teamFormat)}에서 허용되는 기믹만 표시됩니다.</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatTeamFormatLabel(teamFormat)} 규칙과 현재 포켓몬 기준으로 가능한 기믹만 표시됩니다.</p>
                       </div>
                     </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] md:items-end">
                       <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
-                        포켓몬별 가능 여부 판별과 상세 기믹 설정은 다음 단계에서 추가됩니다. 현재는 포맷 기준의 기본 선택만 제공합니다.
+                        {selectedPokemon ? (
+                          teamFormat === "gen8" && selectedPokemon.gimmickAvailability.canGigantamax
+                            ? "이 포켓몬은 거다이맥스 대상입니다. 거다이맥스 전용 상세 설정 UI는 다음 단계에서 추가됩니다."
+                            : selectedPokemon.gimmickAvailability.canMega
+                              ? "메가 폼이 있는 포켓몬이라 메가진화 선택이 표시됩니다."
+                              : "현재 포켓몬에서 사용할 수 없는 기믹은 목록에서 숨겨집니다."
+                        ) : (
+                          "포켓몬을 선택하면 세대 규칙과 종별 가능 여부를 함께 반영해 기믹 목록을 보여줍니다."
+                        )}
                       </div>
-                      <label className="space-y-2">
-                        <span className="text-sm font-semibold text-foreground">기믹 선택</span>
-                        <select
-                          value={normalizedMemberGimmick}
-                          onChange={(event) =>
-                            updateMember(member.slot, (currentMember) => ({
-                              ...currentMember,
-                              gimmick: event.target.value as TeamGimmickId,
-                            }))
-                          }
-                          disabled={!selectedPokemon}
-                          className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {allowedGimmicks.map((gimmick) => (
-                            <option key={gimmick} value={gimmick}>
-                              {formatTeamGimmickLabel(gimmick)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="space-y-3">
+                        {canUseMega ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">메가진화 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                메가 가능한 포켓몬일 때만 이 토글이 표시됩니다.
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isMegaEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "mega" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseDynamax ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">다이맥스 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {selectedPokemon?.gimmickAvailability.canGigantamax
+                                  ? "거다이맥스 대상 포켓몬입니다. 세부 설정은 다음 단계에서 추가됩니다."
+                                  : "gen8 포맷에서만 보이는 최소 토글입니다."}
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isDynamaxEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "dynamax" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseZMove ? (
+                          <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+                            <div>
+                              <span className="block text-sm font-semibold text-foreground">Z기술 사용</span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                gen7 전용 최소 토글입니다. 전용 Z기술, Z크리스탈 종류, 기술 조건은 다음 단계에서 다룹니다.
+                              </span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isZMoveEnabled}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.checked ? "zmove" : "none",
+                                }))
+                              }
+                              disabled={!selectedPokemon}
+                              className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                          </label>
+                        ) : null}
+                        {canUseTerastal ? (
+                          <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <span className="block text-sm font-semibold text-foreground">테라스탈 사용</span>
+                                <span className="mt-1 block text-xs text-muted-foreground">
+                                  gen9 전용 최소 UI입니다. 이번 단계에서는 테라 타입만 선택합니다.
+                                </span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isTerastalEnabled}
+                                onChange={(event) =>
+                                  updateMember(member.slot, (currentMember) => ({
+                                    ...currentMember,
+                                    gimmick: event.target.checked ? "terastal" : "none",
+                                    teraType: event.target.checked
+                                      ? currentMember.teraType ?? selectedPokemon?.types[0]?.name ?? "normal"
+                                      : null,
+                                  }))
+                                }
+                                disabled={!selectedPokemon}
+                                className="h-5 w-5 rounded border-border text-accent focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                            </div>
+                            {isTerastalEnabled ? (
+                              <label className="mt-3 block space-y-2">
+                                <span className="text-sm font-semibold text-foreground">테라 타입</span>
+                                <select
+                                  value={selectedTeraType}
+                                  onChange={(event) =>
+                                    updateMember(member.slot, (currentMember) => ({
+                                      ...currentMember,
+                                      teraType: event.target.value as typeof currentMember.teraType,
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                                >
+                                  {TEAM_TERA_TYPE_OPTIONS.map((typeName) => (
+                                    <option key={typeName} value={typeName}>
+                                      {formatTypeLabel(typeName)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {selectableManualGimmicks.length > 1 ? (
+                          <label className="space-y-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {canUseMega || canUseZMove || canUseDynamax ? "다른 기믹 선택" : "기믹 선택"}
+                            </span>
+                            <select
+                              value={selectedManualGimmick}
+                              onChange={(event) =>
+                                updateMember(member.slot, (currentMember) => ({
+                                  ...currentMember,
+                                  gimmick: event.target.value as TeamGimmickId,
+                                }))
+                              }
+                              disabled={!selectedPokemon || isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled}
+                              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {selectableManualGimmicks.map((gimmick) => (
+                                <option key={gimmick} value={gimmick}>
+                                  {formatTeamGimmickLabel(gimmick)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -800,4 +956,3 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     </section>
   );
 }
-

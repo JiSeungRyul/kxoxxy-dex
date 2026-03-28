@@ -152,6 +152,11 @@ export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
 
 export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name">;
 
+export type PokemonTeamGimmickAvailability = {
+  canMega: boolean;
+  canGigantamax: boolean;
+};
+
 export type PokemonTeamBuilderCatalogEntry = Pick<
   PokemonSummary,
   | "nationalDexNumber"
@@ -161,7 +166,9 @@ export type PokemonTeamBuilderCatalogEntry = Pick<
   | "stats"
   | "abilities"
   | "hiddenAbility"
->;
+> & {
+  gimmickAvailability: PokemonTeamGimmickAvailability;
+};
 
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];
@@ -222,6 +229,7 @@ export type PokemonTeamMemberDraft = {
   ivs: PokemonTeamStatSpread;
   evs: PokemonTeamStatSpread;
   gimmick: TeamGimmickId;
+  teraType: PokemonTypeName | null;
 };
 
 export type PokemonTeamMember = PokemonTeamMemberDraft & {
@@ -237,4 +245,3 @@ export type PokemonTeam = {
   updatedAt: string;
   members: PokemonTeamMember[];
 };
-

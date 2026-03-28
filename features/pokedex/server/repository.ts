@@ -42,6 +42,8 @@ import {
   getDefaultTeamGimmick,
   getLocalDateKey,
   getTeamValidationError,
+  normalizeTeamGimmick,
+  normalizeTeamTeraType,
   rollDailyEncounterShiny,
   sanitizeTeamMembers,
   selectDailyEncounterDexNumber,
@@ -251,7 +253,19 @@ async function getPokemonTeamBuilderCatalogEntriesByDexNumbers(snapshotId: numbe
         'types', payload->'types',
         'stats', payload->'stats',
         'abilities', payload->'abilities',
-        'hiddenAbility', payload->'hiddenAbility'
+        'hiddenAbility', payload->'hiddenAbility',
+        'gimmickAvailability', jsonb_build_object(
+          'canMega', EXISTS(
+            SELECT 1
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE form->>'key' LIKE 'mega%'
+          ),
+          'canGigantamax', EXISTS(
+            SELECT 1
+            FROM jsonb_array_elements(payload->'forms') form
+            WHERE form->>'key' = 'gmax'
+          )
+        )
       ) AS payload
       FROM pokemon_catalog
       WHERE snapshot_id = $1
@@ -883,6 +897,7 @@ type TeamMemberRow = {
   ivs: PokemonTeamMemberDraft["ivs"];
   evs: PokemonTeamMemberDraft["evs"];
   gimmick: TeamGimmickId;
+  teraType: PokemonTeamMemberDraft["teraType"];
   pokemon: PokemonSummary;
 };
 
@@ -941,6 +956,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
             tm.ivs,
             tm.evs,
             tm.gimmick,
+            tm.tera_type AS "teraType",
             pc.payload AS pokemon
           FROM team_members tm
           INNER JOIN pokemon_catalog pc
@@ -965,6 +981,13 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
       members[memberRow.slot - 1] = {
         id: memberRow.id,
         ...sanitizedMember,
+        gimmick: normalizeTeamGimmick(teamRow.format ?? getDefaultTeamFormat(), sanitizedMember.gimmick, memberRow.pokemon),
+        teraType: normalizeTeamTeraType(
+          teamRow.format ?? getDefaultTeamFormat(),
+          sanitizedMember.gimmick,
+          sanitizedMember.teraType,
+          memberRow.pokemon,
+        ),
         pokemon: memberRow.pokemon,
       };
     }
@@ -1042,6 +1065,30 @@ export async function saveTeam(
   );
   const selectedPokemon = await getPokemonCatalogEntriesByDexNumbers(latestSnapshot.id, selectedDexNumbers);
   const pokemonByDexNumber = new Map(selectedPokemon.map((entry) => [entry.nationalDexNumber, entry]));
+  const normalizedSelectedMembers = selectedMembers.map((member) => ({
+    ...member,
+    gimmick:
+      member.nationalDexNumber === null
+        ? getDefaultTeamGimmick()
+        : normalizeTeamGimmick(
+            normalizedTeamFormat,
+            member.gimmick ?? getDefaultTeamGimmick(),
+            pokemonByDexNumber.get(member.nationalDexNumber),
+          ),
+    teraType:
+      member.nationalDexNumber === null
+        ? null
+        : normalizeTeamTeraType(
+            normalizedTeamFormat,
+            normalizeTeamGimmick(
+              normalizedTeamFormat,
+              member.gimmick ?? getDefaultTeamGimmick(),
+              pokemonByDexNumber.get(member.nationalDexNumber),
+            ),
+            member.teraType ?? null,
+            pokemonByDexNumber.get(member.nationalDexNumber),
+          ),
+  }));
   const catalogValidationError = getTeamValidationError({
     teamName: normalizedTeamName,
     members: sanitizedMembers,
@@ -1109,7 +1156,7 @@ export async function saveTeam(
       return null;
     }
 
-    for (const member of selectedMembers) {
+    for (const member of normalizedSelectedMembers) {
       await transaction.unsafe(
         `
           INSERT INTO team_members (
@@ -1123,9 +1170,10 @@ export async function saveTeam(
             moves,
             ivs,
             evs,
-            gimmick
+            gimmick,
+            tera_type
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11, $12)
         `,
         [
           teamId,
@@ -1138,7 +1186,8 @@ export async function saveTeam(
           JSON.stringify(member.moves),
           JSON.stringify(member.ivs),
           JSON.stringify(member.evs),
-          member.gimmick ?? getDefaultTeamGimmick(),
+          member.gimmick,
+          member.teraType,
         ],
       );
     }
@@ -1170,4 +1219,3 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
-
