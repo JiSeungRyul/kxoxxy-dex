@@ -249,21 +249,21 @@ export function formatCaptureRate(captureRate: number) {
 
 export function formatGenderRate(genderRate: number) {
   if (genderRate === -1) {
-    return "���� ����";
+    return "성별 없음";
   }
 
   const femaleRate = (genderRate / 8) * 100;
   const maleRate = 100 - femaleRate;
 
   if (femaleRate === 0) {
-    return "���� 100%";
+    return "수컷 100%";
   }
 
   if (maleRate === 0) {
-    return "���� 100%";
+    return "암컷 100%";
   }
 
-  return `���� ${maleRate.toFixed(1)}% / ���� ${femaleRate.toFixed(1)}%`;
+  return `수컷 ${maleRate.toFixed(1)}% / 암컷 ${femaleRate.toFixed(1)}%`;
 }
 
 export function formatMaxExperience(maxExperience: number) {
@@ -300,11 +300,11 @@ export function getDefensiveTypeMatchups(defendingTypes: PokemonTypeName[]) {
   }
 
   return [
-    { label: "4��", multiplier: "4��", types: buckets["4"] },
-    { label: "2��", multiplier: "2��", types: buckets["2"] },
-    { label: "1��", multiplier: "1��", types: buckets["1"] },
-    { label: "0.5��", multiplier: "0.5��", types: buckets["0.5"] },
-    { label: "0��", multiplier: "0��", types: buckets["0"] },
+    { label: "4배", multiplier: "4배", types: buckets["4"] },
+    { label: "2배", multiplier: "2배", types: buckets["2"] },
+    { label: "1배", multiplier: "1배", types: buckets["1"] },
+    { label: "0.5배", multiplier: "0.5배", types: buckets["0.5"] },
+    { label: "0배", multiplier: "0배", types: buckets["0"] },
   ];
 }
 

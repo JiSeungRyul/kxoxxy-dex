@@ -208,3 +208,8 @@
 - Changed `/teams` EV inputs so users can type freely and have values normalized only when the field loses focus.
 - Automatically clamp individual EVs to `0..252` and reduce the just-edited field when the team member's EV total would exceed `510`.
 - Added short inline feedback in the EV panel so users can see when values were adjusted to the per-stat or total cap.
+
+## Pokemon Detail Korean Text Fixes (Added: 2026-03-29)
+- Fixed the Korean gender-rate labels in the Pokemon detail page so genderless, male-only, female-only, and mixed ratios render readable Korean text again.
+- Fixed the defensive matchup multiplier labels so the detail page now shows `4배`, `2배`, `1배`, `0.5배`, and `0배` instead of broken characters.
+- Kept the change limited to shared formatting helpers so the current detail-page structure and data flow stay unchanged.
