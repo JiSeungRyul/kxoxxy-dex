@@ -198,3 +198,13 @@
 - Narrowed `/teams` search candidates by the selected team format instead of always showing the full Pokemon list.
 - Kept the filter intentionally conservative so Pokemon already covered by the selected format generation remain visible, and Pokemon with matching format-era Pokedex entries are also kept to avoid false negatives.
 - Kept already selected team members intact when the team format changes, so the candidate filter only affects new searches and replacements in this MVP step.
+
+## Team Builder Nature Stat Indicators (Added: 2026-03-29)
+- Added a compact nature indicator below the nature selector in `/teams` so boosted and reduced stats are visible without inspecting the derived stat table.
+- Displayed boosted stats as red `▲ 1.1x` pills and reduced stats as blue `▼ 0.9x` pills using the existing nature modifier rules.
+- Kept neutral natures visually subdued with a gray `--` indicator instead of introducing extra explanatory text in this MVP step.
+
+## Team Builder EV Blur Normalization (Added: 2026-03-29)
+- Changed `/teams` EV inputs so users can type freely and have values normalized only when the field loses focus.
+- Automatically clamp individual EVs to `0..252` and reduce the just-edited field when the team member's EV total would exceed `510`.
+- Added short inline feedback in the EV panel so users can see when values were adjusted to the per-stat or total cap.

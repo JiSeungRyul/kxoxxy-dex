@@ -690,6 +690,31 @@ export function getTeamNatureMultiplier(nature: string, stat: keyof PokemonBaseS
   return TEAM_NATURE_MODIFIERS[nature]?.[stat] ?? 1;
 }
 
+export function getTeamNatureEffect(nature: string) {
+  const modifiers = TEAM_NATURE_MODIFIERS[nature];
+
+  if (!modifiers) {
+    return {
+      increasedStat: null,
+      increasedMultiplier: null,
+      decreasedStat: null,
+      decreasedMultiplier: null,
+      isNeutral: true,
+    };
+  }
+
+  const increasedEntry = Object.entries(modifiers).find(([, value]) => value > 1);
+  const decreasedEntry = Object.entries(modifiers).find(([, value]) => value < 1);
+
+  return {
+    increasedStat: (increasedEntry?.[0] as keyof PokemonBaseStats | undefined) ?? null,
+    increasedMultiplier: increasedEntry?.[1] ?? null,
+    decreasedStat: (decreasedEntry?.[0] as keyof PokemonBaseStats | undefined) ?? null,
+    decreasedMultiplier: decreasedEntry?.[1] ?? null,
+    isNeutral: !increasedEntry && !decreasedEntry,
+  };
+}
+
 export function calculatePokemonBattleStats({
   baseStats,
   level,
@@ -806,4 +831,40 @@ export function sanitizeTeamMembers(value: unknown) {
 
 export function getTeamEvTotal(evs: PokemonTeamStatSpread) {
   return evs.hp + evs.attack + evs.defense + evs.specialAttack + evs.specialDefense + evs.speed;
+}
+
+export function normalizeTeamEvValue(value: unknown) {
+  const parsedValue = typeof value === "string" && value.trim().length === 0 ? 0 : Number(value);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return Math.min(252, Math.max(0, Math.floor(parsedValue)));
+}
+
+export function normalizeTeamEvsOnBlur(
+  evs: PokemonTeamStatSpread,
+  stat: keyof PokemonBaseStats,
+  value: unknown,
+) {
+  const rawValue = typeof value === "string" && value.trim().length === 0 ? 0 : Number(value);
+  const normalizedValue = normalizeTeamEvValue(value);
+  const nextEvs = {
+    ...evs,
+    [stat]: normalizedValue,
+  };
+  const total = getTeamEvTotal(nextEvs);
+  const overflow = Math.max(0, total - 510);
+
+  return {
+    evs: overflow > 0
+      ? {
+          ...nextEvs,
+          [stat]: Math.max(0, nextEvs[stat] - overflow),
+        }
+      : nextEvs,
+    adjustedToStatCap: !Number.isFinite(rawValue) || rawValue < 0 || rawValue > 252 || !Number.isInteger(rawValue),
+    adjustedToTotalCap: overflow > 0,
+  };
 }

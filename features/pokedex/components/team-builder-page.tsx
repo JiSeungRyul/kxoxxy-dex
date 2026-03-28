@@ -20,6 +20,7 @@ import {
   getAvailableTeamGimmicks,
   calculatePokemonBattleStats,
   formatDexNumber,
+  getTeamNatureEffect,
   formatTeamFormatLabel,
   formatTeamGimmickLabel,
   formatTypeLabel,
@@ -29,6 +30,7 @@ import {
   getEmptyTeamMember,
   isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
+  normalizeTeamEvsOnBlur,
   getTeamEvTotal,
   sanitizeTeamMembers,
 } from "@/features/pokedex/utils";
@@ -69,6 +71,10 @@ const STAT_FIELDS: Array<{ key: keyof PokemonBaseStats; label: string }> = [
   { key: "specialDefense", label: "특방" },
   { key: "speed", label: "스피드" },
 ];
+const STAT_LABELS = Object.fromEntries(STAT_FIELDS.map((field) => [field.key, field.label])) as Record<
+  keyof PokemonBaseStats,
+  string
+>;
 
 type TeamBuilderPageProps = {
   pokemonOptions: PokemonTeamBuilderOptionEntry[];
@@ -96,6 +102,8 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
   const [pokemonSearchBySlot, setPokemonSearchBySlot] = useState<Record<number, string>>({});
   const [activePokemonSearchSlot, setActivePokemonSearchSlot] = useState<number | null>(null);
+  const [evInputDrafts, setEvInputDrafts] = useState<Record<string, string>>({});
+  const [evFeedbackBySlot, setEvFeedbackBySlot] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +139,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   }
 
   function applyTeam(nextTeam: PokemonTeam | null) {
+    setEvInputDrafts({});
+    setEvFeedbackBySlot({});
+
     if (!nextTeam) {
       setTeamId(null);
       setTeamName("");
@@ -312,6 +323,71 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
     );
+  }
+
+  function getEvDraftKey(slot: number, stat: keyof PokemonBaseStats) {
+    return `${slot}-${stat}`;
+  }
+
+  function handleEvDraftChange(slot: number, stat: keyof PokemonBaseStats, value: string) {
+    const key = getEvDraftKey(slot, stat);
+    setEvInputDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [key]: value,
+    }));
+    setEvFeedbackBySlot((currentFeedback) => {
+      if (!currentFeedback[slot]) {
+        return currentFeedback;
+      }
+
+      const nextFeedback = { ...currentFeedback };
+      delete nextFeedback[slot];
+      return nextFeedback;
+    });
+  }
+
+  function handleEvDraftBlur(slot: number, stat: keyof PokemonBaseStats) {
+    const key = getEvDraftKey(slot, stat);
+    const draftValue = evInputDrafts[key];
+    let nextFeedback = "";
+
+    updateMember(slot, (currentMember) => {
+      const normalized = normalizeTeamEvsOnBlur(currentMember.evs, stat, draftValue ?? currentMember.evs[stat]);
+
+      if (normalized.adjustedToStatCap && normalized.adjustedToTotalCap) {
+        nextFeedback = "개별 노력치는 최대 252, 총합은 510에 맞게 조정되었습니다.";
+      } else if (normalized.adjustedToStatCap) {
+        nextFeedback = "개별 노력치는 0부터 252까지만 설정할 수 있습니다.";
+      } else if (normalized.adjustedToTotalCap) {
+        nextFeedback = "노력치 총합은 510에 맞게 조정되었습니다.";
+      }
+
+      return {
+        ...currentMember,
+        evs: normalized.evs,
+      };
+    });
+
+    setEvInputDrafts((currentDrafts) => {
+      if (!(key in currentDrafts)) {
+        return currentDrafts;
+      }
+
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[key];
+      return nextDrafts;
+    });
+    setEvFeedbackBySlot((currentFeedback) => {
+      const nextFeedbackBySlot = { ...currentFeedback };
+
+      if (nextFeedback.length > 0) {
+        nextFeedbackBySlot[slot] = nextFeedback;
+      } else {
+        delete nextFeedbackBySlot[slot];
+      }
+
+      return nextFeedbackBySlot;
+    });
   }
 
   function handlePokemonChange(slot: number, nextValue: string) {
@@ -508,6 +584,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                 nature: member.nature,
               })
             : null;
+          const natureEffect = getTeamNatureEffect(member.nature);
 
           const availableGimmicks = getAvailableTeamGimmicks(teamFormat, selectedPokemon);
           const showGimmickControls = shouldShowTeamGimmickControls(teamFormat);
@@ -525,6 +602,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           );
           const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
           const selectedTeraType = member.teraType ?? selectedPokemon?.types[0]?.name ?? "normal";
+          const evFeedback = evFeedbackBySlot[member.slot] ?? null;
 
           return (
             <article key={member.slot} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
@@ -795,20 +873,42 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   </div>
                 ) : null}
 
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>
-                    <select
-                      value={member.nature}
-                      onChange={(event) => updateMember(member.slot, (currentMember) => ({ ...currentMember, nature: event.target.value }))}
-                      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                    >
-                      {NATURE_OPTIONS.map((nature) => (
-                        <option key={nature} value={nature}>
-                          {nature}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        value={member.nature}
+                        onChange={(event) => updateMember(member.slot, (currentMember) => ({ ...currentMember, nature: event.target.value }))}
+                        className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                      >
+                        {NATURE_OPTIONS.map((nature) => (
+                          <option key={nature} value={nature}>
+                            {nature}
+                          </option>
+                        ))}
+                      </select>
+                      {natureEffect.isNeutral ? (
+                        <div className="flex min-h-7 items-center gap-2">
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            무보정
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-7 items-center gap-2 overflow-x-auto whitespace-nowrap">
+                          {natureEffect.increasedStat && natureEffect.increasedMultiplier ? (
+                            <span className="inline-flex shrink-0 items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-600">
+                              {STAT_LABELS[natureEffect.increasedStat]} ▲ {natureEffect.increasedMultiplier.toFixed(1)}x
+                            </span>
+                          ) : null}
+                          {natureEffect.decreasedStat && natureEffect.decreasedMultiplier ? (
+                            <span className="inline-flex shrink-0 items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-600">
+                              {STAT_LABELS[natureEffect.decreasedStat]} ▼ {natureEffect.decreasedMultiplier.toFixed(1)}x
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   </label>
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">아이템</span>
@@ -917,6 +1017,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                         총합 {evTotal} / 510
                       </span>
                     </div>
+                    {evFeedback ? (
+                      <p className="mt-2 text-xs font-medium text-red-500">{evFeedback}</p>
+                    ) : null}
                     <div className="mt-3 grid grid-cols-2 gap-3">
                       {STAT_FIELDS.map((field) => (
                         <label key={`${member.slot}-ev-${field.key}`} className="space-y-1">
@@ -925,16 +1028,9 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                             type="number"
                             min={0}
                             max={252}
-                            value={member.evs[field.key]}
-                            onChange={(event) =>
-                              updateMember(member.slot, (currentMember) => ({
-                                ...currentMember,
-                                evs: {
-                                  ...currentMember.evs,
-                                  [field.key]: Math.min(252, Math.max(0, Number(event.target.value) || 0)),
-                                },
-                              }))
-                            }
+                            value={evInputDrafts[getEvDraftKey(member.slot, field.key)] ?? member.evs[field.key]}
+                            onChange={(event) => handleEvDraftChange(member.slot, field.key, event.target.value)}
+                            onBlur={() => handleEvDraftBlur(member.slot, field.key)}
                             className="w-full rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-foreground/30"
                           />
                         </label>
