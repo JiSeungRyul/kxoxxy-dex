@@ -1,78 +1,59 @@
 # Current Product
 
-## Snapshot
-- Project name: `KxoxxyDex`
-- App type: desktop-first Korean Pokemon encyclopedia MVP
-- Main route: `/`
-- Data source: local snapshot in `data/pokedex.json`
-- Snapshot metadata:
-  - source: `pokeapi`
-  - syncedAt: `2026-03-15T11:21:16.121Z`
-  - totalPokemon: `1025`
-
-## Implemented Routes
-- `/`
-  - Main Pokedex page
-  - Search, filter, sort, pagination
-- `/pokedex`
-  - Dedicated Pokedex route
-  - Same core browsing experience as the main route
-- `/daily`
-  - Daily encounter view
-  - Local collection-state interaction
-- `/my-pokemon`
-  - Captured Pokemon gallery view
-  - Local collection-state interaction
-- `/pokemon/[slug]`
-  - Pokemon detail page
-  - Form switching, shiny toggle, evolution path, type matchup, media sections
-- `/contact`
-  - Contact / inquiry page
-- `/terms`
-  - Terms page
-- `/privacy`
-  - Privacy policy page
-
-## Current Product Scope
-- Korean UI
-- Pokemon list browsing from a prebuilt JSON snapshot
-- Search by Korean name
-- Filter by type
-- Filter by generation
-- Sort by dex number, name, and base stats
-- Paginated table view
-- Detail page per Pokemon
-- Form-aware detail page with regional / mega / gigantamax switching
-- Hero artwork toggle for normal / shiny presentation
-- Ability table with temporary frontend-held Korean description support
-- Light / dark theme toggle
-- Footer with service / policy / resource links
-
-## Explicitly Present In Code Now
-- Client-side Pokedex interaction lives in `features/pokedex/components/pokedex-page.tsx`
-- Data loading is snapshot-based and file-backed
-- Pokemon detail data is read from the same snapshot, not from live API calls
-- Collection-related utility types and routes are active:
-  - `capturedDexNumbers`
-  - `encountersByDate`
+## Product Snapshot
+- Product name: `KxoxxyDex`
+- Product type: Korean-first Pokemon encyclopedia MVP
+- Primary routes:
+  - `/`
+  - `/pokedex`
+  - `/pokemon/[slug]`
   - `/daily`
   - `/my-pokemon`
 
-## Out Of Scope In Current Workspace
-- Database
-- Authentication
-- Server-side user state
-- API routes for gameplay state
-- Automated tests
+## User-Facing Features
+- Main Pokedex browsing with search, type filter, generation filter, sorting, and pagination
+- Pokemon detail pages with:
+  - form switching
+  - shiny artwork toggle
+  - previous/next navigation
+  - base stats
+  - abilities
+  - grouped regional Pokedex references
+  - evolution displays
+  - defensive matchup reference
+  - cry audio and footprint display
+- Daily encounter flow with anonymous-session-backed capture progress and shiny chance
+- My Pokemon gallery based on captured Pokemon stored for the current anonymous session
+- Team builder for saving up to six Pokemon with team-level default-or-Gen 6-9 format selection plus per-member level, nature, item, ability, moves, IVs, EVs, and level-based battle stat display
+- Theme toggle
+- Contact, terms, and privacy pages
 
-## Planned Next Features
-- Login
-- Database integration
-- Move temporary frontend-held Korean ability description data into the database
-- Team maker
-- Random team picker
+## Current Product Behavior
+- The main browsing experience is server-driven for list queries and detail lookup.
+- Daily encounter now uses anonymous-session-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
+- My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
+- Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
+- Daily encounter state stores whether the current encounter is shiny.
+- My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
+- Captured Pokemon progress and saved teams still do not sync across devices or accounts.
+- The app currently presents one Korean-first experience and does not support runtime locale switching.
+- Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
-## Known Constraints
-- `next/font/google` is used in `app/layout.tsx`, so restricted network environments can affect build behavior
-- The app depends on `data/pokedex.json` being present and valid
-- Filtering and sorting run on the full in-memory dataset on the client
+## Current Constraints
+- Authentication is not implemented.
+- Server-backed user persistence is not implemented.
+- Automated tests are not present.
+- Catalog data operations are still split across snapshot generation and DB import workflows.
+- Anonymous daily persistence and anonymous team persistence exist, but account-linked user persistence does not.
+- Daily and team persistence require the new DB tables to be migrated before the API routes can work.
+- After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
+
+## Current Risks
+- Anonymous session identity is browser-scoped and is not durable across devices or account changes.
+- Collection ownership is still anonymous-session-based rather than account-linked.
+- Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
+
+## Current Content Sources
+- Pokemon catalog content originates from PokeAPI-derived snapshot generation.
+- Temporary Korean ability-description support still includes frontend-held translation logic.

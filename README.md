@@ -28,11 +28,7 @@ To run this project locally, you need:
 - npm 10 or newer recommended
 - Internet access when running `npm run sync:pokedex`
 
-This project does not currently require:
-
-- a database
-- environment variables
-- Docker
+This project does not currently require a database connection at runtime for the Pokedex snapshot flow.
 
 ## Quick Start
 
@@ -42,13 +38,37 @@ This project does not currently require:
 npm install
 ```
 
-2. Run the development server:
+2. Create the local environment file if you do not already have one:
+
+```bash
+Copy-Item .env.example .env
+```
+
+3. Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+4. Apply migrations and seed the catalog:
+
+```bash
+.\scripts\setup-local-db.ps1 -SkipCompose
+```
+
+Shell equivalent:
+
+```bash
+sh scripts/setup-local-db.sh --skip-compose
+```
+
+5. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-3. Open the app:
+6. Open the app:
 
 ```text
 http://localhost:3000
@@ -72,6 +92,9 @@ If the build fails on Windows because `.next/trace` is locked, stop any running 
 - `npm run start`: run production server
 - `npm run typecheck`: run TypeScript type check
 - `npm run sync:pokedex`: rebuild `data/pokedex.json` from PokeAPI
+- `npm run db:generate`: generate Drizzle migration files after schema is added
+- `npm run db:migrate`: apply generated Drizzle migrations
+- `npm run db:studio`: open Drizzle Studio for local database inspection
 
 ## Data Source
 
@@ -112,19 +135,49 @@ public/brand/                Static brand assets
 - If ports are already in use, stop the existing dev server before starting a new one
 
 ## Docker Compose Direction
+This project now includes a local PostgreSQL setup for future database and auth work.
 
-This project is intentionally kept simple right now, but it is being prepared for future Docker Compose usage when a database is introduced.
+1. Copy the environment template:
 
-Recommended future structure:
+```bash
+Copy-Item .env.example .env
+```
 
-- `app` service: Next.js application
-- `db` service: PostgreSQL or another database
-- optional `adminer` or `pgadmin` service for local database inspection
+2. Start PostgreSQL with Docker Compose:
 
-Recommended future files:
+```bash
+docker compose up -d
+```
 
-- `Dockerfile`
-- `docker-compose.yml`
-- `.env.example`
+3. Apply migrations and seed the catalog:
 
-Until a database is added, running the app directly with Node.js is the simplest and most reliable approach.
+```bash
+sh scripts/setup-local-db.sh --skip-compose
+```
+
+You can also run the full DB bootstrap in one step:
+
+```bash
+sh scripts/setup-local-db.sh
+```
+
+PowerShell equivalents:
+
+```powershell
+.\scripts\setup-local-db.ps1 -SkipCompose
+.\scripts\setup-local-db.ps1
+```
+
+4. The default local database connection string is:
+
+```text
+postgresql://postgres:postgres@localhost:5432/kxoxxydex
+```
+
+5. Stop the database when finished:
+
+```bash
+docker compose down
+```
+
+The current app uses a hybrid data flow. PostgreSQL-backed catalog tables must be created and seeded before DB-backed routes are expected to work correctly in a fresh environment.

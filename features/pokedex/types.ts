@@ -130,6 +130,48 @@ export type PokemonSummary = {
   forms: PokemonForm[];
 };
 
+export type PokemonCollectionPageEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "slug"
+  | "name"
+  | "imageUrl"
+  | "artworkImageUrl"
+  | "types"
+> & {
+  defaultShinyArtworkImageUrl?: string | null;
+};
+
+export type PokemonCollectionCatalogEntry = PokemonCollectionPageEntry &
+  Pick<PokemonSummary, "generation" | "stats" | "height" | "weight">;
+
+export type PokemonDexNumberEntry = Pick<PokemonSummary, "nationalDexNumber">;
+
+export type PokemonCatalogListEntry = PokemonCollectionCatalogEntry &
+  Pick<PokemonSummary, "abilities" | "hiddenAbility">;
+
+export type PokemonTeamBuilderOptionEntry = Pick<PokemonSummary, "nationalDexNumber" | "name" | "generation"> & {
+  pokedexNames: string[];
+};
+
+export type PokemonTeamGimmickAvailability = {
+  canMega: boolean;
+  canGigantamax: boolean;
+};
+
+export type PokemonTeamBuilderCatalogEntry = Pick<
+  PokemonSummary,
+  | "nationalDexNumber"
+  | "name"
+  | "artworkImageUrl"
+  | "types"
+  | "stats"
+  | "abilities"
+  | "hiddenAbility"
+> & {
+  gimmickAvailability: PokemonTeamGimmickAvailability;
+};
+
 export type PokedexFilterOptions = {
   generations: PokemonGeneration[];
   types: PokemonType[];
@@ -145,7 +187,63 @@ export type PokedexSnapshot = {
   filterOptions: PokedexFilterOptions;
 };
 
+export type PokedexListQuery = {
+  page: number;
+  searchTerm: string;
+  selectedType: TypeFilterValue;
+  selectedGeneration: GenerationFilterValue;
+  sortKey: PokemonSortKey;
+  sortDirection: SortDirection;
+};
+
+export type PokedexListPage = {
+  pokemon: PokemonSummary[];
+  filterOptions: PokedexFilterOptions;
+  query: PokedexListQuery;
+  totalCount: number;
+  totalResults: number;
+  totalPages: number;
+  pageStart: number;
+  pageEnd: number;
+};
+
 export type PokedexCollectionState = {
   capturedDexNumbers: number[];
+  shinyCapturedDexNumbers: number[];
+  capturedAtByDexNumber: Record<string, string>;
   encountersByDate: Record<string, number>;
+  shinyEncountersByDate: Record<string, boolean>;
+};
+
+export type PokemonTeamStatSpread = PokemonBaseStats;
+
+export type TeamFormatId = "default" | "gen6" | "gen7" | "gen8" | "gen9";
+export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "terastal";
+
+export type PokemonTeamMemberDraft = {
+  slot: number;
+  nationalDexNumber: number | null;
+  level: number;
+  nature: string;
+  item: string;
+  ability: string;
+  moves: string[];
+  ivs: PokemonTeamStatSpread;
+  evs: PokemonTeamStatSpread;
+  gimmick: TeamGimmickId;
+  teraType: PokemonTypeName | null;
+};
+
+export type PokemonTeamMember = PokemonTeamMemberDraft & {
+  id: number;
+  pokemon: PokemonSummary | null;
+};
+
+export type PokemonTeam = {
+  id: number;
+  name: string;
+  format: TeamFormatId;
+  createdAt: string;
+  updatedAt: string;
+  members: PokemonTeamMember[];
 };

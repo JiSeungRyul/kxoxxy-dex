@@ -1,0 +1,32 @@
+{
+  "name": "kxoxxy-runtime-guard",
+  "version": "0.1.0",
+  "description": "Guardrails for hybrid runtime work in KxoxxyDex.",
+  "author": {
+    "name": "KxoxxyDex Team",
+    "email": "team@example.com",
+    "url": "https://example.com"
+  },
+  "homepage": "https://example.com/kxoxxy-runtime-guard",
+  "repository": "https://example.com/kxoxxy-runtime-guard",
+  "license": "MIT",
+  "keywords": ["codex", "pokedex", "hybrid-runtime", "docs"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kxoxxy Runtime Guard",
+    "shortDescription": "Guards hybrid DB and snapshot workflows.",
+    "longDescription": "Enforces the repo's hybrid runtime rules, doc read order, and verification expectations before data-flow changes.",
+    "developerName": "KxoxxyDex",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://example.com",
+    "privacyPolicyURL": "https://example.com/privacy",
+    "termsOfServiceURL": "https://example.com/terms",
+    "defaultPrompt": [
+      "Check the hybrid runtime rules before changing data flow.",
+      "Verify whether this route is DB-backed or snapshot-backed.",
+      "List the docs and files to read before editing daily or teams."
+    ],
+    "brandColor": "#E85D04"
+  }
+}

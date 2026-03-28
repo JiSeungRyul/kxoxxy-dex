@@ -2,18 +2,18 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { TABLE_COLUMNS, TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import type { PokemonSortKey, PokemonSummary, SortDirection } from "@/features/pokedex/types";
+import type { PokemonCatalogListEntry, PokemonSortKey, SortDirection } from "@/features/pokedex/types";
 import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
 
 type PokedexTableProps = {
-  pokemon: PokemonSummary[];
+  pokemon: PokemonCatalogListEntry[];
   sortKey: PokemonSortKey;
   sortDirection: SortDirection;
   capturedDexNumbers?: number[];
   onSortChange: (sortKey: PokemonSortKey) => void;
 };
 
-function TypeBadge({ name, label }: { name: PokemonSummary["types"][number]["name"]; label: string }) {
+function TypeBadge({ name, label }: { name: PokemonCatalogListEntry["types"][number]["name"]; label: string }) {
   return (
     <span
       className={`inline-flex rounded-xl border px-3 py-1.5 text-xs font-semibold tracking-[0.04em] ${TYPE_BADGE_STYLES[name]}`}
@@ -150,3 +150,4 @@ export function PokedexTable({
     </section>
   );
 }
+
