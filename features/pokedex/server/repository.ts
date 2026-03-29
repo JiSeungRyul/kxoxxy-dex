@@ -30,6 +30,7 @@ import type {
   PokemonTeam,
   PokemonTeamBuilderCatalogEntry,
   TeamFormatId,
+  TeamModeId,
   TeamGimmickId,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamMember,
@@ -39,6 +40,7 @@ import type {
 } from "@/features/pokedex/types";
 import {
   getDefaultTeamFormat,
+  getDefaultTeamMode,
   getDefaultTeamGimmick,
   getLocalDateKey,
   getTeamValidationError,
@@ -47,6 +49,7 @@ import {
   normalizeTeamTeraType,
   rollDailyEncounterShiny,
   sanitizeTeamMembers,
+  sanitizeTeamMode,
   selectDailyEncounterDexNumber,
   selectRandomDailyEncounterDexNumber,
 } from "@/features/pokedex/utils";
@@ -902,6 +905,7 @@ type TeamRow = {
   id: number;
   name: string;
   format: TeamFormatId;
+  mode: TeamModeId;
   createdAt: string;
   updatedAt: string;
 };
@@ -949,6 +953,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
         id,
         name,
         format,
+        mode,
         created_at::text AS "createdAt",
         updated_at::text AS "updatedAt"
       FROM teams
@@ -1026,6 +1031,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
       id: teamRow.id,
       name: teamRow.name,
       format: teamRow.format ?? getDefaultTeamFormat(),
+      mode: sanitizeTeamMode(teamRow.mode) ?? getDefaultTeamMode(),
       createdAt: teamRow.createdAt,
       updatedAt: teamRow.updatedAt,
       members,
@@ -1049,6 +1055,7 @@ export async function saveTeam(
     id?: number | null;
     name: string;
     format: TeamFormatId;
+    mode: TeamModeId;
     members: PokemonTeamMemberDraft[];
   },
 ): Promise<{ teams: PokemonTeam[]; savedTeamId: number | null; error?: string }> {
@@ -1063,6 +1070,7 @@ export async function saveTeam(
 
   const normalizedTeamName = team.name.trim().slice(0, 60);
   const normalizedTeamFormat = team.format ?? getDefaultTeamFormat();
+  const normalizedTeamMode = sanitizeTeamMode(team.mode);
   const sanitizedMembers = sanitizeTeamMembers(team.members);
   const selectedMembers = sanitizedMembers.filter((member) => member.nationalDexNumber !== null);
   const existingTeams = await getTeamsByAnonymousSessionId(anonymousSessionId);
@@ -1170,10 +1178,10 @@ export async function saveTeam(
       await transaction.unsafe(
         `
           UPDATE teams
-          SET name = $1, format = $2, updated_at = NOW()
-          WHERE id = $3
+          SET name = $1, format = $2, mode = $3, updated_at = NOW()
+          WHERE id = $4
         `,
-        [normalizedTeamName, normalizedTeamFormat, teamId],
+        [normalizedTeamName, normalizedTeamFormat, normalizedTeamMode, teamId],
       );
       await transaction.unsafe(
         `
@@ -1185,11 +1193,11 @@ export async function saveTeam(
     } else {
       const insertedTeamRows = await transaction.unsafe<Array<{ id: number }>>(
         `
-          INSERT INTO teams (anonymous_session_id, name, format)
-          VALUES ($1, $2, $3)
+          INSERT INTO teams (anonymous_session_id, name, format, mode)
+          VALUES ($1, $2, $3, $4)
           RETURNING id
         `,
-        [anonymousSessionId, normalizedTeamName, normalizedTeamFormat],
+        [anonymousSessionId, normalizedTeamName, normalizedTeamFormat, normalizedTeamMode],
       );
 
       teamId = insertedTeamRows[0]?.id ?? null;

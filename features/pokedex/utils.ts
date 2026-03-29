@@ -25,6 +25,7 @@ import type {
   PokemonTeamMemberDraft,
   PokemonTeamStatSpread,
   TeamFormatId,
+  TeamModeId,
   TeamGimmickId,
   TeamTeraType,
   PokemonTypeName,
@@ -71,9 +72,14 @@ export function formatWeight(weight: number) {
 }
 
 export const TEAM_FORMAT_IDS = ["default", "gen6", "gen7", "gen8", "gen9"] as const;
+export const TEAM_MODE_IDS = ["free", "story", "battle-singles", "battle-doubles"] as const;
 
 export function getDefaultTeamFormat(): TeamFormatId {
   return "default";
+}
+
+export function getDefaultTeamMode(): TeamModeId {
+  return "free";
 }
 
 export function sanitizeTeamFormat(value: unknown): TeamFormatId {
@@ -82,8 +88,40 @@ export function sanitizeTeamFormat(value: unknown): TeamFormatId {
     : getDefaultTeamFormat();
 }
 
+export function sanitizeTeamMode(value: unknown): TeamModeId {
+  return typeof value === "string" && TEAM_MODE_IDS.includes(value as TeamModeId)
+    ? (value as TeamModeId)
+    : getDefaultTeamMode();
+}
+
 export function formatTeamFormatLabel(format: TeamFormatId) {
   return format === "default" ? "기본" : `${format.replace("gen", "")}세대`;
+}
+
+export function formatTeamModeLabel(mode: TeamModeId) {
+  switch (mode) {
+    case "story":
+      return "스토리";
+    case "battle-singles":
+      return "대전 싱글";
+    case "battle-doubles":
+      return "대전 더블";
+    default:
+      return "자유";
+  }
+}
+
+export function getTeamModeDescription(mode: TeamModeId) {
+  switch (mode) {
+    case "story":
+      return "스토리 진행과 육성 중심으로 자유롭게 구성하는 모드입니다.";
+    case "battle-singles":
+      return "1대1 실전 배틀 기준 모드입니다. 새 포켓몬은 레벨 50으로 시작하고 중복 편성 경고를 표시합니다.";
+    case "battle-doubles":
+      return "2대2 실전 배틀 기준 모드입니다. 새 포켓몬은 레벨 50으로 시작하고 중복 편성 경고를 표시합니다.";
+    default:
+      return "포맷 외 추가 제약 없이 자유롭게 테스트하는 모드입니다.";
+  }
 }
 
 export function getTeamFormatSystemLabel(format: TeamFormatId) {

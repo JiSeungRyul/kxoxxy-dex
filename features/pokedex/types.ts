@@ -224,6 +224,7 @@ export type PokedexCollectionState = {
 export type PokemonTeamStatSpread = PokemonBaseStats;
 
 export type TeamFormatId = "default" | "gen6" | "gen7" | "gen8" | "gen9";
+export type TeamModeId = "free" | "story" | "battle-singles" | "battle-doubles";
 export type TeamGimmickId = "none" | "mega" | "zmove" | "dynamax" | "gigantamax" | "terastal";
 export type TeamTeraType = PokemonTypeName | "stellar";
 
@@ -251,6 +252,7 @@ export type PokemonTeam = {
   id: number;
   name: string;
   format: TeamFormatId;
+  mode: TeamModeId;
   createdAt: string;
   updatedAt: string;
   members: PokemonTeamMember[];

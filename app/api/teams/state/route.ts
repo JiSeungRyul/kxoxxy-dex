@@ -2,7 +2,7 @@
 
 import { deleteStoredTeam, getStoredTeams, saveTeam } from "@/features/pokedex/server/repository";
 import type { PokemonTeamMemberDraft } from "@/features/pokedex/types";
-import { sanitizeTeamFormat } from "@/features/pokedex/utils";
+import { sanitizeTeamFormat, sanitizeTeamMode } from "@/features/pokedex/utils";
 
 type TeamAction = "save" | "delete";
 
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
         id?: number | null;
         name?: string;
         format?: string;
+        mode?: string;
         members?: PokemonTeamMemberDraft[];
       };
     };
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
           id: Number.isInteger(body.team.id) ? Number(body.team.id) : null,
           name: body.team.name,
           format: sanitizeTeamFormat(body.team.format),
+          mode: sanitizeTeamMode(body.team.mode),
           members: body.team.members,
         });
 

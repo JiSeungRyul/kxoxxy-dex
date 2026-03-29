@@ -218,3 +218,15 @@
 - Changed the header navigation so the team section is exposed as a single `팀빌딩` entry with a hover/focus dropdown.
 - Grouped `/teams` and `/my-teams` under that dropdown as `팀 빌더` and `내 팀 보기` instead of keeping them as separate top-level navigation concepts.
 - Kept the active-state logic shared so both `/teams` and `/my-teams` still highlight the same team section in the header.
+
+## Team Builder Level Control (Added: 2026-03-29)
+- Added a per-member level control in `/teams` with direct number input and step arrows.
+- Reused the existing `1..100` validation and persistence path so saved teams keep the selected level without new schema work.
+- Wired the control into the existing battle-stat calculator so changing level immediately updates the derived `실전 능력치` table while leaving `종족값` unchanged.
+
+## Team Builder Mode Selection (Added: 2026-03-29)
+- Added a team-level mode selector in `/teams` for `자유`, `스토리`, `대전 싱글`, and `대전 더블`.
+- Persisted the selected mode on the team record so save/load round-trips keep the chosen mode alongside the existing format.
+- Added battle-mode follow-up behavior so newly selected Pokemon start at level 50 in `대전 싱글` and `대전 더블`.
+- Added non-blocking warnings for duplicate species and duplicate held items in battle modes while leaving strict validation for a later step.
+- For now, held-item duplicate warnings compare the current item text exactly; a later item dropdown step can replace that with structured item-id comparison.
