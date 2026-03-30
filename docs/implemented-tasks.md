@@ -272,3 +272,5 @@
 - Filtered move candidates by the active team format and collapsed duplicate learnset rows into one visible move choice per move.
 - Blocked duplicate move selection within the same Pokemon slot in both the client save guard and the server-side save validation.
 - Styled selected move fields with the chosen move type color and showed move method metadata in the search result list.
+- `2026-03-30`: Added and expanded a small local Korean move-name override table for newer moves with missing PokeAPI Korean labels and applied it during `sync-moves`, so team-builder move selectors no longer show obvious English fallback names such as `Tera Blast`, `Population Bomb`, and `Torch Song`.
+- `2026-03-30`: Completed a lightweight `/teams` move-selector smoke pass by rechecking route and move API responses plus valid-save and duplicate-move save validation through `/api/teams/state`.

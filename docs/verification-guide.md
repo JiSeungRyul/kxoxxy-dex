@@ -13,6 +13,7 @@
   - `/api/daily/state`
   - `/api/teams/state`
   - `/api/pokedex/catalog`
+  - `/api/pokedex/moves`
 
 ## Preconditions
 - Local PostgreSQL is running and seeded:
@@ -117,10 +118,15 @@
 - Select one or more Pokemon and confirm the client requests:
   - `GET /api/teams/state?sessionId=...`
   - `GET /api/pokedex/catalog?view=teams&dexNumbers=...` after selection
+  - `GET /api/pokedex/moves?dexNumbers=...&format=...` after selection
 - Save a team and confirm:
   - `POST /api/teams/state` with `action: "save"` succeeds
   - the route updates to `/teams?teamId=...`
   - refreshing the page keeps the saved team loaded
+- With the move selector enabled, also confirm:
+  - the move API returns move options for the selected Pokemon and current format
+  - saving a valid move set succeeds
+  - saving duplicate moves inside the same member slot fails with a validation error
 - Delete the saved team from `/my-teams` or through the API and confirm it disappears on reload.
 
 ## API Smoke Flow
@@ -160,6 +166,18 @@
   - `my-pokemon`: `PokemonCollectionPageEntry[]`
   - `teams`: `PokemonTeamBuilderCatalogEntry[]`
 
+### `/api/pokedex/moves`
+- Missing or invalid `dexNumbers` should return `{ "pokemonMoves": [] }`.
+- Valid requests should return `{ "pokemonMoves": [...] }`.
+- The current `format` parameter is expected to be one of:
+  - `default`
+  - `gen6`
+  - `gen7`
+  - `gen8`
+  - `gen9`
+- The response should include only move options available to the selected Pokemon in the requested format.
+- Duplicate move validation is enforced at save time through `/api/teams/state`.
+
 ## Example API Checks
 - Replace the session id placeholder before running the commands.
 
@@ -167,6 +185,7 @@
 curl.exe "http://localhost:3000/api/daily/state?sessionId=replace-me"
 curl.exe "http://localhost:3000/api/pokedex/catalog?view=daily&dexNumbers=25,133"
 curl.exe "http://localhost:3000/api/teams/state?sessionId=replace-me"
+curl.exe "http://localhost:3000/api/pokedex/moves?dexNumbers=6&format=gen9"
 ```
 
 ```powershell

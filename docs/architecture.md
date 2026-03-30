@@ -28,7 +28,7 @@
 - `scripts/sync-items.mjs`
   - item snapshot generation from PokeAPI
 - `scripts/sync-moves.mjs`
-  - move snapshot generation from PokeAPI plus per-Pokemon learnset extraction
+  - move snapshot generation from PokeAPI plus per-Pokemon learnset extraction and small local Korean-name overrides for newer moves when PokeAPI omits Korean labels
 - `scripts/import-pokedex-to-db.mjs`
   - snapshot import into PostgreSQL
 - `scripts/import-items-to-db.mjs`
