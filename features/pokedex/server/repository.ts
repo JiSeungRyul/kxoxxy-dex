@@ -1006,7 +1006,7 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
         continue;
       }
 
-      const sanitizedMember = sanitizeTeamMembers([memberRow])[0];
+      const sanitizedMember = sanitizeTeamMembers([memberRow], teamRow.mode ?? getDefaultTeamMode())[0];
       members[memberRow.slot - 1] = {
         id: memberRow.id,
         ...sanitizedMember,
@@ -1071,12 +1071,13 @@ export async function saveTeam(
   const normalizedTeamName = team.name.trim().slice(0, 60);
   const normalizedTeamFormat = team.format ?? getDefaultTeamFormat();
   const normalizedTeamMode = sanitizeTeamMode(team.mode);
-  const sanitizedMembers = sanitizeTeamMembers(team.members);
+  const sanitizedMembers = sanitizeTeamMembers(team.members, normalizedTeamMode);
   const selectedMembers = sanitizedMembers.filter((member) => member.nationalDexNumber !== null);
   const existingTeams = await getTeamsByAnonymousSessionId(anonymousSessionId);
 
   const validationError = getTeamValidationError({
     teamName: normalizedTeamName,
+    mode: normalizedTeamMode,
     members: sanitizedMembers,
   });
 
@@ -1142,6 +1143,7 @@ export async function saveTeam(
   }));
   const catalogValidationError = getTeamValidationError({
     teamName: normalizedTeamName,
+    mode: normalizedTeamMode,
     members: sanitizedMembers,
     pokemonByDexNumber,
   });

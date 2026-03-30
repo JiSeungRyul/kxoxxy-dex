@@ -36,7 +36,10 @@ import {
   getTeamModeDescription,
   shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
+  getDuplicateTeamSpeciesDexNumbers,
   getEmptyTeamMember,
+  getTeamLevelCap,
+  isBattleTeamMode,
   isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
   normalizeTeamEvsOnBlur,
@@ -135,7 +138,8 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     () => pokemonOptions.filter((entry) => isPokemonTeamBuilderOptionAvailableForFormat(entry, teamFormat)),
     [pokemonOptions, teamFormat],
   );
-  const isBattleMode = teamMode === "battle-singles" || teamMode === "battle-doubles";
+  const isBattleMode = isBattleTeamMode(teamMode);
+  const teamLevelCap = getTeamLevelCap(teamMode);
   const battleModeWarnings = useMemo(() => {
     if (!isBattleMode) {
       return [];
@@ -209,6 +213,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           const existingMember = nextTeam.members.find((member) => member.slot === index + 1);
           return existingMember ?? getEmptyTeamMember(index + 1);
         }),
+        nextTeam.mode ?? getDefaultTeamMode(),
       ),
     );
   }
@@ -375,6 +380,15 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     });
   }, [activePokemonSearchSlot, members, pokemonOptionByDexNumber]);
 
+  useEffect(() => {
+    setMembers((currentMembers) =>
+      currentMembers.map((member) => ({
+        ...member,
+        level: Math.min(teamLevelCap, Math.max(1, member.level)),
+      })),
+    );
+  }, [teamLevelCap]);
+
   function updateMember(slot: number, updater: (current: PokemonTeamMemberDraft) => PokemonTeamMemberDraft) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
@@ -495,14 +509,14 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   function handleLevelChange(slot: number, value: string) {
     updateMember(slot, (currentMember) => ({
       ...currentMember,
-      level: Math.min(100, Math.max(1, Number(value) || 1)),
+      level: Math.min(teamLevelCap, Math.max(1, Number(value) || 1)),
     }));
   }
 
   function handleLevelStep(slot: number, delta: number) {
     updateMember(slot, (currentMember) => ({
       ...currentMember,
-      level: Math.min(100, Math.max(1, currentMember.level + delta)),
+      level: Math.min(teamLevelCap, Math.max(1, currentMember.level + delta)),
     }));
   }
 
@@ -512,7 +526,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
     const selectedOption = nationalDexNumber === null ? null : pokemonOptionByDexNumber.get(nationalDexNumber) ?? null;
     const defaultTeraType = selectedPokemon?.name === "테라파고스" ? "stellar" : (selectedPokemon?.types[0]?.name ?? null);
-    const defaultLevel = isBattleMode ? 50 : getDefaultTeamLevel();
+    const defaultLevel = getDefaultTeamLevel();
 
     updateMember(slot, (currentMember) => ({
       ...currentMember,
@@ -570,6 +584,16 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     if (invalidEvMember) {
       setError(`${invalidEvMember.slot}번 슬롯의 노력치 총합이 510을 초과했습니다.`);
       return;
+    }
+
+    if (isBattleMode) {
+      const duplicateSpecies = getDuplicateTeamSpeciesDexNumbers(selectedMembers)
+        .map((nationalDexNumber) => selectedPokemonByDexNumber.get(nationalDexNumber)?.name ?? `No.${nationalDexNumber}`);
+
+      if (duplicateSpecies.length > 0) {
+        setError(`대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpecies.join(", ")}.`);
+        return;
+      }
     }
 
     setError(null);
@@ -1104,7 +1128,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                       <input
                         type="number"
                         min={1}
-                        max={100}
+                        max={teamLevelCap}
                         value={member.level}
                         onChange={(event) => handleLevelChange(member.slot, event.target.value)}
                         className="w-14 appearance-none border-0 bg-transparent px-0 py-0 text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

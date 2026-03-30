@@ -230,3 +230,13 @@
 - Added battle-mode follow-up behavior so newly selected Pokemon start at level 50 in `대전 싱글` and `대전 더블`.
 - Added non-blocking warnings for duplicate species and duplicate held items in battle modes while leaving strict validation for a later step.
 - For now, held-item duplicate warnings compare the current item text exactly; a later item dropdown step can replace that with structured item-id comparison.
+
+## Team Builder Battle Species Save Guard (Added: 2026-03-30)
+- Raised duplicate-species handling in `/teams` battle modes from a warning to a save-blocking rule for `대전 싱글` and `대전 더블`.
+- Matched the client-side pre-save message with the server-side repository validation so API saves cannot bypass the new rule.
+- Left duplicate held-item handling on the current warning-only behavior for this MVP step.
+
+## Team Builder Mode-Based Level Caps (Added: 2026-03-30)
+- Kept the default level for newly selected team members at `50` across every team mode.
+- Allowed manual level adjustment up to `100` in `자유` and `스토리`, while capping `대전 싱글` and `대전 더블` at `50`.
+- Matched the level-input UI, client-side clamping, loaded-team sanitization, and server-side save validation so battle-mode teams cannot keep level values above `50`.
