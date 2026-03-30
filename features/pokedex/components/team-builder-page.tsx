@@ -8,9 +8,12 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
 import type {
+  PokedexItemOptionEntry,
+  PokedexMoveOptionEntry,
   PokemonBaseStats,
   PokemonTeam,
   PokemonTeamBuilderCatalogEntry,
+  PokemonTeamBuilderMoveOptionGroup,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamMemberDraft,
   TeamFormatId,
@@ -23,9 +26,12 @@ import {
   calculatePokemonBattleStats,
   formatMegaFormOptionLabel,
   formatDexNumber,
+  formatPokemonAbilityOptionLabel,
+  formatTeamMoveOptionLabel,
   formatTeamModeLabel,
   formatTeamTeraTypeLabel,
   getPokemonTeamMegaForms,
+  getPokemonAbilityDescription,
   getTeamNatureEffect,
   formatTeamFormatLabel,
   formatTeamGimmickLabel,
@@ -33,6 +39,8 @@ import {
   getDefaultTeamFormat,
   getDefaultTeamLevel,
   getDefaultTeamMode,
+  getDuplicateTeamItemNames,
+  getDuplicateMemberMoveNames,
   getTeamModeDescription,
   shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
@@ -40,6 +48,8 @@ import {
   getEmptyTeamMember,
   getTeamLevelCap,
   isBattleTeamMode,
+  isPokedexItemOptionAvailableForTeamMode,
+  isPokedexMoveOptionAvailableForTeamFormat,
   isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
   normalizeTeamEvsOnBlur,
@@ -90,18 +100,34 @@ const STAT_LABELS = Object.fromEntries(STAT_FIELDS.map((field) => [field.key, fi
 
 type TeamBuilderPageProps = {
   pokemonOptions: PokemonTeamBuilderOptionEntry[];
+  itemOptions: PokedexItemOptionEntry[];
 };
 
 type TeamBuilderCatalogResponse = {
   pokemon?: PokemonTeamBuilderCatalogEntry[];
 };
 
+type TeamBuilderMoveResponse = {
+  pokemonMoves?: PokemonTeamBuilderMoveOptionGroup[];
+};
+
 const TEAM_BUILDER_SEARCH_RESULT_LIMIT = 12;
 const TEAM_FORMAT_OPTIONS: TeamFormatId[] = ["default", "gen6", "gen7", "gen8", "gen9"];
 const TEAM_MODE_OPTIONS: TeamModeId[] = ["free", "story", "battle-singles", "battle-doubles"];
 
+function getMoveSlotKey(slot: number, moveIndex: number) {
+  return `${slot}-${moveIndex}`;
+}
 
-export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
+function getMoveFieldClasses(option: PokedexMoveOptionEntry | null) {
+  if (!option) {
+    return "border-border bg-background text-foreground focus:border-foreground/30";
+  }
+
+  return `${TYPE_BADGE_STYLES[option.type.name]} focus:border-foreground/30`;
+}
+
+export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -114,8 +140,13 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
   const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
+  const [moveOptionsByDexNumber, setMoveOptionsByDexNumber] = useState<Record<number, PokedexMoveOptionEntry[]>>({});
   const [pokemonSearchBySlot, setPokemonSearchBySlot] = useState<Record<number, string>>({});
   const [activePokemonSearchSlot, setActivePokemonSearchSlot] = useState<number | null>(null);
+  const [itemSearchBySlot, setItemSearchBySlot] = useState<Record<number, string>>({});
+  const [activeItemSearchSlot, setActiveItemSearchSlot] = useState<number | null>(null);
+  const [moveSearchBySlot, setMoveSearchBySlot] = useState<Record<string, string>>({});
+  const [activeMoveSearchSlot, setActiveMoveSearchSlot] = useState<string | null>(null);
   const [evInputDrafts, setEvInputDrafts] = useState<Record<string, string>>({});
   const [evFeedbackBySlot, setEvFeedbackBySlot] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -138,6 +169,10 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     () => pokemonOptions.filter((entry) => isPokemonTeamBuilderOptionAvailableForFormat(entry, teamFormat)),
     [pokemonOptions, teamFormat],
   );
+  const availableItemOptions = useMemo(
+    () => itemOptions.filter((entry) => isPokedexItemOptionAvailableForTeamMode(entry, teamMode)),
+    [itemOptions, teamMode],
+  );
   const isBattleMode = isBattleTeamMode(teamMode);
   const teamLevelCap = getTeamLevelCap(teamMode);
   const battleModeWarnings = useMemo(() => {
@@ -158,20 +193,15 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
         .filter((name): name is string => Boolean(name))
         .filter((name, index, array) => array.indexOf(name) !== index),
     )];
-    const duplicateItems = [...new Set(
-      selectedMembers
-        .map((member) => member.item.trim())
-        .filter((item) => item.length > 0)
-        .filter((item, index, array) => array.indexOf(item) !== index),
-    )];
+    const duplicateItems = getDuplicateTeamItemNames(selectedMembers);
     const warnings: string[] = [];
 
     if (duplicateSpecies.length > 0) {
-      warnings.push(`대전 모드에서는 같은 포켓몬 중복을 주의하세요: ${duplicateSpecies.join(", ")}`);
+      warnings.push(`대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpecies.join(", ")}`);
     }
 
     if (duplicateItems.length > 0) {
-      warnings.push(`대전 모드에서는 같은 아이템 중복을 주의하세요: ${duplicateItems.join(", ")}`);
+      warnings.push(`대전 모드에서는 같은 아이템을 중복 저장할 수 없습니다: ${duplicateItems.join(", ")}`);
     }
 
     return warnings;
@@ -193,6 +223,12 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   function applyTeam(nextTeam: PokemonTeam | null) {
     setEvInputDrafts({});
     setEvFeedbackBySlot({});
+    setPokemonSearchBySlot({});
+    setItemSearchBySlot({});
+    setMoveSearchBySlot({});
+    setActivePokemonSearchSlot(null);
+    setActiveItemSearchSlot(null);
+    setActiveMoveSearchSlot(null);
 
     if (!nextTeam) {
       setTeamId(null);
@@ -312,6 +348,43 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   }, [selectedDexNumbersKey]);
 
   useEffect(() => {
+    if (selectedDexNumbers.length === 0) {
+      setMoveOptionsByDexNumber({});
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/pokedex/moves?dexNumbers=${selectedDexNumbers.join(",")}&format=${encodeURIComponent(teamFormat)}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load move options.");
+        }
+
+        const payload = (await response.json()) as TeamBuilderMoveResponse;
+        const nextMoveOptionsByDexNumber = Object.fromEntries(
+          (Array.isArray(payload.pokemonMoves) ? payload.pokemonMoves : []).map((entry) => [entry.nationalDexNumber, entry.moves]),
+        ) as Record<number, PokedexMoveOptionEntry[]>;
+
+        setMoveOptionsByDexNumber(nextMoveOptionsByDexNumber);
+      } catch {
+        if (!controller.signal.aborted) {
+          setMoveOptionsByDexNumber({});
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedDexNumbersKey, teamFormat]);
+
+  useEffect(() => {
     setMembers((currentMembers) => {
       let changed = false;
 
@@ -326,19 +399,53 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           return member;
         }
 
-        const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
-        const nextAbility = abilityOptions.includes(member.ability) ? member.ability : abilityOptions[0] ?? "";
         const megaForms = getPokemonTeamMegaForms(selectedPokemon);
         const nextMegaFormKey =
           member.gimmick === "mega"
             ? megaForms.find((form) => form.key === member.megaFormKey)?.key ?? megaForms[0]?.key ?? null
             : null;
+        const abilityOptions = getPokemonAbilityOptions(selectedPokemon, {
+          gimmick: member.gimmick,
+          megaFormKey: nextMegaFormKey,
+        });
+        const nextAbility = abilityOptions.some((ability) => ability.name === member.ability)
+          ? member.ability
+          : abilityOptions[0]?.name ?? "";
         const nextTeraType =
           member.gimmick === "terastal"
             ? member.teraType ?? (selectedPokemon.name === "테라파고스" ? "stellar" : (selectedPokemon.types[0]?.name ?? null))
             : null;
+        const allowedMoveNames = new Set(
+          (moveOptionsByDexNumber[member.nationalDexNumber] ?? [])
+            .filter((entry) => isPokedexMoveOptionAvailableForTeamFormat(entry, teamFormat))
+            .map((entry) => entry.name),
+        );
+        const seenMoveNames = new Set<string>();
+        const nextMoves = member.moves.map((moveName) => {
+          const normalizedMoveName = moveName.trim();
 
-        if (nextAbility === member.ability && nextMegaFormKey === member.megaFormKey && nextTeraType === member.teraType) {
+          if (normalizedMoveName.length === 0) {
+            return "";
+          }
+
+          if (allowedMoveNames.size > 0 && !allowedMoveNames.has(normalizedMoveName)) {
+            return "";
+          }
+
+          if (seenMoveNames.has(normalizedMoveName)) {
+            return "";
+          }
+
+          seenMoveNames.add(normalizedMoveName);
+          return normalizedMoveName;
+        });
+
+        if (
+          nextAbility === member.ability &&
+          nextMegaFormKey === member.megaFormKey &&
+          nextTeraType === member.teraType &&
+          nextMoves.every((moveName, index) => moveName === member.moves[index])
+        ) {
           return member;
         }
 
@@ -348,12 +455,13 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           ability: nextAbility,
           megaFormKey: nextMegaFormKey,
           teraType: nextTeraType,
+          moves: nextMoves,
         };
       });
 
       return changed ? nextMembers : currentMembers;
     });
-  }, [selectedPokemonCatalog]);
+  }, [members, moveOptionsByDexNumber, selectedPokemonCatalog, teamFormat]);
 
   useEffect(() => {
     setPokemonSearchBySlot((currentState) => {
@@ -379,6 +487,57 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       return changed ? nextState : currentState;
     });
   }, [activePokemonSearchSlot, members, pokemonOptionByDexNumber]);
+
+  useEffect(() => {
+    setItemSearchBySlot((currentState) => {
+      const nextState: Record<number, string> = {};
+      let changed = false;
+
+      for (const member of members) {
+        const selectedName = member.item === "0" ? "" : (member.item ?? "");
+        const currentValue = currentState[member.slot] ?? "";
+        const nextValue =
+          activeItemSearchSlot === member.slot && currentValue.length > 0 && currentValue !== selectedName
+            ? currentValue
+            : selectedName;
+
+        nextState[member.slot] = nextValue;
+
+        if (currentValue !== nextValue) {
+          changed = true;
+        }
+      }
+
+      return changed ? nextState : currentState;
+    });
+  }, [activeItemSearchSlot, members]);
+
+  useEffect(() => {
+    setMoveSearchBySlot((currentState) => {
+      const nextState: Record<string, string> = {};
+      let changed = false;
+
+      for (const member of members) {
+        for (const [moveIndex, moveName] of member.moves.entries()) {
+          const key = getMoveSlotKey(member.slot, moveIndex);
+          const selectedName = moveName ?? "";
+          const currentValue = currentState[key] ?? "";
+          const nextValue =
+            activeMoveSearchSlot === key && currentValue.length > 0 && currentValue !== selectedName
+              ? currentValue
+              : selectedName;
+
+          nextState[key] = nextValue;
+
+          if (currentValue !== nextValue) {
+            changed = true;
+          }
+        }
+      }
+
+      return changed ? nextState : currentState;
+    });
+  }, [activeMoveSearchSlot, members]);
 
   useEffect(() => {
     setMembers((currentMembers) =>
@@ -532,7 +691,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       ...currentMember,
       nationalDexNumber,
       level: nationalDexNumber === null ? currentMember.level : defaultLevel,
-      ability: abilityOptions.includes(currentMember.ability) ? currentMember.ability : abilityOptions[0] ?? "",
+      ability: abilityOptions.some((ability) => ability.name === currentMember.ability) ? currentMember.ability : abilityOptions[0]?.name ?? "",
       gimmick:
         nationalDexNumber === null
           ? "none"
@@ -547,6 +706,45 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       [slot]: selectedOption ? selectedOption.name : "",
     }));
     setActivePokemonSearchSlot((currentSlot) => (currentSlot === slot ? null : currentSlot));
+  }
+
+  function handleItemChange(slot: number, nextValue: string) {
+    const selectedOption = nextValue.length > 0
+      ? availableItemOptions.find((entry) => entry.name === nextValue) ?? null
+      : null;
+    const nextItemName = selectedOption?.name ?? nextValue;
+
+    updateMember(slot, (currentMember) => ({
+      ...currentMember,
+      item: nextItemName === "0" ? "" : nextItemName.slice(0, 80),
+    }));
+    setItemSearchBySlot((currentState) => ({
+      ...currentState,
+      [slot]: nextItemName === "0" ? "" : nextItemName,
+    }));
+    setActiveItemSearchSlot((currentSlot) => (currentSlot === slot ? null : currentSlot));
+  }
+
+  function handleMoveChange(slot: number, moveIndex: number, nextValue: string) {
+    const member = members.find((entry) => entry.slot === slot) ?? null;
+    const availableMoveOptions = member?.nationalDexNumber ? (moveOptionsByDexNumber[member.nationalDexNumber] ?? []) : [];
+    const selectedOption = nextValue.length > 0
+      ? availableMoveOptions.find((entry) => entry.name === nextValue) ?? null
+      : null;
+    const nextMoveName = (selectedOption?.name ?? nextValue).slice(0, 80);
+    const key = getMoveSlotKey(slot, moveIndex);
+
+    updateMember(slot, (currentMember) => ({
+      ...currentMember,
+      moves: currentMember.moves.map((currentMove, currentIndex) => (
+        currentIndex === moveIndex ? nextMoveName : currentMove
+      )),
+    }));
+    setMoveSearchBySlot((currentState) => ({
+      ...currentState,
+      [key]: nextMoveName,
+    }));
+    setActiveMoveSearchSlot((currentKey) => (currentKey === key ? null : currentKey));
   }
 
   function resetDraft() {
@@ -586,12 +784,26 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       return;
     }
 
+    const invalidMoveMember = selectedMembers.find((member) => getDuplicateMemberMoveNames(member).length > 0);
+
+    if (invalidMoveMember) {
+      const duplicateMoveNames = getDuplicateMemberMoveNames(invalidMoveMember);
+      setError(`${invalidMoveMember.slot}번 슬롯에서는 같은 기술을 중복 선택할 수 없습니다: ${duplicateMoveNames.join(", ")}.`);
+      return;
+    }
+
     if (isBattleMode) {
       const duplicateSpecies = getDuplicateTeamSpeciesDexNumbers(selectedMembers)
         .map((nationalDexNumber) => selectedPokemonByDexNumber.get(nationalDexNumber)?.name ?? `No.${nationalDexNumber}`);
+      const duplicateItems = getDuplicateTeamItemNames(selectedMembers);
 
       if (duplicateSpecies.length > 0) {
         setError(`대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpecies.join(", ")}.`);
+        return;
+      }
+
+      if (duplicateItems.length > 0) {
+        setError(`대전 모드에서는 같은 아이템을 중복 저장할 수 없습니다: ${duplicateItems.join(", ")}.`);
         return;
       }
     }
@@ -747,7 +959,14 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
           const selectedPokemon = member.nationalDexNumber
             ? selectedPokemonByDexNumber.get(member.nationalDexNumber)
             : undefined;
-          const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
+          const abilityOptions = getPokemonAbilityOptions(selectedPokemon, {
+            gimmick: member.gimmick,
+            megaFormKey: member.megaFormKey,
+          });
+          const selectedAbilityOption = abilityOptions.find((ability) => ability.name === member.ability) ?? null;
+          const availableMoveOptions = member.nationalDexNumber
+            ? (moveOptionsByDexNumber[member.nationalDexNumber] ?? []).filter((entry) => isPokedexMoveOptionAvailableForTeamFormat(entry, teamFormat))
+            : [];
           const evTotal = getTeamEvTotal(member.evs);
           const battleStats = selectedPokemon
             ? calculatePokemonBattleStats({
@@ -1124,33 +1343,42 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">레벨</span>
-                    <div className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3">
-                      <input
-                        type="number"
-                        min={1}
-                        max={teamLevelCap}
-                        value={member.level}
-                        onChange={(event) => handleLevelChange(member.slot, event.target.value)}
-                        className="w-14 appearance-none border-0 bg-transparent px-0 py-0 text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      />
-                      <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-                        <button
-                          type="button"
-                          onClick={() => handleLevelStep(member.slot, 1)}
-                          className="flex h-4 w-5 items-center justify-center text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                          aria-label="레벨 증가"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleLevelStep(member.slot, -1)}
-                          className="flex h-4 w-5 items-center justify-center border-t border-border text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                          aria-label="레벨 감소"
-                        >
-                          ▼
-                        </button>
+                    <div className="space-y-2">
+                      <div className="flex h-[46px] items-center justify-between rounded-2xl border border-border bg-background px-4">
+                        <input
+                          type="number"
+                          min={1}
+                          max={teamLevelCap}
+                          value={member.level}
+                          onChange={(event) => handleLevelChange(member.slot, event.target.value)}
+                          className="h-full w-14 appearance-none border-0 bg-transparent px-0 py-0 text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <div className="flex h-7 flex-col overflow-hidden rounded-lg border border-border bg-card">
+                          <button
+                            type="button"
+                            onClick={() => handleLevelStep(member.slot, 1)}
+                            className="flex h-1/2 w-5 items-center justify-center text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            aria-label="레벨 증가"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLevelStep(member.slot, -1)}
+                            className="flex h-1/2 w-5 items-center justify-center border-t border-border text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            aria-label="레벨 감소"
+                          >
+                            ▼
+                          </button>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => updateMember(member.slot, (currentMember) => ({ ...currentMember, level: getDefaultTeamLevel() }))}
+                        className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+                      >
+                        50레벨 초기화
+                      </button>
                     </div>
                   </label>
                   <label className="space-y-2 md:col-span-1">
@@ -1191,12 +1419,80 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   </label>
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">아이템</span>
-                    <input
-                      value={member.item}
-                      onChange={(event) => updateMember(member.slot, (currentMember) => ({ ...currentMember, item: event.target.value.slice(0, 80) }))}
-                      placeholder="예: 생명의구슬"
-                      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                    />
+                    <div className="space-y-2">
+                      <div
+                        className="space-y-2"
+                        onBlur={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget)) {
+                            setActiveItemSearchSlot((currentSlot) => (currentSlot === member.slot ? null : currentSlot));
+                          }
+                        }}
+                      >
+                        <div className="relative">
+                          <input
+                            value={(itemSearchBySlot[member.slot] ?? "") === "0" ? "" : (itemSearchBySlot[member.slot] ?? "")}
+                            onChange={(event) => {
+                              const nextValue = event.target.value.slice(0, 80);
+                              setItemSearchBySlot((currentState) => ({
+                                ...currentState,
+                                [member.slot]: nextValue === "0" ? "" : nextValue,
+                              }));
+                              updateMember(member.slot, (currentMember) => ({
+                                ...currentMember,
+                                item: nextValue === "0" ? "" : nextValue,
+                              }));
+                              setActiveItemSearchSlot(member.slot);
+                            }}
+                            onFocus={() => setActiveItemSearchSlot(member.slot)}
+                            placeholder="아이템 검색"
+                            className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                          />
+                          {activeItemSearchSlot === member.slot ? (
+                            <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-[1.5rem] border border-border bg-card shadow-card">
+                              <div className="max-h-72 overflow-y-auto p-2">
+                                {(() => {
+                                  const normalizedSearchTerm = (itemSearchBySlot[member.slot] ?? "").trim();
+                                  const visibleOptions = (normalizedSearchTerm.length > 0
+                                    ? availableItemOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
+                                    : availableItemOptions
+                                  ).slice(0, TEAM_BUILDER_SEARCH_RESULT_LIMIT);
+
+                                  if (visibleOptions.length === 0) {
+                                    return <p className="px-3 py-4 text-sm text-muted-foreground">검색 결과가 없습니다.</p>;
+                                  }
+
+                                  return visibleOptions.map((entry) => (
+                                    <button
+                                      key={entry.id}
+                                      type="button"
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onClick={() => handleItemChange(member.slot, entry.name)}
+                                      className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition hover:bg-muted ${
+                                        member.item === entry.name ? "bg-muted" : ""
+                                      }`}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="font-medium text-foreground">{entry.name}</p>
+                                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                                          {entry.category.name} · {entry.pocket.name}
+                                        </p>
+                                      </div>
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleItemChange(member.slot, "")}
+                        className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+                      >
+                        선택 해제
+                      </button>
+                    </div>
                   </label>
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">특성</span>
@@ -1208,11 +1504,32 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                     >
                       <option value="">특성 선택</option>
                       {abilityOptions.map((ability) => (
-                        <option key={ability} value={ability}>
-                          {ability}
+                        <option key={ability.slug} value={ability.name}>
+                          {formatPokemonAbilityOptionLabel(ability)}
                         </option>
                       ))}
                     </select>
+                    {selectedAbilityOption ? (
+                      <div className="rounded-2xl border border-border bg-background/70 px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-foreground">
+                            {selectedAbilityOption.name}
+                          </span>
+                          {selectedAbilityOption.isHidden ? (
+                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                              숨겨진 특성
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                          {getPokemonAbilityDescription(selectedAbilityOption)}
+                        </p>
+                      </div>
+                    ) : selectedPokemon ? (
+                      <p className="rounded-2xl border border-dashed border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
+                        특성을 선택하면 설명이 표시됩니다.
+                      </p>
+                    ) : null}
                   </label>
                 </div>
 
@@ -1220,20 +1537,104 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   <p className="text-sm font-semibold text-foreground">기술</p>
                   <div className="grid gap-3 md:grid-cols-2">
                     {member.moves.map((move, moveIndex) => (
-                      <input
+                      <div
                         key={`${member.slot}-move-${moveIndex}`}
-                        value={move}
-                        onChange={(event) =>
-                          updateMember(member.slot, (currentMember) => ({
-                            ...currentMember,
-                            moves: currentMember.moves.map((currentMove, currentIndex) =>
-                              currentIndex === moveIndex ? event.target.value.slice(0, 80) : currentMove,
-                            ),
-                          }))
-                        }
-                        placeholder={`기술 ${moveIndex + 1}`}
-                        className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
-                      />
+                        className="space-y-2"
+                        onBlur={(event) => {
+                          const key = getMoveSlotKey(member.slot, moveIndex);
+
+                          if (!event.currentTarget.contains(event.relatedTarget)) {
+                            setActiveMoveSearchSlot((currentKey) => (currentKey === key ? null : currentKey));
+                          }
+                        }}
+                      >
+                        {(() => {
+                          const moveKey = getMoveSlotKey(member.slot, moveIndex);
+                          const selectedMoveOption = availableMoveOptions.find((entry) => entry.name === move) ?? null;
+                          const selectedMoveNames = new Set(
+                            member.moves
+                              .filter((entry, currentIndex) => currentIndex !== moveIndex)
+                              .map((entry) => entry.trim())
+                              .filter((entry) => entry.length > 0),
+                          );
+                          const visibleMoveOptions = (() => {
+                            const normalizedSearchTerm = (moveSearchBySlot[moveKey] ?? "").trim();
+                            const filteredOptions = (normalizedSearchTerm.length > 0
+                              ? availableMoveOptions.filter((entry) => entry.name.includes(normalizedSearchTerm))
+                              : availableMoveOptions
+                            ).filter((entry) => !selectedMoveNames.has(entry.name) || entry.name === move);
+
+                            return filteredOptions.slice(0, TEAM_BUILDER_SEARCH_RESULT_LIMIT);
+                          })();
+
+                          return (
+                            <>
+                              <div className="relative">
+                                <input
+                                  value={moveSearchBySlot[moveKey] ?? ""}
+                                  onChange={(event) => {
+                                    const nextValue = event.target.value.slice(0, 80);
+                                    setMoveSearchBySlot((currentState) => ({
+                                      ...currentState,
+                                      [moveKey]: nextValue,
+                                    }));
+                                    setActiveMoveSearchSlot(moveKey);
+                                  }}
+                                  onFocus={() => setActiveMoveSearchSlot(moveKey)}
+                                  placeholder={`기술 ${moveIndex + 1}`}
+                                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${getMoveFieldClasses(selectedMoveOption)}`}
+                                  disabled={!selectedPokemon}
+                                />
+                                {activeMoveSearchSlot === moveKey ? (
+                                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-[1.5rem] border border-border bg-card shadow-card">
+                                    <div className="max-h-72 overflow-y-auto p-2">
+                                      {visibleMoveOptions.length === 0 ? (
+                                        <p className="px-3 py-4 text-sm text-muted-foreground">검색 결과가 없습니다.</p>
+                                      ) : (
+                                        visibleMoveOptions.map((entry) => (
+                                          <button
+                                            key={`${entry.id}-${entry.moveLearnMethod.slug}-${entry.versionGroup.slug}-${entry.levelLearnedAt}`}
+                                            type="button"
+                                            onMouseDown={(event) => event.preventDefault()}
+                                            onClick={() => handleMoveChange(member.slot, moveIndex, entry.name)}
+                                            className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition hover:bg-muted ${
+                                              move === entry.name ? "bg-muted" : ""
+                                            }`}
+                                          >
+                                            <div className="min-w-0">
+                                              <p className="font-medium text-foreground">{entry.name}</p>
+                                              <p className="mt-1 truncate text-xs text-muted-foreground">
+                                                {formatTeamMoveOptionLabel(entry)}
+                                              </p>
+                                            </div>
+                                            <span className={`inline-flex shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${TYPE_BADGE_STYLES[entry.type.name]}`}>
+                                              {formatTypeLabel(entry.type.name)}
+                                            </span>
+                                          </button>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveChange(member.slot, moveIndex, "")}
+                                  className="text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+                                >
+                                  선택 해제
+                                </button>
+                                {selectedMoveOption ? (
+                                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${TYPE_BADGE_STYLES[selectedMoveOption.type.name]}`}>
+                                    {formatTypeLabel(selectedMoveOption.type.name)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     ))}
                   </div>
                 </div>

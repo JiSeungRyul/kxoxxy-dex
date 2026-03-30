@@ -22,6 +22,9 @@ import type {
   PokedexFilterOptions,
   PokemonCollectionCatalogEntry,
   PokemonCollectionPageEntry,
+  PokedexItemOptionEntry,
+  PokedexMoveOptionEntry,
+  PokemonTeamBuilderMoveOptionGroup,
   PokedexListPage,
   PokedexListQuery,
   PokedexSnapshot,
@@ -42,6 +45,8 @@ import {
   getDefaultTeamFormat,
   getDefaultTeamMode,
   getDefaultTeamGimmick,
+  isPokedexMoveOptionAvailableForTeamFormat,
+  pickPreferredMoveOption,
   getLocalDateKey,
   getTeamValidationError,
   normalizeTeamGimmick,
@@ -105,11 +110,29 @@ type LatestSnapshotRecord = {
   totalPokemon: number;
 };
 
+type LatestMoveSnapshotRecord = {
+  id: number;
+  totalMoves: number;
+};
+
 async function getLatestSnapshotRecord(): Promise<LatestSnapshotRecord | null> {
   const rows = await postgresClient.unsafe<Array<{ id: number; totalPokemon: number }>>(
     `
       SELECT id, total_pokemon AS "totalPokemon"
       FROM pokedex_snapshots
+      ORDER BY synced_at DESC, id DESC
+      LIMIT 1
+    `,
+  );
+
+  return rows[0] ?? null;
+}
+
+async function getLatestMoveSnapshotRecord(): Promise<LatestMoveSnapshotRecord | null> {
+  const rows = await postgresClient.unsafe<Array<{ id: number; totalMoves: number }>>(
+    `
+      SELECT id, total_moves AS "totalMoves"
+      FROM move_snapshots
       ORDER BY synced_at DESC, id DESC
       LIMIT 1
     `,
@@ -136,6 +159,15 @@ type TeamBuilderOptionEntryRow = {
 
 type TeamBuilderCatalogEntryRow = {
   payload: PokemonTeamBuilderCatalogEntry;
+};
+
+type TeamBuilderItemOptionEntryRow = {
+  payload: PokedexItemOptionEntry;
+};
+
+type TeamBuilderMoveOptionEntryRow = {
+  nationalDexNumber: number;
+  payload: PokedexMoveOptionEntry;
 };
 
 async function getAllPokemonDailyDexNumberEntries(snapshotId: number) {
@@ -175,6 +207,115 @@ async function getAllPokemonTeamBuilderOptionEntries(snapshotId: number) {
   );
 
   return rows.map((row) => row.payload);
+}
+
+async function getAllTeamBuilderItemOptionEntries(snapshotId: number) {
+  const rows = await postgresClient.unsafe<TeamBuilderItemOptionEntryRow[]>(
+    `
+      SELECT jsonb_build_object(
+        'id', id,
+        'slug', slug,
+        'name', name_ko,
+        'category', jsonb_build_object(
+          'slug', category_slug,
+          'name', category_name
+        ),
+        'pocket', jsonb_build_object(
+          'slug', pocket_slug,
+          'name', pocket_name
+        )
+      ) AS payload
+      FROM item_catalog
+      WHERE snapshot_id = $1
+      ORDER BY name_ko ASC, id ASC
+    `,
+    [snapshotId],
+  );
+
+  return rows.map((row) => row.payload);
+}
+
+async function getPokemonTeamBuilderMoveOptionEntries(
+  snapshotId: number,
+  dexNumbers: number[],
+  format: TeamFormatId,
+): Promise<PokemonTeamBuilderMoveOptionGroup[]> {
+  if (dexNumbers.length === 0) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<TeamBuilderMoveOptionEntryRow[]>(
+    `
+      SELECT
+        pmc.national_dex_number AS "nationalDexNumber",
+        jsonb_build_object(
+          'id', mc.id,
+          'slug', mc.slug,
+          'name', mc.name_ko,
+          'type', jsonb_build_object(
+            'name', mc.type_name,
+            'label', mc.type_name
+          ),
+          'damageClass', CASE
+            WHEN mc.damage_class_slug IS NULL THEN NULL
+            ELSE jsonb_build_object(
+              'slug', mc.damage_class_slug,
+              'name', mc.damage_class_name
+            )
+          END,
+          'versionGroup', jsonb_build_object(
+            'slug', pmc.version_group_slug,
+            'name', pmc.version_group_name
+          ),
+          'moveLearnMethod', jsonb_build_object(
+            'slug', pmc.move_learn_method_slug,
+            'name', pmc.move_learn_method_name
+          ),
+          'levelLearnedAt', pmc.level_learned_at
+        ) AS payload
+      FROM pokemon_move_catalog pmc
+      INNER JOIN move_catalog mc
+        ON mc.id = pmc.move_id
+       AND mc.snapshot_id = pmc.snapshot_id
+      WHERE pmc.snapshot_id = $1
+        AND pmc.national_dex_number = ANY($2::int[])
+      ORDER BY pmc.national_dex_number ASC, mc.name_ko ASC, mc.id ASC
+    `,
+    [snapshotId, dexNumbers],
+  );
+
+  const groupedEntries = new Map<number, Map<number, PokedexMoveOptionEntry[]>>();
+
+  for (const row of rows) {
+    const moveEntry = row.payload;
+
+    if (!isPokedexMoveOptionAvailableForTeamFormat(moveEntry, format)) {
+      continue;
+    }
+
+    const moveMap = groupedEntries.get(row.nationalDexNumber) ?? new Map<number, PokedexMoveOptionEntry[]>();
+
+    if (!groupedEntries.has(row.nationalDexNumber)) {
+      groupedEntries.set(row.nationalDexNumber, moveMap);
+    }
+
+    const currentEntries = moveMap.get(moveEntry.id) ?? [];
+    currentEntries.push(moveEntry);
+    moveMap.set(moveEntry.id, currentEntries);
+  }
+
+  return dexNumbers.map((nationalDexNumber) => {
+    const moveMap = groupedEntries.get(nationalDexNumber) ?? new Map<number, PokedexMoveOptionEntry[]>();
+    const moves = [...moveMap.values()]
+      .map((entries) => pickPreferredMoveOption(entries))
+      .filter((entry): entry is PokedexMoveOptionEntry => Boolean(entry))
+      .sort((left, right) => left.name.localeCompare(right.name, "ko-KR") || left.id - right.id);
+
+    return {
+      nationalDexNumber,
+      moves,
+    };
+  });
 }
 async function getPokemonCollectionCatalogEntriesByDexNumbers(snapshotId: number, dexNumbers: number[]) {
   if (dexNumbers.length === 0) {
@@ -271,8 +412,11 @@ async function getPokemonTeamBuilderCatalogEntriesByDexNumbers(snapshotId: numbe
             SELECT jsonb_agg(
               jsonb_build_object(
                 'key', form->>'key',
-                'label', form->>'label'
+                'label', form->>'label',
+                'abilities', COALESCE(form->'abilities', '[]'::jsonb),
+                'hiddenAbility', form->'hiddenAbility'
               )
+              ORDER BY form->>'key'
             )
             FROM jsonb_array_elements(payload->'forms') form
             WHERE form->>'key' LIKE 'mega%'
@@ -351,11 +495,38 @@ async function readPokedexTeamBuilderOptionSnapshot() {
   };
 }
 
+async function readPokedexTeamBuilderItemOptionSnapshot() {
+  const rows = await postgresClient.unsafe<Array<{ id: number }>>(
+    `
+      SELECT id
+      FROM item_snapshots
+      ORDER BY synced_at DESC, id DESC
+      LIMIT 1
+    `,
+  );
+
+  const latestItemSnapshotId = rows[0]?.id ?? null;
+
+  if (!latestItemSnapshotId) {
+    return {
+      items: [],
+    };
+  }
+
+  return {
+    items: await getAllTeamBuilderItemOptionEntries(latestItemSnapshotId),
+  };
+}
+
 const getCachedPokedexDailyDexNumberSnapshot = unstable_cache(readPokedexDailyDexNumberSnapshot, ["pokedex-daily-dex-number-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
 const getCachedPokedexTeamBuilderOptionSnapshot = unstable_cache(readPokedexTeamBuilderOptionSnapshot, ["pokedex-team-builder-option-snapshot"], {
+  revalidate: 60 * 60 * 24,
+});
+
+const getCachedPokedexTeamBuilderItemOptionSnapshot = unstable_cache(readPokedexTeamBuilderItemOptionSnapshot, ["pokedex-team-builder-item-option-snapshot"], {
   revalidate: 60 * 60 * 24,
 });
 
@@ -373,6 +544,27 @@ export function getPokedexTeamBuilderOptionSnapshot() {
   }
 
   return getCachedPokedexTeamBuilderOptionSnapshot();
+}
+
+export function getPokedexTeamBuilderItemOptionSnapshot() {
+  if (process.env.NODE_ENV !== "production") {
+    return readPokedexTeamBuilderItemOptionSnapshot();
+  }
+
+  return getCachedPokedexTeamBuilderItemOptionSnapshot();
+}
+
+export async function getPokemonTeamBuilderMoveOptions(
+  dexNumbers: number[],
+  format: TeamFormatId,
+) {
+  const latestMoveSnapshot = await getLatestMoveSnapshotRecord();
+
+  if (!latestMoveSnapshot || dexNumbers.length === 0) {
+    return [];
+  }
+
+  return getPokemonTeamBuilderMoveOptionEntries(latestMoveSnapshot.id, dexNumbers, format);
 }
 
 export async function getPokemonCollectionEntriesByDexNumbers(dexNumbers: number[]) {
@@ -1104,6 +1296,12 @@ export async function saveTeam(
   );
   const selectedPokemon = await getPokemonCatalogEntriesByDexNumbers(latestSnapshot.id, selectedDexNumbers);
   const pokemonByDexNumber = new Map(selectedPokemon.map((entry) => [entry.nationalDexNumber, entry]));
+  const moveOptionsByDexNumber = new Map(
+    (await getPokemonTeamBuilderMoveOptions(selectedDexNumbers, normalizedTeamFormat)).map((entry) => [
+      entry.nationalDexNumber,
+      new Set(entry.moves.map((move) => move.name)),
+    ]),
+  );
   const normalizedSelectedMembers = selectedMembers.map((member) => ({
     ...member,
     gimmick:
@@ -1144,8 +1342,9 @@ export async function saveTeam(
   const catalogValidationError = getTeamValidationError({
     teamName: normalizedTeamName,
     mode: normalizedTeamMode,
-    members: sanitizedMembers,
+    members: normalizedSelectedMembers,
     pokemonByDexNumber,
+    moveNamesByDexNumber: moveOptionsByDexNumber,
   });
 
   if (catalogValidationError) {

@@ -130,6 +130,99 @@ export type PokemonSummary = {
   forms: PokemonForm[];
 };
 
+export type PokedexItemPocket = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexItemCategory = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexItemAttribute = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexItem = {
+  id: number;
+  slug: string;
+  name: string;
+  names: PokemonLocalizedName;
+  spriteUrl: string;
+  cost: number;
+  flingPower: number | null;
+  effect: string;
+  shortEffect: string;
+  category: PokedexItemCategory;
+  pocket: PokedexItemPocket;
+  attributes: PokedexItemAttribute[];
+};
+
+export type PokedexItemOptionEntry = Pick<PokedexItem, "id" | "slug" | "name"> & {
+  category: PokedexItem["category"];
+  pocket: PokedexItem["pocket"];
+};
+
+export type PokedexMoveDamageClass = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexMoveTarget = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexMoveLearnMethod = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexVersionGroup = {
+  slug: string;
+  name: string;
+};
+
+export type PokedexMove = {
+  id: number;
+  slug: string;
+  name: string;
+  names: PokemonLocalizedName;
+  type: PokemonType;
+  damageClass: PokedexMoveDamageClass | null;
+  power: number | null;
+  accuracy: number | null;
+  pp: number | null;
+  priority: number;
+  target: PokedexMoveTarget | null;
+  effect: string;
+  shortEffect: string;
+  generation: PokemonGeneration;
+};
+
+export type PokedexPokemonMove = {
+  nationalDexNumber: number;
+  moveId: number;
+  moveSlug: string;
+  moveName: string;
+  versionGroup: PokedexVersionGroup;
+  moveLearnMethod: PokedexMoveLearnMethod;
+  levelLearnedAt: number;
+};
+
+export type PokedexMoveOptionEntry = Pick<PokedexMove, "id" | "slug" | "name" | "type" | "damageClass"> & {
+  versionGroup: PokedexVersionGroup;
+  moveLearnMethod: PokedexMoveLearnMethod;
+  levelLearnedAt: number;
+};
+
+export type PokemonTeamBuilderMoveOptionGroup = {
+  nationalDexNumber: number;
+  moves: PokedexMoveOptionEntry[];
+};
+
 export type PokemonCollectionPageEntry = Pick<
   PokemonSummary,
   | "nationalDexNumber"
@@ -162,6 +255,12 @@ export type PokemonTeamGimmickAvailability = {
 export type PokemonTeamMegaFormOption = {
   key: string;
   label: string;
+  abilities: PokemonAbility[];
+  hiddenAbility: PokemonAbility | null;
+};
+
+export type PokemonTeamAbilityOption = PokemonAbility & {
+  isHidden: boolean;
 };
 
 export type PokemonTeamBuilderCatalogEntry = Pick<
@@ -191,6 +290,26 @@ export type PokedexSnapshot = {
   };
   pokemon: PokemonSummary[];
   filterOptions: PokedexFilterOptions;
+};
+
+export type PokedexItemSnapshot = {
+  metadata: {
+    source: "pokeapi";
+    syncedAt: string;
+    totalItems: number;
+  };
+  items: PokedexItem[];
+};
+
+export type PokedexMoveSnapshot = {
+  metadata: {
+    source: "pokeapi";
+    syncedAt: string;
+    totalMoves: number;
+    totalPokemonMoves: number;
+  };
+  moves: PokedexMove[];
+  pokemonMoves: PokedexPokemonMove[];
 };
 
 export type PokedexListQuery = {

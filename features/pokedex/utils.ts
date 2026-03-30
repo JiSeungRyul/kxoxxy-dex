@@ -7,9 +7,14 @@ import {
   POKEMON_TYPE_LABELS,
   TYPE_EFFECTIVENESS,
 } from "@/features/pokedex/constants";
+import { getAbilityDescriptionKo } from "@/features/pokedex/data/ability-description-ko";
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
+  PokedexItemOptionEntry,
+  PokedexMoveLearnMethod,
+  PokedexMoveOptionEntry,
+  PokemonAbility,
   PokemonBaseStats,
   PokemonCatalogListEntry,
   PokemonCollectionPageEntry,
@@ -17,6 +22,7 @@ import type {
   PokemonGenerationId,
   PokemonSortKey,
   PokemonSummary,
+  PokemonTeamAbilityOption,
   PokemonTeamGimmickAvailability,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamBuilderCatalogEntry,
@@ -179,6 +185,112 @@ export function isPokemonTeamBuilderOptionAvailableForFormat(
   return entry.pokedexNames.some((name) => TEAM_BUILDER_POKEDEX_NAMES_BY_FORMAT[format].includes(name));
 }
 
+const TEAM_BUILDER_BATTLE_ITEM_MISC_CATEGORY_SLUGS = new Set([
+  "held-items",
+  "mega-stones",
+  "species-specific",
+  "type-enhancement",
+  "plates",
+  "memories",
+  "choice",
+  "scarves",
+  "jewels",
+]);
+const TEAM_BUILDER_BATTLE_BERRY_CATEGORY_SLUGS = new Set([
+  "type-protection",
+  "in-a-pinch",
+  "other",
+  "picky-healing",
+]);
+const TEAM_BUILDER_STORY_ITEM_MISC_CATEGORY_SLUGS = new Set([
+  ...TEAM_BUILDER_BATTLE_ITEM_MISC_CATEGORY_SLUGS,
+  "bad-held-items",
+]);
+const TEAM_BUILDER_FREE_ITEM_MISC_CATEGORY_SLUGS = new Set([
+  ...TEAM_BUILDER_STORY_ITEM_MISC_CATEGORY_SLUGS,
+  "mulch",
+]);
+const TEAM_BUILDER_MOVE_VERSION_GROUPS_BY_FORMAT: Record<Exclude<TeamFormatId, "default">, string[]> = {
+  gen6: ["x-y", "omega-ruby-alpha-sapphire"],
+  gen7: ["sun-moon", "ultra-sun-ultra-moon"],
+  gen8: ["sword-shield", "brilliant-diamond-and-shining-pearl", "legends-arceus"],
+  gen9: ["scarlet-violet"],
+};
+const TEAM_BUILDER_MOVE_LEARN_METHOD_PRIORITIES: Record<string, number> = {
+  "level-up": 0,
+  machine: 1,
+  tutor: 2,
+  egg: 3,
+};
+
+export function isPokedexItemOptionAvailableForTeamMode(entry: PokedexItemOptionEntry, mode: TeamModeId) {
+  if (entry.pocket.slug === "berries") {
+    if (mode === "battle-singles" || mode === "battle-doubles") {
+      return TEAM_BUILDER_BATTLE_BERRY_CATEGORY_SLUGS.has(entry.category.slug);
+    }
+
+    return true;
+  }
+
+  if (entry.pocket.slug !== "misc") {
+    return false;
+  }
+
+  if (mode === "battle-singles" || mode === "battle-doubles") {
+    return TEAM_BUILDER_BATTLE_ITEM_MISC_CATEGORY_SLUGS.has(entry.category.slug);
+  }
+
+  if (mode === "story") {
+    return TEAM_BUILDER_STORY_ITEM_MISC_CATEGORY_SLUGS.has(entry.category.slug);
+  }
+
+  return TEAM_BUILDER_FREE_ITEM_MISC_CATEGORY_SLUGS.has(entry.category.slug);
+}
+
+export function isPokedexMoveOptionAvailableForTeamFormat(entry: PokedexMoveOptionEntry, format: TeamFormatId) {
+  if (format === "default") {
+    return true;
+  }
+
+  return TEAM_BUILDER_MOVE_VERSION_GROUPS_BY_FORMAT[format].includes(entry.versionGroup.slug);
+}
+
+export function formatTeamMoveLearnMethodLabel(
+  moveLearnMethod: Pick<PokedexMoveLearnMethod, "slug" | "name">,
+  levelLearnedAt: number,
+) {
+  switch (moveLearnMethod.slug) {
+    case "level-up":
+      return levelLearnedAt > 0 ? `레벨업 Lv.${levelLearnedAt}` : "레벨업";
+    case "machine":
+      return "기술머신";
+    case "tutor":
+      return "기술가르침";
+    case "egg":
+      return "유전기";
+    default:
+      return moveLearnMethod.name;
+  }
+}
+
+export function formatTeamMoveOptionLabel(entry: PokedexMoveOptionEntry) {
+  return `${entry.name} · ${formatTeamMoveLearnMethodLabel(entry.moveLearnMethod, entry.levelLearnedAt)}`;
+}
+
+export function pickPreferredMoveOption(entries: PokedexMoveOptionEntry[]) {
+  return [...entries].sort((left, right) => {
+    const leftPriority = TEAM_BUILDER_MOVE_LEARN_METHOD_PRIORITIES[left.moveLearnMethod.slug] ?? 99;
+    const rightPriority = TEAM_BUILDER_MOVE_LEARN_METHOD_PRIORITIES[right.moveLearnMethod.slug] ?? 99;
+
+    return (
+      leftPriority - rightPriority ||
+      left.levelLearnedAt - right.levelLearnedAt ||
+      left.versionGroup.slug.localeCompare(right.versionGroup.slug) ||
+      left.id - right.id
+    );
+  })[0] ?? null;
+}
+
 export const TEAM_GIMMICK_IDS = ["none", "mega", "zmove", "dynamax", "gigantamax", "terastal"] as const;
 
 export function getDefaultTeamGimmick(): TeamGimmickId {
@@ -277,6 +389,8 @@ export function getPokemonTeamMegaForms(
     .map((form: PokemonForm) => ({
       key: form.key,
       label: form.label,
+      abilities: form.abilities,
+      hiddenAbility: form.hiddenAbility,
     }));
 }
 
@@ -757,14 +871,91 @@ export function normalizeTeamLevel(value: unknown, mode: TeamModeId) {
   return sanitizeTeamStatValue(value, 1, getTeamLevelCap(mode), getDefaultTeamLevel());
 }
 
-export function getPokemonAbilityOptions(entry: Pick<PokemonCatalogListEntry, "abilities" | "hiddenAbility"> | null | undefined) {
+function getTeamAbilitySource(
+  entry:
+    | Pick<PokemonSummary, "abilities" | "hiddenAbility" | "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "abilities" | "hiddenAbility" | "megaForms">
+    | null
+    | undefined,
+  gimmick: TeamGimmickId = "none",
+  megaFormKey: string | null = null,
+) {
   if (!entry) {
+    return null;
+  }
+
+  if (gimmick !== "mega") {
+    return {
+      abilities: entry.abilities,
+      hiddenAbility: entry.hiddenAbility,
+    };
+  }
+
+  if ("megaForms" in entry) {
+    const megaForm = entry.megaForms.find((form) => form.key === megaFormKey) ?? entry.megaForms[0] ?? null;
+    return megaForm
+      ? {
+          abilities: megaForm.abilities,
+          hiddenAbility: megaForm.hiddenAbility,
+        }
+      : {
+          abilities: entry.abilities,
+          hiddenAbility: entry.hiddenAbility,
+        };
+  }
+
+  const megaForm = entry.forms.find((form: PokemonForm) => form.key === megaFormKey) ?? entry.forms.find((form: PokemonForm) => form.key.startsWith("mega")) ?? null;
+  return megaForm
+    ? {
+        abilities: megaForm.abilities,
+        hiddenAbility: megaForm.hiddenAbility,
+      }
+    : {
+        abilities: entry.abilities,
+        hiddenAbility: entry.hiddenAbility,
+      };
+}
+
+export function getPokemonAbilityOptions(
+  entry:
+    | Pick<PokemonSummary, "abilities" | "hiddenAbility" | "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "abilities" | "hiddenAbility" | "megaForms">
+    | null
+    | undefined,
+  options?: { gimmick?: TeamGimmickId; megaFormKey?: string | null },
+) {
+  const abilitySource = getTeamAbilitySource(entry, options?.gimmick, options?.megaFormKey);
+
+  if (!abilitySource) {
     return [];
   }
 
-  const hiddenAbilityName = entry.hiddenAbility?.name ? [entry.hiddenAbility.name] : [];
+  const seenNames = new Set<string>();
+  const visibleAbilities: PokemonTeamAbilityOption[] = [];
+  const pushAbility = (ability: PokemonAbility | null, isHidden: boolean) => {
+    if (!ability || seenNames.has(ability.name)) {
+      return;
+    }
 
-  return [...new Set([...entry.abilities.map((ability) => ability.name), ...hiddenAbilityName])];
+    seenNames.add(ability.name);
+    visibleAbilities.push({
+      ...ability,
+      isHidden,
+    });
+  };
+
+  abilitySource.abilities.forEach((ability) => pushAbility(ability, false));
+  pushAbility(abilitySource.hiddenAbility, true);
+
+  return visibleAbilities;
+}
+
+export function formatPokemonAbilityOptionLabel(option: Pick<PokemonTeamAbilityOption, "name" | "isHidden">) {
+  return option.isHidden ? `${option.name} (숨겨진 특성)` : option.name;
+}
+
+export function getPokemonAbilityDescription(option: Pick<PokemonAbility, "slug" | "description"> | null | undefined) {
+  return option ? getAbilityDescriptionKo(option.slug, option.description) : "-";
 }
 
 export function getDuplicateTeamSpeciesDexNumbers(members: PokemonTeamMemberDraft[]) {
@@ -777,16 +968,38 @@ export function getDuplicateTeamSpeciesDexNumbers(members: PokemonTeamMemberDraf
   )];
 }
 
+export function getDuplicateTeamItemNames(members: PokemonTeamMemberDraft[]) {
+  const normalizedItems = members
+    .map((member) => member.item.trim())
+    .filter((itemName) => itemName.length > 0);
+
+  return [...new Set(
+    normalizedItems.filter((itemName, index, array) => array.indexOf(itemName) !== index),
+  )];
+}
+
+export function getDuplicateMemberMoveNames(member: Pick<PokemonTeamMemberDraft, "moves">) {
+  const normalizedMoves = member.moves
+    .map((moveName) => moveName.trim())
+    .filter((moveName) => moveName.length > 0);
+
+  return [...new Set(
+    normalizedMoves.filter((moveName, index, array) => array.indexOf(moveName) !== index),
+  )];
+}
+
 export function getTeamValidationError({
   teamName,
   mode,
   members,
   pokemonByDexNumber,
+  moveNamesByDexNumber,
 }: {
   teamName: string;
   mode?: TeamModeId;
   members: PokemonTeamMemberDraft[];
   pokemonByDexNumber?: Map<number, PokemonSummary>;
+  moveNamesByDexNumber?: Map<number, Set<string>>;
 }) {
   if (teamName.trim().length === 0) {
     return "�� �̸��� �Է����ּ���.";
@@ -801,14 +1014,24 @@ export function getTeamValidationError({
   if (isBattleTeamMode(mode ?? getDefaultTeamMode())) {
     const duplicateSpeciesNames = getDuplicateTeamSpeciesDexNumbers(selectedMembers)
       .map((nationalDexNumber) => pokemonByDexNumber?.get(nationalDexNumber)?.name ?? `No.${nationalDexNumber}`);
+    const duplicateItemNames = getDuplicateTeamItemNames(selectedMembers);
 
     if (duplicateSpeciesNames.length > 0) {
       return `대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpeciesNames.join(", ")}.`;
     }
+
+    if (duplicateItemNames.length > 0) {
+      return `대전 모드에서는 같은 아이템을 중복 저장할 수 없습니다: ${duplicateItemNames.join(", ")}.`;
+    }
   }
 
   for (const member of selectedMembers) {
+    const duplicateMoveNames = getDuplicateMemberMoveNames(member);
     const levelCap = getTeamLevelCap(mode ?? getDefaultTeamMode());
+
+    if (duplicateMoveNames.length > 0) {
+      return `${member.slot}번 슬롯에서는 같은 기술을 중복 선택할 수 없습니다: ${duplicateMoveNames.join(", ")}.`;
+    }
 
     if (!Number.isInteger(member.level) || member.level < 1 || member.level > levelCap) {
       return `${member.slot}번 슬롯의 레벨은 1부터 ${levelCap}까지만 설정할 수 있습니다.`;
@@ -828,8 +1051,26 @@ export function getTeamValidationError({
       return `${member.slot}�� ������ ���ϸ� �����͸� ã�� �� �����ϴ�.`;
     }
 
-    if (member.ability.length > 0 && !getPokemonAbilityOptions(selectedPokemon).includes(member.ability)) {
+    if (
+      member.ability.length > 0 &&
+      !getPokemonAbilityOptions(selectedPokemon, {
+        gimmick: member.gimmick,
+        megaFormKey: member.megaFormKey,
+      }).some((ability) => ability.name === member.ability)
+    ) {
       return `${member.slot}�� ������ Ư���� ������ ���ϸ�� ���� �ʽ��ϴ�.`;
+    }
+
+    const allowedMoveNames = moveNamesByDexNumber?.get(member.nationalDexNumber);
+
+    if (allowedMoveNames) {
+      const invalidMove = member.moves
+        .map((moveName) => moveName.trim())
+        .find((moveName) => moveName.length > 0 && !allowedMoveNames.has(moveName));
+
+      if (invalidMove) {
+        return `${member.slot}번 슬롯의 기술 ${invalidMove}은(는) 현재 포켓몬과 포맷에서 선택할 수 없습니다.`;
+      }
     }
   }
 
@@ -942,6 +1183,16 @@ function sanitizeTeamStatValue(value: unknown, min: number, max: number, fallbac
   return Math.min(max, Math.max(min, Number(value)));
 }
 
+function sanitizeTeamTextValue(value: unknown, maxLength: number) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalizedValue = value.trim().slice(0, maxLength);
+
+  return normalizedValue === "0" ? "" : normalizedValue;
+}
+
 export function sanitizeTeamStatSpread(
   value: unknown,
   fallback: PokemonBaseStats,
@@ -983,8 +1234,8 @@ export function sanitizeTeamMembers(value: unknown, mode: TeamModeId = getDefaul
       nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
       level: normalizeTeamLevel(candidate.level, mode),
       nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "����",
-      item: typeof candidate.item === "string" ? candidate.item.trim().slice(0, 80) : "",
-      ability: typeof candidate.ability === "string" ? candidate.ability.trim().slice(0, 80) : "",
+      item: sanitizeTeamTextValue(candidate.item, 80),
+      ability: sanitizeTeamTextValue(candidate.ability, 80),
       moves: Array.isArray(candidate.moves)
         ? candidate.moves.slice(0, 4).map((move) => (typeof move === "string" ? move.trim().slice(0, 80) : ""))
         : ["", "", "", ""],
