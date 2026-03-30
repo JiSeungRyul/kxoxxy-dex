@@ -1,5 +1,6 @@
 "use client";
 
+import type { FocusEventHandler } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,12 +8,38 @@ import { useState } from "react";
 
 import { ThemeToggle } from "@/features/theme/components/theme-toggle";
 
+function getNavLinkClass(isActive: boolean) {
+  return isActive
+    ? "inline-flex rounded-[1rem] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
+    : "inline-flex rounded-[1rem] px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground";
+}
+
+function getDropdownClass(isOpen: boolean) {
+  return `absolute left-0 top-full z-20 min-w-40 pt-2 transition duration-150 ${
+    isOpen ? "visible translate-y-0 opacity-100" : "invisible translate-y-1 opacity-0"
+  }`;
+}
+
+const SUBMENU_LINK_CLASS =
+  "block rounded-[0.9rem] px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted";
+
 export function SiteHeroHeader() {
   const pathname = usePathname();
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
+  const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
+  const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDailyMenuOpen(false);
+    }
+  };
+  const handleTeamsMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsTeamsMenuOpen(false);
+    }
+  };
 
   return (
     <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
@@ -53,11 +80,7 @@ export function SiteHeroHeader() {
         <Link
           href="/pokedex"
           aria-current={isPokedexActive ? "page" : undefined}
-          className={
-            isPokedexActive
-              ? "inline-flex rounded-[1rem] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
-              : "inline-flex rounded-[1rem] px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          }
+          className={getNavLinkClass(isPokedexActive)}
         >
           포켓몬 도감
         </Link>
@@ -66,37 +89,30 @@ export function SiteHeroHeader() {
           className="relative"
           onMouseEnter={() => setIsDailyMenuOpen(true)}
           onMouseLeave={() => setIsDailyMenuOpen(false)}
+          onBlur={handleDailyMenuBlur}
         >
           <Link
             href="/daily"
             aria-current={isDailyActive ? "page" : undefined}
             onFocus={() => setIsDailyMenuOpen(true)}
-            className={
-              isDailyActive
-                ? "inline-flex rounded-[1rem] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
-                : "inline-flex rounded-[1rem] px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            }
+            className={getNavLinkClass(isDailyActive)}
           >
             오늘의 포켓몬
           </Link>
 
-          <div
-            className={`absolute left-0 top-full z-20 min-w-40 pt-2 transition duration-150 ${
-              isDailyMenuOpen ? "visible translate-y-0 opacity-100" : "invisible translate-y-1 opacity-0"
-            }`}
-          >
+          <div className={getDropdownClass(isDailyMenuOpen)}>
             <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
               <Link
                 href="/daily"
                 onClick={() => setIsDailyMenuOpen(false)}
-                className="block rounded-[0.9rem] px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+                className={SUBMENU_LINK_CLASS}
               >
                 잡으러 가기
               </Link>
               <Link
                 href="/my-pokemon"
                 onClick={() => setIsDailyMenuOpen(false)}
-                className="block rounded-[0.9rem] px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+                className={SUBMENU_LINK_CLASS}
               >
                 내 포켓몬
               </Link>
@@ -104,17 +120,40 @@ export function SiteHeroHeader() {
           </div>
         </div>
 
-        <Link
-          href="/teams"
-          aria-current={isTeamsActive ? "page" : undefined}
-          className={
-            isTeamsActive
-              ? "inline-flex rounded-[1rem] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
-              : "inline-flex rounded-[1rem] px-4 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          }
+        <div
+          className="relative"
+          onMouseEnter={() => setIsTeamsMenuOpen(true)}
+          onMouseLeave={() => setIsTeamsMenuOpen(false)}
+          onBlur={handleTeamsMenuBlur}
         >
-          팀 빌딩
-        </Link>
+          <Link
+            href="/teams"
+            aria-current={isTeamsActive ? "page" : undefined}
+            onFocus={() => setIsTeamsMenuOpen(true)}
+            className={getNavLinkClass(isTeamsActive)}
+          >
+            팀빌딩
+          </Link>
+
+          <div className={getDropdownClass(isTeamsMenuOpen)}>
+            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+              <Link
+                href="/teams"
+                onClick={() => setIsTeamsMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                팀 빌더
+              </Link>
+              <Link
+                href="/my-teams"
+                onClick={() => setIsTeamsMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                내 팀 보기
+              </Link>
+            </div>
+          </div>
+        </div>
       </nav>
     </section>
   );

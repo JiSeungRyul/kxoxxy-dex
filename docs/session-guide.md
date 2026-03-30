@@ -20,7 +20,7 @@ while snapshot generation and DB-backed runtime flows currently coexist.
 7. docs/performance-guide.md
 
 If the task depends on local PostgreSQL, read `docs/database-plan.md` for the required startup order:
-`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex`.
+`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex` -> `npm run db:seed:items` -> `npm run db:seed:moves`.
 
 If the task depends on /daily, /my-pokemon, /teams, or their state APIs, read docs/verification-guide.md before changing the verification flow.
 
@@ -34,13 +34,15 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
 - `/my-pokemon` now loads captured Pokemon detail on demand through `app/api/pokedex/catalog` after anonymous-session collection state is loaded, instead of shipping the gallery catalog on first render.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
-- `/teams` now loads a dex-number-and-name option list through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
+- `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
-- PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
+- Additional item and move snapshot generation now writes `data/item-catalog.json` and `data/move-catalog.json`.
+- The generated move snapshot is local-only, and `npm run db:seed:moves` now regenerates it automatically before importing into PostgreSQL.
+- PostgreSQL import still starts from local snapshot files and now populates `pokedex_*`, `item_*`, and `move_*` catalog tables.
 
 ## Files To Verify First
 - `app/page.tsx`
@@ -56,6 +58,10 @@ If the task depends on route or API performance measurement, read docs/performan
 - `features/pokedex/types.ts`
 - `scripts/sync-pokedex.mjs`
 - `scripts/import-pokedex-to-db.mjs`
+- `scripts/sync-items.mjs`
+- `scripts/import-items-to-db.mjs`
+- `scripts/sync-moves.mjs`
+- `scripts/import-moves-to-db.mjs`
 
 ## Working Constraints
 - Prefer small, incremental changes over broad rewrites.
@@ -87,5 +93,4 @@ If the task depends on route or API performance measurement, read docs/performan
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change
-
 

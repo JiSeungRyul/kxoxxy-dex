@@ -1,5 +1,8 @@
 명령 프롬프트
 
+--권한 실행
+codex --sandbox workspace-write --ask-for-approval never
+
 --초기 액션
 Read docs/session-guide.md first, then load relevant context from other docs.
 
