@@ -10,6 +10,11 @@
 - Current catalog tables:
   - `pokedex_snapshots`
   - `pokemon_catalog`
+  - `item_snapshots`
+  - `item_catalog`
+  - `move_snapshots`
+  - `move_catalog`
+  - `pokemon_move_catalog`
 - Additional runtime tables are present for anonymous daily state:
   - `anonymous_sessions`
   - `daily_captures`
@@ -17,6 +22,13 @@
   - both daily tables now store `is_shiny` flags
 - Import path:
   - `data/pokedex.json` -> `scripts/import-pokedex-to-db.mjs` -> PostgreSQL
+- Item snapshot path:
+  - `data/item-catalog.json` <- `scripts/sync-items.mjs` <- PokeAPI
+  - `data/item-catalog.json` -> `scripts/import-items-to-db.mjs` -> PostgreSQL
+- Move snapshot path:
+  - `data/move-catalog.json` <- `scripts/sync-moves.mjs` <- PokeAPI + `data/pokedex.json`
+  - `data/move-catalog.json` -> `scripts/import-moves-to-db.mjs` -> PostgreSQL
+  - the generated move snapshot is local-only and should be recreated with `npm run sync:moves` before seeding on a fresh clone
 
 ## Local DB Bootstrap Order
 When starting from a fresh environment, `docker compose up -d` is not enough by itself.
@@ -30,7 +42,13 @@ Use this order:
    - `npm run db:migrate`
 3. Import the local Pokedex snapshot into PostgreSQL:
    - `npm run db:seed:pokedex`
-4. Start the app:
+4. Import the local item snapshot into PostgreSQL:
+   - `npm run db:seed:items`
+5. Generate the local move snapshot:
+   - `npm run sync:moves`
+6. Import the local move snapshot into PostgreSQL:
+   - `npm run db:seed:moves`
+7. Start the app:
    - `npm run dev`
 
 You can also run the DB bootstrap steps with the repository helper scripts:
@@ -46,6 +64,9 @@ Result:
 - `docker compose up -d` creates the database server.
 - `npm run db:migrate` creates the tables and indexes tracked in `drizzle/`.
 - `npm run db:seed:pokedex` populates catalog tables from `data/pokedex.json`.
+- `npm run db:seed:items` populates item tables from `data/item-catalog.json`.
+- `npm run sync:moves` regenerates the local move snapshot file from PokeAPI and the checked-in Pokemon snapshot.
+- `npm run db:seed:moves` populates move tables from `data/move-catalog.json`.
 - `npm run dev` starts the app against a non-empty local DB.
 
 ## Why This Is The Default Workflow
@@ -66,6 +87,9 @@ Result:
 - PostgreSQL currently stores:
   - snapshot-level metadata and payload
   - one catalog row per Pokemon
+  - one catalog row per item
+  - one catalog row per move
+  - per-Pokemon move learnset rows
   - selected lookup columns plus full JSON payload
 - This is a transitional catalog model, not a fully normalized long-term schema.
 

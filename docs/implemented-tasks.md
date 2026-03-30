@@ -240,3 +240,35 @@
 - Kept the default level for newly selected team members at `50` across every team mode.
 - Allowed manual level adjustment up to `100` in `자유` and `스토리`, while capping `대전 싱글` and `대전 더블` at `50`.
 - Matched the level-input UI, client-side clamping, loaded-team sanitization, and server-side save validation so battle-mode teams cannot keep level values above `50`.
+
+## Team Builder Ability UX Refresh (Added: 2026-03-30)
+- Kept the existing ability selector in `/teams` but upgraded it to label hidden abilities explicitly and show Korean ability descriptions below the field.
+- Extended the `/teams` detail payload so Mega-form options include their own ability data, allowing the ability selector to switch to Mega-specific ability lists when Mega Evolution is selected.
+- Matched the client-side option list and the server-side save validation so saved teams cannot keep a base-form ability that is invalid for the selected Mega form.
+
+## Item Catalog Groundwork (Added: 2026-03-30)
+- Added `scripts/sync-items.mjs` to fetch the full PokeAPI item list and write `data/item-catalog.json`.
+- Added `PokedexItem` and `PokedexItemSnapshot` types plus `item_snapshots` and `item_catalog` schema entries for future item-backed team-builder work.
+- Added and applied the `0011_item_catalog` migration so local PostgreSQL now has dedicated item snapshot and item catalog tables.
+- Added `scripts/import-items-to-db.mjs` and `npm run db:seed:items` so the generated item snapshot can now be imported into PostgreSQL.
+
+## Team Builder Searchable Item Selector (Added: 2026-03-30)
+- Replaced the free-text team-builder item input with a search-based selector patterned after the Pokemon selector in `/teams`.
+- Added reduced item option loading from PostgreSQL so the team-builder route now receives searchable item candidates without shipping the full item payload.
+- Narrowed the visible item candidate list differently for `자유`, `스토리`, and battle modes while keeping the saved team member item field on the current string-based MVP model.
+
+## Team Builder Battle Item Save Guard (Added: 2026-03-30)
+- Raised duplicate-item handling in `/teams` battle modes from a warning to a save-blocking rule for `대전 싱글` and `대전 더블`.
+- Kept `자유` and `스토리` mode behavior unchanged so duplicate held items remain allowed there.
+- Matched the client-side pre-save check and the server-side repository validation so API saves cannot bypass the new rule.
+
+## Move Catalog Groundwork (Added: 2026-03-30)
+- Added `scripts/sync-moves.mjs` to fetch the full PokeAPI move list and extract per-Pokemon learnset rows using the local `data/pokedex.json` species snapshot.
+- Added `PokedexMove`, `PokedexPokemonMove`, and `PokedexMoveSnapshot` types plus `move_snapshots`, `move_catalog`, and `pokemon_move_catalog` schema entries for future move-backed team-builder work.
+- Added the `0012_move_catalog` migration plus `scripts/import-moves-to-db.mjs` and `npm run db:seed:moves` so move and learnset snapshots can now be imported into PostgreSQL.
+
+## Team Builder Learnable Move Selector (Added: 2026-03-30)
+- Replaced the four free-text move fields in `/teams` with searchable move selectors backed by PostgreSQL move and learnset rows loaded on demand for the selected Pokemon.
+- Filtered move candidates by the active team format and collapsed duplicate learnset rows into one visible move choice per move.
+- Blocked duplicate move selection within the same Pokemon slot in both the client save guard and the server-side save validation.
+- Styled selected move fields with the chosen move type color and showed move method metadata in the search result list.

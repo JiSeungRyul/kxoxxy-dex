@@ -34,8 +34,11 @@
 - My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
-- Team builder now blocks saving duplicate species in `대전 싱글` and `대전 더블`, while duplicate item handling remains a warning-only MVP rule.
+- Team builder now blocks saving duplicate species and duplicate held items in `대전 싱글` and `대전 더블`.
 - Team builder now starts new members at level `50` in every mode, allows manual level adjustment up to `100` in `자유` and `스토리`, and caps manual level adjustment at `50` in `대전 싱글` and `대전 더블`.
+- Team builder now labels hidden abilities in the ability selector, shows Korean ability descriptions under the selector, and switches the available ability list when a Mega form is selected.
+- Team builder now uses a search-based item selector backed by PostgreSQL item options, with the visible item candidate list narrowed differently for `자유`, `스토리`, and battle modes.
+- Team builder now uses Pokemon-specific searchable move selectors backed by PostgreSQL move and learnset data, filters visible move candidates by the selected team format, blocks duplicate move selection within the same Pokemon slot, and styles selected move fields with the chosen move type color.
 - Daily encounter state stores whether the current encounter is shiny.
 - My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
 - Captured Pokemon progress and saved teams still do not sync across devices or accounts.
@@ -58,4 +61,5 @@
 
 ## Current Content Sources
 - Pokemon catalog content originates from PokeAPI-derived snapshot generation.
+- Item and move catalog content now also originates from PokeAPI-derived snapshot generation and PostgreSQL import.
 - Temporary Korean ability-description support still includes frontend-held translation logic.

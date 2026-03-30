@@ -20,7 +20,7 @@ while snapshot generation and DB-backed runtime flows currently coexist.
 7. docs/performance-guide.md
 
 If the task depends on local PostgreSQL, read `docs/database-plan.md` for the required startup order:
-`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex`.
+`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex` -> `npm run db:seed:items` -> `npm run sync:moves` -> `npm run db:seed:moves`.
 
 If the task depends on /daily, /my-pokemon, /teams, or their state APIs, read docs/verification-guide.md before changing the verification flow.
 
@@ -40,7 +40,9 @@ If the task depends on route or API performance measurement, read docs/performan
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
-- PostgreSQL import still starts from `data/pokedex.json` and populates `pokedex_snapshots` and `pokemon_catalog`.
+- Additional item and move snapshot generation now writes `data/item-catalog.json` and `data/move-catalog.json`.
+- The generated move snapshot is local-only and should be recreated with `npm run sync:moves` before `npm run db:seed:moves` on a fresh clone.
+- PostgreSQL import still starts from local snapshot files and now populates `pokedex_*`, `item_*`, and `move_*` catalog tables.
 
 ## Files To Verify First
 - `app/page.tsx`
@@ -56,6 +58,10 @@ If the task depends on route or API performance measurement, read docs/performan
 - `features/pokedex/types.ts`
 - `scripts/sync-pokedex.mjs`
 - `scripts/import-pokedex-to-db.mjs`
+- `scripts/sync-items.mjs`
+- `scripts/import-items-to-db.mjs`
+- `scripts/sync-moves.mjs`
+- `scripts/import-moves-to-db.mjs`
 
 ## Working Constraints
 - Prefer small, incremental changes over broad rewrites.

@@ -9,10 +9,14 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "sync:pokedex": "node scripts/sync-pokedex.mjs",
+    "sync:items": "node scripts/sync-items.mjs",
+    "sync:moves": "node scripts/sync-moves.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed:pokedex": "node scripts/import-pokedex-to-db.mjs"
+    "db:seed:pokedex": "node scripts/import-pokedex-to-db.mjs",
+    "db:seed:items": "node scripts/import-items-to-db.mjs",
+    "db:seed:moves": "node scripts/import-moves-to-db.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",
