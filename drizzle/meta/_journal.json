@@ -71,6 +71,13 @@
       "when": 1774600000000,
       "tag": "0009_team_member_mega_form_key",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774700000000,
+      "tag": "0010_team_mode",
+      "breakpoints": true
     }
   ]
 }

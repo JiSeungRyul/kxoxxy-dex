@@ -218,3 +218,25 @@
 - Changed the header navigation so the team section is exposed as a single `팀빌딩` entry with a hover/focus dropdown.
 - Grouped `/teams` and `/my-teams` under that dropdown as `팀 빌더` and `내 팀 보기` instead of keeping them as separate top-level navigation concepts.
 - Kept the active-state logic shared so both `/teams` and `/my-teams` still highlight the same team section in the header.
+
+## Team Builder Level Control (Added: 2026-03-29)
+- Added a per-member level control in `/teams` with direct number input and step arrows.
+- Reused the existing `1..100` validation and persistence path so saved teams keep the selected level without new schema work.
+- Wired the control into the existing battle-stat calculator so changing level immediately updates the derived `실전 능력치` table while leaving `종족값` unchanged.
+
+## Team Builder Mode Selection (Added: 2026-03-29)
+- Added a team-level mode selector in `/teams` for `자유`, `스토리`, `대전 싱글`, and `대전 더블`.
+- Persisted the selected mode on the team record so save/load round-trips keep the chosen mode alongside the existing format.
+- Added battle-mode follow-up behavior so newly selected Pokemon start at level 50 in `대전 싱글` and `대전 더블`.
+- Added non-blocking warnings for duplicate species and duplicate held items in battle modes while leaving strict validation for a later step.
+- For now, held-item duplicate warnings compare the current item text exactly; a later item dropdown step can replace that with structured item-id comparison.
+
+## Team Builder Battle Species Save Guard (Added: 2026-03-30)
+- Raised duplicate-species handling in `/teams` battle modes from a warning to a save-blocking rule for `대전 싱글` and `대전 더블`.
+- Matched the client-side pre-save message with the server-side repository validation so API saves cannot bypass the new rule.
+- Left duplicate held-item handling on the current warning-only behavior for this MVP step.
+
+## Team Builder Mode-Based Level Caps (Added: 2026-03-30)
+- Kept the default level for newly selected team members at `50` across every team mode.
+- Allowed manual level adjustment up to `100` in `자유` and `스토리`, while capping `대전 싱글` and `대전 더블` at `50`.
+- Matched the level-input UI, client-side clamping, loaded-team sanitization, and server-side save validation so battle-mode teams cannot keep level values above `50`.

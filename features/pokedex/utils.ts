@@ -25,6 +25,7 @@ import type {
   PokemonTeamMemberDraft,
   PokemonTeamStatSpread,
   TeamFormatId,
+  TeamModeId,
   TeamGimmickId,
   TeamTeraType,
   PokemonTypeName,
@@ -71,9 +72,18 @@ export function formatWeight(weight: number) {
 }
 
 export const TEAM_FORMAT_IDS = ["default", "gen6", "gen7", "gen8", "gen9"] as const;
+export const TEAM_MODE_IDS = ["free", "story", "battle-singles", "battle-doubles"] as const;
 
 export function getDefaultTeamFormat(): TeamFormatId {
   return "default";
+}
+
+export function getDefaultTeamMode(): TeamModeId {
+  return "free";
+}
+
+export function isBattleTeamMode(mode: TeamModeId) {
+  return mode === "battle-singles" || mode === "battle-doubles";
 }
 
 export function sanitizeTeamFormat(value: unknown): TeamFormatId {
@@ -82,8 +92,44 @@ export function sanitizeTeamFormat(value: unknown): TeamFormatId {
     : getDefaultTeamFormat();
 }
 
+export function sanitizeTeamMode(value: unknown): TeamModeId {
+  return typeof value === "string" && TEAM_MODE_IDS.includes(value as TeamModeId)
+    ? (value as TeamModeId)
+    : getDefaultTeamMode();
+}
+
 export function formatTeamFormatLabel(format: TeamFormatId) {
   return format === "default" ? "기본" : `${format.replace("gen", "")}세대`;
+}
+
+export function formatTeamModeLabel(mode: TeamModeId) {
+  switch (mode) {
+    case "story":
+      return "스토리";
+    case "battle-singles":
+      return "대전 싱글";
+    case "battle-doubles":
+      return "대전 더블";
+    default:
+      return "자유";
+  }
+}
+
+export function getTeamModeDescription(mode: TeamModeId) {
+  switch (mode) {
+    case "story":
+      return "스토리 진행과 육성 중심으로 자유롭게 구성하는 모드입니다. 기본 레벨은 50이며 직접 100까지 조정할 수 있습니다.";
+    case "battle-singles":
+      return "1대1 실전 배틀 기준 모드입니다. 새 포켓몬은 레벨 50으로 시작하고 레벨은 50까지만 설정할 수 있으며 같은 포켓몬 중복 저장을 막습니다.";
+    case "battle-doubles":
+      return "2대2 실전 배틀 기준 모드입니다. 새 포켓몬은 레벨 50으로 시작하고 레벨은 50까지만 설정할 수 있으며 같은 포켓몬 중복 저장을 막습니다.";
+    default:
+      return "포맷 외 추가 제약 없이 자유롭게 테스트하는 모드입니다. 기본 레벨은 50이며 직접 100까지 조정할 수 있습니다.";
+  }
+}
+
+export function getTeamLevelCap(mode: TeamModeId) {
+  return isBattleTeamMode(mode) ? 50 : 100;
 }
 
 export function getTeamFormatSystemLabel(format: TeamFormatId) {
@@ -707,6 +753,10 @@ export function getDefaultTeamLevel() {
   return 50;
 }
 
+export function normalizeTeamLevel(value: unknown, mode: TeamModeId) {
+  return sanitizeTeamStatValue(value, 1, getTeamLevelCap(mode), getDefaultTeamLevel());
+}
+
 export function getPokemonAbilityOptions(entry: Pick<PokemonCatalogListEntry, "abilities" | "hiddenAbility"> | null | undefined) {
   if (!entry) {
     return [];
@@ -717,12 +767,24 @@ export function getPokemonAbilityOptions(entry: Pick<PokemonCatalogListEntry, "a
   return [...new Set([...entry.abilities.map((ability) => ability.name), ...hiddenAbilityName])];
 }
 
+export function getDuplicateTeamSpeciesDexNumbers(members: PokemonTeamMemberDraft[]) {
+  const selectedDexNumbers = members
+    .map((member) => member.nationalDexNumber)
+    .filter((nationalDexNumber): nationalDexNumber is number => nationalDexNumber !== null);
+
+  return [...new Set(
+    selectedDexNumbers.filter((nationalDexNumber, index, array) => array.indexOf(nationalDexNumber) !== index),
+  )];
+}
+
 export function getTeamValidationError({
   teamName,
+  mode,
   members,
   pokemonByDexNumber,
 }: {
   teamName: string;
+  mode?: TeamModeId;
   members: PokemonTeamMemberDraft[];
   pokemonByDexNumber?: Map<number, PokemonSummary>;
 }) {
@@ -736,9 +798,20 @@ export function getTeamValidationError({
     return "�ּ� �� ���� �̻� �����ؾ� ���� ������ �� �ֽ��ϴ�.";
   }
 
+  if (isBattleTeamMode(mode ?? getDefaultTeamMode())) {
+    const duplicateSpeciesNames = getDuplicateTeamSpeciesDexNumbers(selectedMembers)
+      .map((nationalDexNumber) => pokemonByDexNumber?.get(nationalDexNumber)?.name ?? `No.${nationalDexNumber}`);
+
+    if (duplicateSpeciesNames.length > 0) {
+      return `대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpeciesNames.join(", ")}.`;
+    }
+  }
+
   for (const member of selectedMembers) {
-    if (!Number.isInteger(member.level) || member.level < 1 || member.level > 100) {
-      return `${member.slot}�� ������ ������ 1���� 100 ���̿��� �մϴ�.`;
+    const levelCap = getTeamLevelCap(mode ?? getDefaultTeamMode());
+
+    if (!Number.isInteger(member.level) || member.level < 1 || member.level > levelCap) {
+      return `${member.slot}번 슬롯의 레벨은 1부터 ${levelCap}까지만 설정할 수 있습니다.`;
     }
 
     if (getTeamEvTotal(member.evs) > 510) {
@@ -886,7 +959,7 @@ export function sanitizeTeamStatSpread(
   };
 }
 
-export function sanitizeTeamMembers(value: unknown) {
+export function sanitizeTeamMembers(value: unknown, mode: TeamModeId = getDefaultTeamMode()) {
   if (!Array.isArray(value)) {
     return Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1));
   }
@@ -908,7 +981,7 @@ export function sanitizeTeamMembers(value: unknown) {
     members[slot - 1] = {
       slot,
       nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
-      level: sanitizeTeamStatValue(candidate.level, 1, 100, getDefaultTeamLevel()),
+      level: normalizeTeamLevel(candidate.level, mode),
       nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "����",
       item: typeof candidate.item === "string" ? candidate.item.trim().slice(0, 80) : "",
       ability: typeof candidate.ability === "string" ? candidate.ability.trim().slice(0, 80) : "",

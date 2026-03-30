@@ -98,6 +98,7 @@ export const teams = pgTable("teams", {
     .references(() => anonymousSessions.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   format: text("format").default("default").notNull(),
+  mode: text("mode").default("free").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

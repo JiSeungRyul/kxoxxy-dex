@@ -15,6 +15,7 @@ import type {
   PokemonTeamMemberDraft,
   TeamFormatId,
   TeamGimmickId,
+  TeamModeId,
 } from "@/features/pokedex/types";
 import {
   TEAM_TERA_TYPE_OPTIONS,
@@ -22,6 +23,7 @@ import {
   calculatePokemonBattleStats,
   formatMegaFormOptionLabel,
   formatDexNumber,
+  formatTeamModeLabel,
   formatTeamTeraTypeLabel,
   getPokemonTeamMegaForms,
   getTeamNatureEffect,
@@ -29,9 +31,15 @@ import {
   formatTeamGimmickLabel,
   formatTypeLabel,
   getDefaultTeamFormat,
+  getDefaultTeamLevel,
+  getDefaultTeamMode,
+  getTeamModeDescription,
   shouldShowTeamGimmickControls,
   getDefaultTeamIvs,
+  getDuplicateTeamSpeciesDexNumbers,
   getEmptyTeamMember,
+  getTeamLevelCap,
+  isBattleTeamMode,
   isPokemonTeamBuilderOptionAvailableForFormat,
   getPokemonAbilityOptions,
   normalizeTeamEvsOnBlur,
@@ -90,6 +98,7 @@ type TeamBuilderCatalogResponse = {
 
 const TEAM_BUILDER_SEARCH_RESULT_LIMIT = 12;
 const TEAM_FORMAT_OPTIONS: TeamFormatId[] = ["default", "gen6", "gen7", "gen8", "gen9"];
+const TEAM_MODE_OPTIONS: TeamModeId[] = ["free", "story", "battle-singles", "battle-doubles"];
 
 
 export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
@@ -100,6 +109,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
   const [teamFormat, setTeamFormat] = useState<TeamFormatId>(getDefaultTeamFormat());
+  const [teamMode, setTeamMode] = useState<TeamModeId>(getDefaultTeamMode());
   const [members, setMembers] = useState<PokemonTeamMemberDraft[]>(() =>
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
@@ -128,6 +138,44 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     () => pokemonOptions.filter((entry) => isPokemonTeamBuilderOptionAvailableForFormat(entry, teamFormat)),
     [pokemonOptions, teamFormat],
   );
+  const isBattleMode = isBattleTeamMode(teamMode);
+  const teamLevelCap = getTeamLevelCap(teamMode);
+  const battleModeWarnings = useMemo(() => {
+    if (!isBattleMode) {
+      return [];
+    }
+
+    const selectedMembers = members.filter((member) => member.nationalDexNumber !== null);
+    const duplicateSpecies = [...new Set(
+      selectedMembers
+        .map((member) => {
+          if (member.nationalDexNumber === null) {
+            return null;
+          }
+
+          return selectedPokemonByDexNumber.get(member.nationalDexNumber)?.name ?? null;
+        })
+        .filter((name): name is string => Boolean(name))
+        .filter((name, index, array) => array.indexOf(name) !== index),
+    )];
+    const duplicateItems = [...new Set(
+      selectedMembers
+        .map((member) => member.item.trim())
+        .filter((item) => item.length > 0)
+        .filter((item, index, array) => array.indexOf(item) !== index),
+    )];
+    const warnings: string[] = [];
+
+    if (duplicateSpecies.length > 0) {
+      warnings.push(`대전 모드에서는 같은 포켓몬 중복을 주의하세요: ${duplicateSpecies.join(", ")}`);
+    }
+
+    if (duplicateItems.length > 0) {
+      warnings.push(`대전 모드에서는 같은 아이템 중복을 주의하세요: ${duplicateItems.join(", ")}`);
+    }
+
+    return warnings;
+  }, [isBattleMode, members, selectedPokemonByDexNumber]);
 
   async function loadTeams(nextSessionId: string) {
     const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
@@ -150,6 +198,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       setTeamId(null);
       setTeamName("");
       setTeamFormat(getDefaultTeamFormat());
+      setTeamMode(getDefaultTeamMode());
       setMembers(Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)));
       return;
     }
@@ -157,12 +206,14 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     setTeamId(nextTeam.id);
     setTeamName(nextTeam.name);
     setTeamFormat(nextTeam.format ?? getDefaultTeamFormat());
+    setTeamMode(nextTeam.mode ?? getDefaultTeamMode());
     setMembers(
       sanitizeTeamMembers(
         Array.from({ length: 6 }, (_, index) => {
           const existingMember = nextTeam.members.find((member) => member.slot === index + 1);
           return existingMember ?? getEmptyTeamMember(index + 1);
         }),
+        nextTeam.mode ?? getDefaultTeamMode(),
       ),
     );
   }
@@ -329,6 +380,15 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     });
   }, [activePokemonSearchSlot, members, pokemonOptionByDexNumber]);
 
+  useEffect(() => {
+    setMembers((currentMembers) =>
+      currentMembers.map((member) => ({
+        ...member,
+        level: Math.min(teamLevelCap, Math.max(1, member.level)),
+      })),
+    );
+  }, [teamLevelCap]);
+
   function updateMember(slot: number, updater: (current: PokemonTeamMemberDraft) => PokemonTeamMemberDraft) {
     setMembers((currentMembers) =>
       currentMembers.map((member) => (member.slot === slot ? updater(member) : member)),
@@ -446,16 +506,32 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
     });
   }
 
+  function handleLevelChange(slot: number, value: string) {
+    updateMember(slot, (currentMember) => ({
+      ...currentMember,
+      level: Math.min(teamLevelCap, Math.max(1, Number(value) || 1)),
+    }));
+  }
+
+  function handleLevelStep(slot: number, delta: number) {
+    updateMember(slot, (currentMember) => ({
+      ...currentMember,
+      level: Math.min(teamLevelCap, Math.max(1, currentMember.level + delta)),
+    }));
+  }
+
   function handlePokemonChange(slot: number, nextValue: string) {
     const nationalDexNumber = nextValue.length > 0 ? Number(nextValue) : null;
     const selectedPokemon = nationalDexNumber === null ? undefined : selectedPokemonByDexNumber.get(nationalDexNumber);
     const abilityOptions = getPokemonAbilityOptions(selectedPokemon);
     const selectedOption = nationalDexNumber === null ? null : pokemonOptionByDexNumber.get(nationalDexNumber) ?? null;
     const defaultTeraType = selectedPokemon?.name === "테라파고스" ? "stellar" : (selectedPokemon?.types[0]?.name ?? null);
+    const defaultLevel = getDefaultTeamLevel();
 
     updateMember(slot, (currentMember) => ({
       ...currentMember,
       nationalDexNumber,
+      level: nationalDexNumber === null ? currentMember.level : defaultLevel,
       ability: abilityOptions.includes(currentMember.ability) ? currentMember.ability : abilityOptions[0] ?? "",
       gimmick:
         nationalDexNumber === null
@@ -510,6 +586,16 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       return;
     }
 
+    if (isBattleMode) {
+      const duplicateSpecies = getDuplicateTeamSpeciesDexNumbers(selectedMembers)
+        .map((nationalDexNumber) => selectedPokemonByDexNumber.get(nationalDexNumber)?.name ?? `No.${nationalDexNumber}`);
+
+      if (duplicateSpecies.length > 0) {
+        setError(`대전 모드에서는 같은 포켓몬을 중복 저장할 수 없습니다: ${duplicateSpecies.join(", ")}.`);
+        return;
+      }
+    }
+
     setError(null);
     setNotice(null);
     setIsSaving(true);
@@ -527,6 +613,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
             id: teamId,
             name: normalizedTeamName,
             format: teamFormat,
+            mode: teamMode,
             members,
           },
         }),
@@ -564,19 +651,20 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
   return (
     <section className="space-y-6">
       <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start gap-4 lg:gap-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Team Builder</p>
             <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-foreground">팀 빌딩</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-              전체 포켓몬 도감에서 최대 6마리를 골라 팀을 구성하고, 각 멤버별 성격, 아이템, 특성, 기술,
-              개체값, 노력치를 저장할 수 있습니다.
+            <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground xl:whitespace-nowrap">
+              전체 포켓몬 도감에서 최대 6마리를 골라 팀을 구성하고, 각 멤버별 레벨, 성격, 아이템, 특성, 기술,
+              개체값, 노력치를 <span className="whitespace-nowrap">저장할 수 있습니다.</span>
             </p>
             <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
               포맷을 고르면 검색 후보는 해당 세대 기준으로 보수적으로 축소됩니다. 이미 선택한 포켓몬은 자동으로 제거하지 않습니다.
             </p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">{getTeamModeDescription(teamMode)}</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 md:ml-auto">
             <Link
               href="/my-teams"
               className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
@@ -595,7 +683,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
       </div>
 
       <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(11rem,14rem)_auto] md:items-end">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(9rem,12rem)_minmax(9rem,12rem)_auto] md:items-end">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">팀 이름</span>
             <input
@@ -619,6 +707,20 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
               ))}
             </select>
           </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-foreground">모드</span>
+            <select
+              value={teamMode}
+              onChange={(event) => setTeamMode(event.target.value as TeamModeId)}
+              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+            >
+              {TEAM_MODE_OPTIONS.map((mode) => (
+                <option key={mode} value={mode}>
+                  {formatTeamModeLabel(mode)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             onClick={handleSave}
@@ -631,6 +733,13 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
 
         {error ? <p className="mt-4 text-sm font-medium text-red-500">{error}</p> : null}
         {notice ? <p className="mt-4 text-sm font-medium text-emerald-600">{notice}</p> : null}
+        {battleModeWarnings.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {battleModeWarnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -1012,7 +1121,38 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                   </div>
                 ) : null}
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="space-y-2 md:col-span-1">
+                    <span className="text-sm font-semibold text-foreground">레벨</span>
+                    <div className="flex items-center justify-between rounded-2xl border border-border bg-background px-4 py-3">
+                      <input
+                        type="number"
+                        min={1}
+                        max={teamLevelCap}
+                        value={member.level}
+                        onChange={(event) => handleLevelChange(member.slot, event.target.value)}
+                        className="w-14 appearance-none border-0 bg-transparent px-0 py-0 text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+                        <button
+                          type="button"
+                          onClick={() => handleLevelStep(member.slot, 1)}
+                          className="flex h-4 w-5 items-center justify-center text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                          aria-label="레벨 증가"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLevelStep(member.slot, -1)}
+                          className="flex h-4 w-5 items-center justify-center border-t border-border text-[10px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                          aria-label="레벨 감소"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  </label>
                   <label className="space-y-2 md:col-span-1">
                     <span className="text-sm font-semibold text-foreground">성격</span>
                     <div className="space-y-2">
@@ -1152,7 +1292,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                                   },
                                 }))
                               }
-                              className="w-14 border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none"
+                              className="w-14 appearance-none border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                             <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-background">
                               <button
@@ -1203,7 +1343,7 @@ export function TeamBuilderPage({ pokemonOptions }: TeamBuilderPageProps) {
                               value={evInputDrafts[getEvDraftKey(member.slot, field.key)] ?? member.evs[field.key]}
                               onChange={(event) => handleEvDraftChange(member.slot, field.key, event.target.value)}
                               onBlur={() => handleEvDraftBlur(member.slot, field.key)}
-                              className="w-14 border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none"
+                              className="w-14 appearance-none border-0 bg-transparent px-0 py-0 text-right text-sm font-semibold text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                             <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-background">
                               <button
