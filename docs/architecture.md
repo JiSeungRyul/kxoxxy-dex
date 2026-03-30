@@ -81,6 +81,8 @@
 6. `scripts/import-items-to-db.mjs` imports the item snapshot into PostgreSQL
 7. `scripts/import-moves-to-db.mjs` imports the move snapshot and per-Pokemon learnset rows into PostgreSQL
 8. Runtime list/detail/daily catalog reads use the imported Pokemon catalog tables
+9. The current move pipeline stores learnsets at the national-dex level, so form-specific learnset exceptions are not yet separated inside `pokemon_move_catalog`
+10. If non-Mega form-specific team building is added later, both the saved team-member model and the move-query path will need an explicit `formKey` concept; the current architecture does not carry that state outside Mega-specific handling
 
 ## Data Contracts
 - `features/pokedex/types.ts` defines the stable payload contracts used by both snapshot and DB payload storage.

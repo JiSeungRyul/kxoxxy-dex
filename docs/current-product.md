@@ -40,6 +40,9 @@
 - Team builder now uses a search-based item selector backed by PostgreSQL item options, with the visible item candidate list narrowed differently for `자유`, `스토리`, and battle modes.
 - Team builder now uses Pokemon-specific searchable move selectors backed by PostgreSQL move and learnset data, filters visible move candidates by the selected team format, blocks duplicate move selection within the same Pokemon slot, and styles selected move fields with the chosen move type color.
 - Team builder move names now apply local Korean override fallbacks for newer moves when PokeAPI Korean names are missing, so visible selector labels stay Korean-first instead of falling back to English.
+- Team builder move options currently stay national-dex-based rather than form-specific, so some form-only move exceptions such as Rotom appliance signature moves are still not exposed separately.
+- Team builder currently does not expose a general non-Mega form selector, so form-specific move handling beyond Mega evolution is intentionally deferred.
+- General non-Mega form selection is now treated as a future limited-scope expansion rather than an immediate MVP requirement.
 - Daily encounter state stores whether the current encounter is shiny.
 - My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
 - Captured Pokemon progress and saved teams still do not sync across devices or accounts.
