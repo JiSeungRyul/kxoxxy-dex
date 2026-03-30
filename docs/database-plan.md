@@ -28,7 +28,7 @@
 - Move snapshot path:
   - `data/move-catalog.json` <- `scripts/sync-moves.mjs` <- PokeAPI + `data/pokedex.json`
   - `data/move-catalog.json` -> `scripts/import-moves-to-db.mjs` -> PostgreSQL
-  - the generated move snapshot is local-only and should be recreated with `npm run sync:moves` before seeding on a fresh clone
+  - the generated move snapshot is local-only and `npm run db:seed:moves` now recreates it automatically before seeding
 
 ## Local DB Bootstrap Order
 When starting from a fresh environment, `docker compose up -d` is not enough by itself.
@@ -44,11 +44,9 @@ Use this order:
    - `npm run db:seed:pokedex`
 4. Import the local item snapshot into PostgreSQL:
    - `npm run db:seed:items`
-5. Generate the local move snapshot:
-   - `npm run sync:moves`
-6. Import the local move snapshot into PostgreSQL:
+5. Import the local move snapshot into PostgreSQL:
    - `npm run db:seed:moves`
-7. Start the app:
+6. Start the app:
    - `npm run dev`
 
 You can also run the DB bootstrap steps with the repository helper scripts:
@@ -65,8 +63,7 @@ Result:
 - `npm run db:migrate` creates the tables and indexes tracked in `drizzle/`.
 - `npm run db:seed:pokedex` populates catalog tables from `data/pokedex.json`.
 - `npm run db:seed:items` populates item tables from `data/item-catalog.json`.
-- `npm run sync:moves` regenerates the local move snapshot file from PokeAPI and the checked-in Pokemon snapshot.
-- `npm run db:seed:moves` populates move tables from `data/move-catalog.json`.
+- `npm run db:seed:moves` regenerates `data/move-catalog.json` from PokeAPI and the checked-in Pokemon snapshot, then populates move tables from it.
 - `npm run dev` starts the app against a non-empty local DB.
 
 ## Why This Is The Default Workflow

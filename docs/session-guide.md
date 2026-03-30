@@ -20,7 +20,7 @@ while snapshot generation and DB-backed runtime flows currently coexist.
 7. docs/performance-guide.md
 
 If the task depends on local PostgreSQL, read `docs/database-plan.md` for the required startup order:
-`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex` -> `npm run db:seed:items` -> `npm run sync:moves` -> `npm run db:seed:moves`.
+`docker compose up -d` -> `npm run db:migrate` -> `npm run db:seed:pokedex` -> `npm run db:seed:items` -> `npm run db:seed:moves`.
 
 If the task depends on /daily, /my-pokemon, /teams, or their state APIs, read docs/verification-guide.md before changing the verification flow.
 
@@ -41,7 +41,7 @@ If the task depends on route or API performance measurement, read docs/performan
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.
 - Snapshot generation still starts from PokeAPI and writes `data/pokedex.json`.
 - Additional item and move snapshot generation now writes `data/item-catalog.json` and `data/move-catalog.json`.
-- The generated move snapshot is local-only and should be recreated with `npm run sync:moves` before `npm run db:seed:moves` on a fresh clone.
+- The generated move snapshot is local-only, and `npm run db:seed:moves` now regenerates it automatically before importing into PostgreSQL.
 - PostgreSQL import still starts from local snapshot files and now populates `pokedex_*`, `item_*`, and `move_*` catalog tables.
 
 ## Files To Verify First
