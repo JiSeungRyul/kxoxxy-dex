@@ -31,6 +31,7 @@ import {
   formatTeamModeLabel,
   formatTeamTeraTypeLabel,
   getPokemonTeamMegaForms,
+  getPokemonTeamGeneralForms,
   getPokemonAbilityDescription,
   getTeamNatureEffect,
   formatTeamFormatLabel,
@@ -140,7 +141,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     Array.from({ length: 6 }, (_, index) => getEmptyTeamMember(index + 1)),
   );
   const [selectedPokemonCatalog, setSelectedPokemonCatalog] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
-  const [moveOptionsByDexNumber, setMoveOptionsByDexNumber] = useState<Record<number, PokedexMoveOptionEntry[]>>({});
+  const [moveOptionsBySlot, setMoveOptionsBySlot] = useState<Record<number, PokedexMoveOptionEntry[]>>({});
   const [pokemonSearchBySlot, setPokemonSearchBySlot] = useState<Record<number, string>>({});
   const [activePokemonSearchSlot, setActivePokemonSearchSlot] = useState<number | null>(null);
   const [itemSearchBySlot, setItemSearchBySlot] = useState<Record<number, string>>({});
@@ -161,6 +162,10 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     members.flatMap((member) => (member.nationalDexNumber === null ? [] : [member.nationalDexNumber])),
   )].sort((left, right) => left - right);
   const selectedDexNumbersKey = selectedDexNumbers.join(",");
+  const selectedMoveMembers = members.filter((member) => member.nationalDexNumber !== null);
+  const selectedMoveRequestKey = selectedMoveMembers
+    .map((member) => `${member.slot}:${member.nationalDexNumber}:${member.formKey ?? ""}`)
+    .join("|");
   const pokemonOptionByDexNumber = useMemo(
     () => new Map(pokemonOptions.map((entry) => [entry.nationalDexNumber, entry])),
     [pokemonOptions],
@@ -348,8 +353,8 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }, [selectedDexNumbersKey]);
 
   useEffect(() => {
-    if (selectedDexNumbers.length === 0) {
-      setMoveOptionsByDexNumber({});
+    if (selectedMoveMembers.length === 0) {
+      setMoveOptionsBySlot({});
       return;
     }
 
@@ -358,7 +363,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     void (async () => {
       try {
         const response = await fetch(
-          `/api/pokedex/moves?dexNumbers=${selectedDexNumbers.join(",")}&format=${encodeURIComponent(teamFormat)}`,
+          `/api/pokedex/moves?slots=${selectedMoveMembers.map((member) => member.slot).join(",")}&dexNumbers=${selectedMoveMembers.map((member) => member.nationalDexNumber).join(",")}&formKeys=${selectedMoveMembers.map((member) => member.formKey ?? "").join(",")}&format=${encodeURIComponent(teamFormat)}`,
           { signal: controller.signal },
         );
 
@@ -367,14 +372,14 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
         }
 
         const payload = (await response.json()) as TeamBuilderMoveResponse;
-        const nextMoveOptionsByDexNumber = Object.fromEntries(
-          (Array.isArray(payload.pokemonMoves) ? payload.pokemonMoves : []).map((entry) => [entry.nationalDexNumber, entry.moves]),
+        const nextMoveOptionsBySlot = Object.fromEntries(
+          (Array.isArray(payload.pokemonMoves) ? payload.pokemonMoves : []).map((entry) => [entry.slot, entry.moves]),
         ) as Record<number, PokedexMoveOptionEntry[]>;
 
-        setMoveOptionsByDexNumber(nextMoveOptionsByDexNumber);
+        setMoveOptionsBySlot(nextMoveOptionsBySlot);
       } catch {
         if (!controller.signal.aborted) {
-          setMoveOptionsByDexNumber({});
+          setMoveOptionsBySlot({});
         }
       }
     })();
@@ -382,7 +387,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     return () => {
       controller.abort();
     };
-  }, [selectedDexNumbersKey, teamFormat]);
+  }, [selectedMoveRequestKey, teamFormat]);
 
   useEffect(() => {
     setMembers((currentMembers) => {
@@ -399,6 +404,8 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
           return member;
         }
 
+        const generalForms = getPokemonTeamGeneralForms(selectedPokemon.nationalDexNumber, selectedPokemon);
+        const nextFormKey = generalForms.some((form) => form.key === member.formKey) ? member.formKey : null;
         const megaForms = getPokemonTeamMegaForms(selectedPokemon);
         const nextMegaFormKey =
           member.gimmick === "mega"
@@ -406,6 +413,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
             : null;
         const abilityOptions = getPokemonAbilityOptions(selectedPokemon, {
           gimmick: member.gimmick,
+          formKey: nextFormKey,
           megaFormKey: nextMegaFormKey,
         });
         const nextAbility = abilityOptions.some((ability) => ability.name === member.ability)
@@ -416,7 +424,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
             ? member.teraType ?? (selectedPokemon.name === "테라파고스" ? "stellar" : (selectedPokemon.types[0]?.name ?? null))
             : null;
         const allowedMoveNames = new Set(
-          (moveOptionsByDexNumber[member.nationalDexNumber] ?? [])
+          (moveOptionsBySlot[member.slot] ?? [])
             .filter((entry) => isPokedexMoveOptionAvailableForTeamFormat(entry, teamFormat))
             .map((entry) => entry.name),
         );
@@ -442,6 +450,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
 
         if (
           nextAbility === member.ability &&
+          nextFormKey === member.formKey &&
           nextMegaFormKey === member.megaFormKey &&
           nextTeraType === member.teraType &&
           nextMoves.every((moveName, index) => moveName === member.moves[index])
@@ -453,6 +462,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
         return {
           ...member,
           ability: nextAbility,
+          formKey: nextFormKey,
           megaFormKey: nextMegaFormKey,
           teraType: nextTeraType,
           moves: nextMoves,
@@ -461,7 +471,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
 
       return changed ? nextMembers : currentMembers;
     });
-  }, [members, moveOptionsByDexNumber, selectedPokemonCatalog, teamFormat]);
+  }, [members, moveOptionsBySlot, selectedPokemonCatalog, teamFormat]);
 
   useEffect(() => {
     setPokemonSearchBySlot((currentState) => {
@@ -690,6 +700,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     updateMember(slot, (currentMember) => ({
       ...currentMember,
       nationalDexNumber,
+      formKey: null,
       level: nationalDexNumber === null ? currentMember.level : defaultLevel,
       ability: abilityOptions.some((ability) => ability.name === currentMember.ability) ? currentMember.ability : abilityOptions[0]?.name ?? "",
       gimmick:
@@ -727,7 +738,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
 
   function handleMoveChange(slot: number, moveIndex: number, nextValue: string) {
     const member = members.find((entry) => entry.slot === slot) ?? null;
-    const availableMoveOptions = member?.nationalDexNumber ? (moveOptionsByDexNumber[member.nationalDexNumber] ?? []) : [];
+    const availableMoveOptions = member?.nationalDexNumber ? (moveOptionsBySlot[member.slot] ?? []) : [];
     const selectedOption = nextValue.length > 0
       ? availableMoveOptions.find((entry) => entry.name === nextValue) ?? null
       : null;
@@ -959,18 +970,24 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
           const selectedPokemon = member.nationalDexNumber
             ? selectedPokemonByDexNumber.get(member.nationalDexNumber)
             : undefined;
+          const generalForms = selectedPokemon ? getPokemonTeamGeneralForms(selectedPokemon.nationalDexNumber, selectedPokemon) : [];
+          const selectedGeneralForm = generalForms.find((form) => form.key === member.formKey) ?? null;
+          const displayTypes = selectedGeneralForm?.types ?? selectedPokemon?.types ?? [];
+          const displayStats = selectedGeneralForm?.stats ?? selectedPokemon?.stats ?? null;
+          const displayArtworkImageUrl = selectedGeneralForm?.artworkImageUrl ?? selectedPokemon?.artworkImageUrl ?? "";
           const abilityOptions = getPokemonAbilityOptions(selectedPokemon, {
             gimmick: member.gimmick,
+            formKey: member.formKey,
             megaFormKey: member.megaFormKey,
           });
           const selectedAbilityOption = abilityOptions.find((ability) => ability.name === member.ability) ?? null;
           const availableMoveOptions = member.nationalDexNumber
-            ? (moveOptionsByDexNumber[member.nationalDexNumber] ?? []).filter((entry) => isPokedexMoveOptionAvailableForTeamFormat(entry, teamFormat))
+            ? (moveOptionsBySlot[member.slot] ?? []).filter((entry) => isPokedexMoveOptionAvailableForTeamFormat(entry, teamFormat))
             : [];
           const evTotal = getTeamEvTotal(member.evs);
-          const battleStats = selectedPokemon
+          const battleStats = displayStats
             ? calculatePokemonBattleStats({
-                baseStats: selectedPokemon.stats,
+                baseStats: displayStats,
                 level: member.level,
                 ivs: member.ivs,
                 evs: member.evs,
@@ -997,7 +1014,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
             (gimmick) => gimmick !== "mega" && gimmick !== "zmove" && gimmick !== "dynamax" && gimmick !== "gigantamax" && gimmick !== "terastal",
           );
           const selectedManualGimmick = isMegaEnabled || isZMoveEnabled || isDynamaxEnabled || isGigantamaxEnabled || isTerastalEnabled ? "none" : normalizedMemberGimmick;
-          const selectedTeraType = member.teraType ?? selectedPokemon?.types[0]?.name ?? "normal";
+          const selectedTeraType = member.teraType ?? displayTypes[0]?.name ?? "normal";
           const isTerapagos = selectedPokemon?.name === "테라파고스";
           const megaForms = getPokemonTeamMegaForms(selectedPokemon);
           const selectedMegaFormKey = megaForms.find((form) => form.key === member.megaFormKey)?.key ?? megaForms[0]?.key ?? null;
@@ -1016,10 +1033,15 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                         <h3 className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
                           {selectedPokemon.name}
                         </h3>
+                        {selectedGeneralForm ? (
+                          <span className="rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
+                            {selectedGeneralForm.label}
+                          </span>
+                        ) : null}
                         <p className="text-sm text-muted-foreground">{formatDexNumber(selectedPokemon.nationalDexNumber)}</p>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedPokemon.types.map((type) => (
+                        {displayTypes.map((type) => (
                           <span
                             key={type.name}
                             className={`inline-flex rounded-xl border px-3 py-1.5 text-xs font-semibold tracking-[0.04em] ${TYPE_BADGE_STYLES[type.name]}`}
@@ -1042,7 +1064,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                 <div className="flex h-24 w-24 items-center justify-center rounded-full border border-border bg-background">
                   {selectedPokemon ? (
                     <Image
-                      src={selectedPokemon.artworkImageUrl}
+                      src={displayArtworkImageUrl}
                       alt={selectedPokemon.name}
                       width={96}
                       height={96}
@@ -1123,6 +1145,31 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                     ) : null}
                   </div>
                 </div>
+                {selectedPokemon && generalForms.length > 0 ? (
+                  <label className="space-y-2">
+                    <span className="text-sm font-semibold text-foreground">일반 폼</span>
+                    <select
+                      value={member.formKey ?? "__default__"}
+                      onChange={(event) =>
+                        updateMember(member.slot, (currentMember) => ({
+                          ...currentMember,
+                          formKey: event.target.value === "__default__" ? null : event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                    >
+                      <option value="__default__">기본</option>
+                      {generalForms.map((form) => (
+                        <option key={form.key} value={form.key}>
+                          {form.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      현재 1차 일반 폼 지원은 로토무 appliance 폼과 일부 지역 폼만 제공합니다.
+                    </p>
+                  </label>
+                ) : null}
                 {showGimmickControls ? (
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-foreground">기믹</p>

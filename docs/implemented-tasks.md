@@ -282,3 +282,47 @@
 - `2026-03-30`: Reviewed whether form-specific move exceptions can be handled safely without a general form selector. Current conclusion: no reliable generic strategy exists in the current model. Because saved team members only store `nationalDexNumber`, `gimmick`, `megaFormKey`, and `teraType`, any non-Mega form-specific move allowance would require hidden inference or implicit form selection and would break validation consistency.
 - `2026-03-30`: Reviewed the minimum scope required if non-Mega form selection is introduced later. Current recommendation is to treat it as a dedicated follow-up project rather than a small patch: add `formKey` to team-member draft/storage, persist it in `team_members`, limit the first supported form set to battle-relevant cases, and only then extend move-option queries beyond national-dex-only filtering.
 - `2026-03-30`: Chose the product direction for non-Mega form handling. The current recommendation is a limited first-pass expansion rather than a full generic form-builder rollout: keep `formKey`-based general form support as a future task, and if the work is picked up later, start with a narrow set of high-value forms rather than every multi-form species at once.
+
+## Team Member Form Key Storage Groundwork (Added: 2026-03-31)
+- Added `formKey` to the team-member draft/storage model so saved teams can carry a future general-form selection separately from the existing Mega-only `megaFormKey`.
+- Added the `0013_team_member_form_key` migration and Drizzle schema entry so `team_members` can persist a nullable `form_key` without breaking existing saved teams.
+- Wired `/api/teams/state` save/load round-trips through the repository sanitization path so `formKey` is normalized and preserved even though the current team-builder UI does not expose general form selection yet.
+
+## First-Pass General Form Scope Decision (Added: 2026-03-31)
+- Locked the first non-Mega general-form support target to Rotom appliance forms only: `heat`, `wash`, `frost`, `fan`, and `mow`.
+- Chose Rotom first because the current move-selector review already confirmed a concrete correctness gap there: appliance signature moves such as `오버히트`, `하이드로펌프`, `리프스톰`, `블리자드`, and `에어슬래시` are missing without explicit form state.
+- Kept the first pass intentionally narrow so the next `formKey` follow-up can stay focused on one bounded selector and one bounded move-query expansion instead of reopening the whole regional-form catalog at once.
+- Explicitly kept excluded general-form groups in the backlog instead of treating them as permanently out of scope.
+- Deferred broader regional-form rollout for now because supporting Alola, Galar, Hisui, and Paldea forms together would widen the first-pass selector, label, and move-query surface too much for the current step.
+- Deferred higher-complexity legendary or battle-state form groups such as Giratina, Shaymin, Calyrex, Zygarde, and Paldea Tauros breeds because they either expand beyond the current Rotom-driven correctness gap or need additional label, validation, or broader form-UX cleanup before they can be added safely.
+
+## Regional Form Expansion Review (Added: 2026-03-31)
+- Reviewed the regional-form catalog as the next post-Rotom general-form follow-up instead of treating every Alola, Galar, Hisui, and Paldea variant as one implementation batch.
+- Narrowed the first regional-form candidate set to species that only need one extra regional selector branch per dex number: `알로라 라이츄`, `알로라 식스테일/나인테일`, `히스이 가디/윈디`, `팔데아 우파`, and `히스이 조로아/조로아크`.
+- Chose that shortlist because each candidate can be identified by one `formKey`, does not reopen the current Mega path, and does not immediately require the same multi-branch selector complexity seen in species like Meowth.
+- Left move-query handling intentionally unresolved for the shortlist: the next implementation step should only add form-specific move exceptions where an actual learnset gap is verified, instead of broadening the whole move API up front.
+- Kept same-dex multi-region cases such as `나옹(알로라/가라르)` out of the first regional pass because they increase selector copy, saved-state clarity, and validation complexity.
+- Kept regional legendary birds under the legendary/mythical follow-up bucket and Paldea Tauros breeds under the multi-form/complex-rule bucket so those higher-complexity groups do not get pulled into the simpler regional rollout by accident.
+
+## Regional Form Selector First Pass (Added: 2026-03-31)
+- Extended the team-builder `generalForms` allowlist beyond Rotom so the selector, saved `formKey`, and form-based normalization now also cover `알로라 라이츄`, `알로라 식스테일/나인테일`, `히스이 가디/윈디`, `팔데아 우파`, and `히스이 조로아/조로아크`.
+- Kept the change deliberately small by reusing the existing `formKey` storage path and the same team-builder selector UI instead of introducing a separate regional-form model.
+- Updated the server-backed team-builder catalog payload to derive supported `generalForms` from the shared allowlist rather than a Rotom-only SQL branch, so future bounded regional additions can reuse the same path.
+
+## Same-Dex Multi-Region Form Selector First Pass (Added: 2026-03-31)
+- Extended the existing regional-form selector allowlist to cover `나옹` with both `알로라` and `가라르` options under the same national dex number.
+- Kept the implementation on the current `formKey` path so selector rendering, save/load normalization, and selected-detail rendering reuse the same bounded general-form model instead of introducing a separate same-dex regional-form abstraction.
+- Left move-query overrides unchanged for this step because the current docs and local payload review did not identify a high-signal `나옹` move gap that justified widening the exception table.
+
+## Regional Form Move Override First Pass (Added: 2026-03-31)
+- Extended the existing slot + `formKey` move-override path beyond Rotom, but only for shortlisted regional forms where a concrete selector correctness gap was found.
+- Added the smallest current override set: `알로라 라이츄 -> 사이코키네시스`, `알로라 식스테일 -> 프리즈드라이`, `알로라 나인테일 -> 오로라베일/문포스`, `히스이 윈디 -> 양날박치기`, and `히스이 조로아크 -> Bitter Malice`.
+- Left `팔데아 우파`, `히스이 가디`, and `히스이 조로아` on the selector shortlist without move overrides because the current local review did not show a strong enough learnset-correctness gap to justify widening the exception table yet.
+- Kept the override model intentionally table-driven inside the repository so the current MVP can stay on the national-dex move catalog while still patching the highest-signal form-specific gaps.
+
+## Rotom First-Pass General Form Support (Added: 2026-03-31)
+- Added a limited non-Mega general-form selector to `/teams` for Rotom appliance forms only: `히트`, `워시`, `프로스트`, `스핀`, and `커트`.
+- Extended the team-builder detail payload so Rotom form entries now carry the minimal artwork, type, stat, and ability data needed to render the selected form correctly in the current team slot.
+- Changed `/api/pokedex/moves` and the team-builder move-loading path to use slot-aware member input plus `formKey`, so duplicate dex numbers can still be handled safely and the correct Rotom appliance signature move can be exposed in the matching slot.
+- Added a small Rotom-only move override layer on top of the current national-dex move catalog so the selected appliance form now exposes `오버히트`, `하이드로펌프`, `리프스톰`, `눈보라`, or `에어슬래시` without broadening the whole form-specific learnset model yet.
+- Matched team save/load normalization and move validation to the new Rotom `formKey` path so saved teams keep the selected appliance form and invalid form-move combinations are rejected on save.
