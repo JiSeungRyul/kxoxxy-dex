@@ -1,14 +1,15 @@
-﻿export const ANONYMOUS_SESSION_STORAGE_KEY = "kxoxxy-anonymous-session";
+export const LEGACY_ANONYMOUS_SESSION_STORAGE_KEY = "kxoxxy-anonymous-session";
 
-export function getOrCreateAnonymousSessionId() {
-  const storedSessionId = window.localStorage.getItem(ANONYMOUS_SESSION_STORAGE_KEY);
+export function getLegacyAnonymousSessionId() {
+  const storedSessionId = window.localStorage.getItem(LEGACY_ANONYMOUS_SESSION_STORAGE_KEY);
 
-  if (storedSessionId) {
-    return storedSessionId;
+  if (typeof storedSessionId !== "string" || storedSessionId.trim().length === 0) {
+    return null;
   }
 
-  const sessionId = window.crypto.randomUUID();
-  window.localStorage.setItem(ANONYMOUS_SESSION_STORAGE_KEY, sessionId);
+  return storedSessionId;
+}
 
-  return sessionId;
+export function clearLegacyAnonymousSessionId() {
+  window.localStorage.removeItem(LEGACY_ANONYMOUS_SESSION_STORAGE_KEY);
 }

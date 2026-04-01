@@ -33,6 +33,8 @@
 - Daily encounter now uses anonymous-session-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
 - My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- The daily and team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie, and the current client no longer generates new `sessionId` values in local storage.
+- When an older browser still has a legacy `kxoxxy-anonymous-session` local-storage value, the client now forwards it only during the first state load so the server can migrate that browser onto the shared cookie boundary.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
 - Team builder now blocks saving duplicate species and duplicate held items in `대전 싱글` and `대전 더블`.
 - Team builder now starts new members at level `50` in every mode, allows manual level adjustment up to `100` in `자유` and `스토리`, and caps manual level adjustment at `50` in `대전 싱글` and `대전 더블`.

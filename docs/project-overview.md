@@ -9,6 +9,7 @@
 - Keep the Pokedex experience as the core browsing surface.
 - Expand into account-backed user features such as captured Pokemon history, favorites, and team building.
 - Move toward a cleaner separation between catalog data, user-owned state, and future operational content.
+- As the migration continues, clarify the runtime boundary into a frontend UI layer, a server/API layer, and a PostgreSQL-backed data layer, while still keeping snapshot generation and import in the data pipeline during the current hybrid phase.
 
 ## MVP Scope
 - Browse Pokemon list data

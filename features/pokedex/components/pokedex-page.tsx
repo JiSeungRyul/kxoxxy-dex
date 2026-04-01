@@ -11,7 +11,7 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
-import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
+import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
@@ -68,20 +68,6 @@ type PokemonCatalogResponse<T> = {
 };
 
 const POKEDEX_COLLECTION_STORAGE_KEY = "kxoxxy-pokedex-collection";
-const DAILY_ANONYMOUS_SESSION_STORAGE_KEY = "kxoxxy-daily-anonymous-session";
-
-function getOrCreateDailyAnonymousSessionId() {
-  const storedSessionId = window.localStorage.getItem(DAILY_ANONYMOUS_SESSION_STORAGE_KEY);
-
-  if (storedSessionId) {
-    return storedSessionId;
-  }
-
-  const sessionId = window.crypto.randomUUID();
-  window.localStorage.setItem(DAILY_ANONYMOUS_SESSION_STORAGE_KEY, sessionId);
-
-  return sessionId;
-}
 
 export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "pokedex", serverListState }: PokedexPageProps) {
   const router = useRouter();
@@ -100,7 +86,6 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [currentPage, setCurrentPage] = useState(serverListState?.query.page ?? 1);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
-  const [dailyAnonymousSessionId, setDailyAnonymousSessionId] = useState<string | null>(null);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
   const [dailyPokemonDetails, setDailyPokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
   const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
@@ -178,22 +163,23 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
 
   useEffect(() => {
     if (usesServerCollectionState) {
-      const nextDailyAnonymousSessionId = getOrCreateAnonymousSessionId();
-      setDailyAnonymousSessionId(nextDailyAnonymousSessionId);
-
       const controller = new AbortController();
+      const legacySessionId = getLegacyAnonymousSessionId();
+      const stateUrl =
+        legacySessionId === null
+          ? "/api/daily/state"
+          : `/api/daily/state?sessionId=${encodeURIComponent(legacySessionId)}`;
 
       void (async () => {
         try {
-          const response = await fetch(`/api/daily/state?sessionId=${encodeURIComponent(nextDailyAnonymousSessionId)}`, {
-            signal: controller.signal,
-          });
+          const response = await fetch(stateUrl, { signal: controller.signal });
 
           if (!response.ok) {
             throw new Error("Failed to load daily collection state.");
           }
 
           const nextState = sanitizeCollectionState(await response.json());
+          clearLegacyAnonymousSessionId();
           persistCollectionState(nextState);
         } catch {
           try {
@@ -494,7 +480,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   }
 
   async function syncDailyCollectionState(action: "capture" | "reset" | "reroll" | "release", nationalDexNumber?: number) {
-    if (!dailyAnonymousSessionId || isSyncingDailyState) {
+    if (isSyncingDailyState) {
       return;
     }
 
@@ -507,7 +493,6 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionId: dailyAnonymousSessionId,
           action,
           nationalDexNumber,
         }),

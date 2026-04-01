@@ -5,7 +5,11 @@
 - The runtime is hybrid:
   - list, detail, daily, and my-pokemon catalog reads are DB-backed
   - snapshot generation and DB import still coexist in the data pipeline
+- The target runtime shape is a clearer frontend UI -> server/API -> PostgreSQL data boundary, even while the catalog source pipeline remains hybrid for now.
 - Daily encounter, collection state, and saved team data are stored per anonymous session in PostgreSQL.
+- That anonymous-session ownership is still transitional; the long-term target is a cleaner `user_id`-based ownership boundary once auth work begins.
+- The daily and team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie.
+- The current client no longer creates new anonymous-session ids in local storage and only forwards an older stored session id once when migrating a browser onto the shared cookie boundary.
 - The client still mirrors collection state into `localStorage` as a compatibility fallback.
 
 ## High-Level Structure
@@ -57,8 +61,8 @@
 
 ### Daily And Collection Routes
 1. `app/daily/page.tsx` loads a dex-number-only daily candidate snapshot from PostgreSQL through `getPokedexDailyDexNumberSnapshot()`
-2. The client creates or reuses an anonymous session id in local storage
-3. `app/api/daily/state/route.ts` reads and writes anonymous-session daily state through PostgreSQL
+2. The current client requests daily state through the server-managed cookie boundary and only forwards a legacy stored session id once when migrating an older browser
+3. `app/api/daily/state/route.ts` issues or reuses a shared server-managed `httpOnly` anonymous-session cookie and reads/writes anonymous-session daily state through PostgreSQL
 4. `PokedexPage` fetches encounter and recent-capture detail on demand through `app/api/pokedex/catalog/route.ts` when the daily client state is ready
 5. `app/my-pokemon/page.tsx` ships no gallery catalog on first render and relies on the same anonymous-session collection state to request captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
 6. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
@@ -67,8 +71,8 @@
 ### Team Routes
 1. `app/teams/page.tsx` loads a small team-builder option list with dex number, Korean name, generation, and Pokedex-name metadata plus reduced item option entries from PostgreSQL through `getPokedexTeamBuilderOptionSnapshot()` and `getPokedexTeamBuilderItemOptionSnapshot()`
 2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` and selected slot-aware move options on demand through `app/api/pokedex/moves/route.ts` so the first render does not ship the full team-builder catalog or move learnset data
-3. The client creates or reuses the same anonymous session id used by daily and collection flows
-4. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
+3. The current client requests team state through the same server-managed cookie boundary and only forwards a legacy stored session id once when migrating an older browser
+4. `app/api/teams/state/route.ts` issues or reuses the same shared server-managed `httpOnly` anonymous-session cookie and reads/writes team and team-member rows through PostgreSQL
 5. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
 6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 7. Saved team members now persist a nullable `formKey` field for limited non-Mega form support, separate from the existing Mega-only `megaFormKey`
@@ -110,6 +114,12 @@
   - anonymous server persistence exists, but account-linked user persistence does not
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
+
+## Ownership Transition Scope
+- The current runtime owner for daily and team state is still `anonymous_session_id`.
+- The long-term durable owner should be `user_id` once auth work begins.
+- The current project plan does not require preserving or merging old anonymous development-era records into future user-owned records.
+- That means the ownership follow-up is primarily a schema-and-runtime-boundary planning task, not a legacy-data migration project.
 
 ## Cache Strategy Review Scope (Added: 2026-03-25)
 

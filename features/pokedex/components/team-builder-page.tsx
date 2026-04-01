@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
+import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import type {
   PokedexItemOptionEntry,
   PokedexMoveOptionEntry,
@@ -132,7 +132,6 @@ function getMoveFieldClasses(option: PokedexMoveOptionEntry | null) {
 export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [teams, setTeams] = useState<PokemonTeam[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -213,14 +212,20 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     return warnings;
   }, [isBattleMode, members, selectedPokemonByDexNumber]);
 
-  async function loadTeams(nextSessionId: string) {
-    const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
+  async function loadTeams() {
+    const legacySessionId = getLegacyAnonymousSessionId();
+    const stateUrl =
+      legacySessionId === null
+        ? "/api/teams/state"
+        : `/api/teams/state?sessionId=${encodeURIComponent(legacySessionId)}`;
+    const response = await fetch(stateUrl);
 
     if (!response.ok) {
       throw new Error("팀 목록을 불러오지 못했습니다.");
     }
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
+    clearLegacyAnonymousSessionId();
     setTeams(Array.isArray(payload.teams) ? payload.teams : []);
 
     return Array.isArray(payload.teams) ? payload.teams : [];
@@ -261,12 +266,9 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }
 
   useEffect(() => {
-    const nextSessionId = getOrCreateAnonymousSessionId();
-    setSessionId(nextSessionId);
-
     void (async () => {
       try {
-        const nextTeams = await loadTeams(nextSessionId);
+        const nextTeams = await loadTeams();
         const matchedTeam = Number.isInteger(selectedTeamId)
           ? nextTeams.find((entry) => entry.id === selectedTeamId) ?? null
           : null;
@@ -769,10 +771,6 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }
 
   async function handleSave() {
-    if (!sessionId) {
-      return;
-    }
-
     const normalizedTeamName = teamName.trim();
 
     if (normalizedTeamName.length === 0) {
@@ -831,7 +829,6 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionId,
           action: "save",
           team: {
             id: teamId,

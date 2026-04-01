@@ -31,11 +31,12 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
 - `/daily` now loads a dex-number-only daily candidate index through PostgreSQL-backed catalog queries and fetches encounter/recent-capture detail on demand through `app/api/pokedex/catalog`.
-- `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags.
+- `/daily` stores anonymous-session encounter and capture state in PostgreSQL, including shiny flags, and the daily/team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie.
 - `/my-pokemon` now loads captured Pokemon detail on demand through `app/api/pokedex/catalog` after anonymous-session collection state is loaded, instead of shipping the gallery catalog on first render.
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
 - `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
-- `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
+- `/teams` and `/my-teams` read and write team data through the same anonymous-session-backed PostgreSQL APIs and shared server-managed `httpOnly` cookie boundary, including per-member level configuration.
+- The current client no longer creates new anonymous-session ids in local storage and only forwards an older stored session id once when migrating a browser onto the shared cookie boundary.
 - `/teams` now has a first-pass general form selector for Rotom appliance forms, a small regional-form shortlist including `나옹(알로라/가라르)`, a small legendary/mythical shortlist (`기라티나 오리진폼`, `쉐이미 스카이폼`), and `팔데아 켄타로스` breed forms, and the move API uses slot + `formKey` input so matching form-specific move overrides can be exposed where the current MVP supports them.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
@@ -94,4 +95,26 @@ If the task depends on route or API performance measurement, read docs/performan
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
   - architecture and product docs must be updated when runtime paths change
+
+## Latest Session Handoff (2026-04-02)
+- The anonymous-session hardening work in backlog item `22` is fully completed.
+- Current session behavior:
+  - the daily/team state APIs issue or reuse a shared `httpOnly` `kxoxxy-anonymous-session` cookie
+  - the client no longer creates new anonymous session ids in `localStorage`
+  - an older `localStorage["kxoxxy-anonymous-session"]` value is forwarded only once to migrate a browser onto the cookie boundary
+- Local verification already completed for the cookie-based session flow:
+  - `npm run typecheck`
+  - `npm run build`
+  - local smoke checks for `/daily`, `/my-pokemon`, `/teams`, `/my-teams`
+  - `GET /api/daily/state`
+  - `GET /api/teams/state`
+  - `/api/teams/state` save/delete round-trip
+- Backlog item `23` is also fully defined at the planning/documentation level.
+- The key `23` decision is:
+  - future durable ownership should move to `user_id`
+  - legacy anonymous-session data migration/merge is intentionally out of scope because this is not a live production app
+- The main documents for that ownership decision are:
+  - `docs/database-plan.md`
+  - `docs/architecture.md`
+- The next practical task is backlog item `24`: tighten post-migration and post-restart verification guidance.
 

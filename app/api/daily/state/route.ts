@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { applyAnonymousSessionCookie, resolveAnonymousSessionId } from "@/features/pokedex/server/anonymous-session";
 import {
   captureDailyEncounter,
   getDailyCollectionState,
@@ -10,44 +11,38 @@ import {
 
 type DailyAction = "capture" | "reset" | "reroll" | "release";
 
-function isValidSessionId(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("sessionId");
+  const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, searchParams.get("sessionId"));
+  const state = await getDailyCollectionState(sessionId);
+  const response = NextResponse.json(state);
 
-  if (!isValidSessionId(sessionId)) {
-    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  if (shouldSetCookie) {
+    applyAnonymousSessionCookie(response, sessionId);
   }
 
-  const state = await getDailyCollectionState(sessionId);
-  return NextResponse.json(state);
+  return response;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     sessionId?: string;
     action?: DailyAction;
     nationalDexNumber?: number;
   };
-
-  if (!isValidSessionId(body.sessionId)) {
-    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
-  }
+  const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, body.sessionId);
 
   let state;
 
   switch (body.action) {
     case "capture":
-      state = await captureDailyEncounter(body.sessionId);
+      state = await captureDailyEncounter(sessionId);
       break;
     case "reset":
-      state = await resetDailyEncounterCapture(body.sessionId);
+      state = await resetDailyEncounterCapture(sessionId);
       break;
     case "reroll":
-      state = await rerollDailyEncounter(body.sessionId);
+      state = await rerollDailyEncounter(sessionId);
       break;
     case "release":
       if (!Number.isInteger(body.nationalDexNumber)) {
@@ -56,12 +51,18 @@ export async function POST(request: Request) {
 
       {
         const nationalDexNumber = Number(body.nationalDexNumber);
-        state = await releaseCapturedPokemon(body.sessionId, nationalDexNumber);
+        state = await releaseCapturedPokemon(sessionId, nationalDexNumber);
       }
       break;
     default:
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
   }
 
-  return NextResponse.json(state);
+  const response = NextResponse.json(state);
+
+  if (shouldSetCookie) {
+    applyAnonymousSessionCookie(response, sessionId);
+  }
+
+  return response;
 }

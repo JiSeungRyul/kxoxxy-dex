@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
+import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import type { PokemonBaseStats, PokemonTeam } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
@@ -51,8 +51,13 @@ export function MyTeamsPage() {
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadTeams(sessionId: string) {
-    const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(sessionId)}`);
+  async function loadTeams() {
+    const legacySessionId = getLegacyAnonymousSessionId();
+    const stateUrl =
+      legacySessionId === null
+        ? "/api/teams/state"
+        : `/api/teams/state?sessionId=${encodeURIComponent(legacySessionId)}`;
+    const response = await fetch(stateUrl);
 
     if (!response.ok) {
       throw new Error("저장된 팀을 불러오지 못했습니다.");
@@ -60,16 +65,15 @@ export function MyTeamsPage() {
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
     const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
+    clearLegacyAnonymousSessionId();
     setTeams(nextTeams);
     setExpandedTeamId((currentTeamId) => currentTeamId ?? nextTeams[0]?.id ?? null);
   }
 
   useEffect(() => {
-    const sessionId = getOrCreateAnonymousSessionId();
-
     void (async () => {
       try {
-        await loadTeams(sessionId);
+        await loadTeams();
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "저장된 팀을 불러오지 못했습니다.");
       } finally {
@@ -79,7 +83,6 @@ export function MyTeamsPage() {
   }, []);
 
   async function deleteTeam(teamId: number) {
-    const sessionId = getOrCreateAnonymousSessionId();
     setDeletingTeamId(teamId);
     setError(null);
 
@@ -90,7 +93,6 @@ export function MyTeamsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionId,
           action: "delete",
           teamId,
         }),

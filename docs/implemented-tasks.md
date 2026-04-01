@@ -277,6 +277,17 @@
 - Added `팔데아 컴뱃종`, `팔데아 블레이즈종`, and `팔데아 아쿠아종` as selectable saved-team general forms so breed-specific artwork, types, stats, and abilities follow the selected breed in the existing team builder flow.
 - Kept `지가르데` and similar ambiguous multi-state form groups in follow-up backlog because the current snapshot and selector model do not yet cleanly separate passive form choice from battle-state transformation semantics.
 
+## Server-Managed Anonymous Session Boundary (Added: 2026-04-01)
+- Added a shared server-side anonymous-session helper for the daily and team state APIs so the server can issue or reuse a `kxoxxy-anonymous-session` `httpOnly` cookie.
+- Removed new client-side anonymous-session id generation and direct `sessionId` submission from the daily and team flows.
+- Kept a one-time legacy local-storage session handoff so older browsers can migrate onto the shared cookie boundary without immediately losing anonymous daily or team state.
+- Completed a local cookie-based smoke pass on 2026-04-01 covering `/daily`, `/my-pokemon`, `/teams`, `/my-teams`, `GET /api/daily/state`, `GET /api/teams/state`, and a team save/delete round-trip through `/api/teams/state`.
+
+## User Ownership Transition Definition (Added: 2026-04-01)
+- Defined the current anonymous ownership scope for daily and team state in `docs/database-plan.md`, including the current owner tables and affected APIs.
+- Defined the target long-term ownership model as `user_id`-based rather than `anonymous_session_id`-based once auth work begins.
+- Explicitly kept legacy anonymous-session data migration and merge logic out of scope because this repository is not currently operating with production user data.
+
 ## Move Catalog Groundwork (Added: 2026-03-30)
 - Added `scripts/sync-moves.mjs` to fetch the full PokeAPI move list and extract per-Pokemon learnset rows using the local `data/pokedex.json` species snapshot.
 - Added `PokedexMove`, `PokedexPokemonMove`, and `PokedexMoveSnapshot` types plus `move_snapshots`, `move_catalog`, and `pokemon_move_catalog` schema entries for future move-backed team-builder work.

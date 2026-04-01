@@ -26,9 +26,9 @@
 - If daily or team DB changes were applied on Windows, restart the local Next.js server before smoke checks.
 
 ## Session Keys Used By The Current Client
-- Daily and My Pokemon share `localStorage["kxoxxy-daily-anonymous-session"]`.
 - Daily and My Pokemon still mirror collection fallback data into `localStorage["kxoxxy-pokedex-collection"]`.
-- Teams and My Teams share `localStorage["kxoxxy-anonymous-session"]`.
+- The daily and team state APIs now also issue or reuse a shared `httpOnly` cookie named `kxoxxy-anonymous-session`.
+- Older browsers may still carry a legacy `localStorage["kxoxxy-anonymous-session"]` value, but the current client only forwards it during the first state load so the server can migrate that browser onto the cookie boundary.
 
 ## Recommended Baseline Check
 - Run `npm run typecheck` before manual smoke checks when the task changed route, API, or repository code.
@@ -48,9 +48,9 @@
   - Open `/teams`
   - Open `/my-teams`
 - Minimum API checks after migration:
-  - `GET /api/daily/state?sessionId=...`
+  - `GET /api/daily/state`
   - `POST /api/daily/state` with `action: "reroll"`
-  - `GET /api/teams/state?sessionId=...`
+  - `GET /api/teams/state`
   - `POST /api/teams/state` with `action: "save"`
   - `POST /api/teams/state` with `action: "delete"`
 - Minimum success signals after migration:
@@ -80,9 +80,9 @@
 ### `/daily`
 - Open `/daily` in a clean browser session.
 - Confirm the page renders without a server error before any interaction.
-- Confirm the browser creates or reuses `kxoxxy-daily-anonymous-session`.
+- Confirm the browser receives or reuses the `kxoxxy-anonymous-session` `httpOnly` cookie.
 - Confirm the client requests:
-  - `GET /api/daily/state?sessionId=...`
+  - `GET /api/daily/state`
   - `GET /api/pokedex/catalog?view=daily&dexNumbers=...`
 - Confirm the main encounter card appears after the state request completes.
 - Click capture and confirm:
@@ -101,7 +101,7 @@
 - Open `/my-pokemon`.
 - Confirm the page renders without shipping a gallery catalog on first render.
 - Confirm the client requests:
-  - `GET /api/daily/state?sessionId=...`
+  - `GET /api/daily/state`
   - `GET /api/pokedex/catalog?view=my-pokemon&dexNumbers=...` only when captured dex numbers exist
 - Confirm captured cards render after the collection state loads.
 - Release one captured Pokemon and confirm:
@@ -112,11 +112,11 @@
 ### `/teams`
 - Open `/teams` in a clean browser session.
 - Confirm the page renders without a server error.
-- Confirm the browser creates or reuses `kxoxxy-anonymous-session`.
+- Confirm the browser receives or reuses the `kxoxxy-anonymous-session` `httpOnly` cookie.
 - Confirm the first render ships only the reduced team-builder option payload, not the full selected-detail catalog.
   - The reduced payload now includes dex number, Korean name, generation, and Pokedex-name metadata for conservative format-based candidate narrowing.
 - Select one or more Pokemon and confirm the client requests:
-  - `GET /api/teams/state?sessionId=...`
+  - `GET /api/teams/state`
   - `GET /api/pokedex/catalog?view=teams&dexNumbers=...` after selection
   - `GET /api/pokedex/moves?slots=...&dexNumbers=...&formKeys=...&format=...` after selection
 - Save a team and confirm:
@@ -145,7 +145,8 @@
 ## API Smoke Flow
 
 ### `/api/daily/state`
-- Missing session id should return `400` from `GET` and `POST`.
+- First request without a cookie should still succeed because the route can issue a fresh anonymous-session cookie.
+- Missing `sessionId` should no longer return `400` when a valid cookie is present or the route needs to mint a fresh cookie.
 - Valid `GET` should return a `PokedexCollectionState`-shaped payload:
   - `capturedDexNumbers`
   - `shinyCapturedDexNumbers`
@@ -159,7 +160,8 @@
 - `release` must include `nationalDexNumber` or return `400`.
 
 ### `/api/teams/state`
-- Missing session id should return `400` from `GET` and `POST`.
+- First request without a cookie should still succeed because the route can issue a fresh anonymous-session cookie.
+- Missing `sessionId` should no longer return `400` when a valid cookie is present or the route needs to mint a fresh cookie.
 - Valid `GET` should return `{ "teams": [...] }`.
 - Valid `POST` actions are:
   - `save`
@@ -200,15 +202,15 @@
 - Replace the session id placeholder before running the commands.
 
 ```powershell
-curl.exe "http://localhost:3000/api/daily/state?sessionId=replace-me"
+curl.exe -c cookiejar.txt "http://localhost:3000/api/daily/state"
 curl.exe "http://localhost:3000/api/pokedex/catalog?view=daily&dexNumbers=25,133"
-curl.exe "http://localhost:3000/api/teams/state?sessionId=replace-me"
+curl.exe -b cookiejar.txt "http://localhost:3000/api/teams/state"
 curl.exe "http://localhost:3000/api/pokedex/moves?slots=1&dexNumbers=479&formKeys=heat&format=gen9"
 ```
 
 ```powershell
-curl.exe -X POST "http://localhost:3000/api/daily/state" -H "Content-Type: application/json" -d '{"sessionId":"replace-me","action":"reroll"}'
-curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: application/json" -d '{"sessionId":"replace-me","action":"delete","teamId":1}'
+curl.exe -b cookiejar.txt -X POST "http://localhost:3000/api/daily/state" -H "Content-Type: application/json" -d '{"action":"reroll"}'
+curl.exe -b cookiejar.txt -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: application/json" -d '{"action":"delete","teamId":1}'
 ```
 
 ## Payload-Split Regression Checks

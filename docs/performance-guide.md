@@ -56,8 +56,8 @@ curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/daily
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/my-pokemon
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/teams
-curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 "http://localhost:3002/api/daily/state?sessionId=perf-dev-daily"
-curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 "http://localhost:3002/api/teams/state?sessionId=perf-dev-team"
+curl.exe -s -c cookiejar-dev.txt -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/api/daily/state
+curl.exe -s -b cookiejar-dev.txt -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/api/teams/state
 ```
 
 ### Start
@@ -71,8 +71,8 @@ curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{ti
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/daily
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/my-pokemon
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/teams
-curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 "http://localhost:3003/api/daily/state?sessionId=perf-start-daily"
-curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 "http://localhost:3003/api/teams/state?sessionId=perf-start-team"
+curl.exe -s -c cookiejar-start.txt -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/api/daily/state
+curl.exe -s -b cookiejar-start.txt -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/api/teams/state
 ```
 
 ## Latest Local Measurements
