@@ -13,6 +13,7 @@
   - `/api/daily/state`
   - `/api/teams/state`
   - `/api/pokedex/catalog`
+  - `/api/pokedex/moves`
 
 ## Preconditions
 - Local PostgreSQL is running and seeded:
@@ -117,10 +118,20 @@
 - Select one or more Pokemon and confirm the client requests:
   - `GET /api/teams/state?sessionId=...`
   - `GET /api/pokedex/catalog?view=teams&dexNumbers=...` after selection
+  - `GET /api/pokedex/moves?slots=...&dexNumbers=...&formKeys=...&format=...` after selection
 - Save a team and confirm:
   - `POST /api/teams/state` with `action: "save"` succeeds
   - the route updates to `/teams?teamId=...`
   - refreshing the page keeps the saved team loaded
+- With the move selector enabled, also confirm:
+  - the move API returns move options for the selected Pokemon and current format
+  - saving a valid move set succeeds
+  - saving duplicate moves inside the same member slot fails with a validation error
+- With Rotom selected, also confirm:
+  - the `일반 폼` selector appears
+  - choosing `히트`, `워시`, `프로스트`, `스핀`, or `커트` updates the visible type badges and artwork
+  - the matching signature move becomes selectable only for the matching form
+  - saving and reloading the team preserves the selected Rotom form
 - Delete the saved team from `/my-teams` or through the API and confirm it disappears on reload.
 
 ## API Smoke Flow
@@ -160,6 +171,23 @@
   - `my-pokemon`: `PokemonCollectionPageEntry[]`
   - `teams`: `PokemonTeamBuilderCatalogEntry[]`
 
+### `/api/pokedex/moves`
+- Missing or invalid slot-member input should return `{ "pokemonMoves": [] }`.
+- Valid requests should return `{ "pokemonMoves": [...] }`.
+- The current request shape is parallel slot-member input:
+  - `slots`
+  - `dexNumbers`
+  - `formKeys`
+- The current `format` parameter is expected to be one of:
+  - `default`
+  - `gen6`
+  - `gen7`
+  - `gen8`
+  - `gen9`
+- The response should include slot-grouped move options for the selected Pokemon in the requested format.
+- Rotom appliance forms should include the matching form-specific signature move when the corresponding `formKey` is provided.
+- Duplicate move validation is enforced at save time through `/api/teams/state`.
+
 ## Example API Checks
 - Replace the session id placeholder before running the commands.
 
@@ -167,6 +195,7 @@
 curl.exe "http://localhost:3000/api/daily/state?sessionId=replace-me"
 curl.exe "http://localhost:3000/api/pokedex/catalog?view=daily&dexNumbers=25,133"
 curl.exe "http://localhost:3000/api/teams/state?sessionId=replace-me"
+curl.exe "http://localhost:3000/api/pokedex/moves?slots=1&dexNumbers=479&formKeys=heat&format=gen9"
 ```
 
 ```powershell
@@ -178,6 +207,7 @@ curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: appli
 - `/daily` should still receive only daily candidate dex numbers on first render, then fetch encounter and recent-capture detail through `/api/pokedex/catalog`.
 - `/my-pokemon` should still ship no gallery catalog on first render, then fetch captured-card detail through `/api/pokedex/catalog`.
 - `/teams` should still receive only the reduced team-builder option payload on first render, then fetch selected detail through `/api/pokedex/catalog`.
+- `/teams` move requests should stay on-demand and slot-aware, with Rotom `formKey` included only when a Rotom appliance form is selected.
 
 ## When To Re-Run This Flow
 - After changing `features/pokedex/server/repository.ts`

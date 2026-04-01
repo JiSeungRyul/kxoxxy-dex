@@ -36,6 +36,7 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/my-pokemon` reads captured collection state through the same anonymous-session API used by daily.
 - `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through anonymous-session-backed PostgreSQL APIs, including per-member level configuration.
+- `/teams` now has a first-pass general form selector for Rotom appliance forms plus a small regional-form shortlist including `나옹(알로라/가라르)`, and the move API uses slot + `formKey` input so matching form-specific move overrides can be exposed where the current MVP supports them.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
 - Collection state is still mirrored into `localStorage` as a fallback compatibility layer.

@@ -219,7 +219,9 @@ export type PokedexMoveOptionEntry = Pick<PokedexMove, "id" | "slug" | "name" | 
 };
 
 export type PokemonTeamBuilderMoveOptionGroup = {
+  slot: number;
   nationalDexNumber: number;
+  formKey: string | null;
   moves: PokedexMoveOptionEntry[];
 };
 
@@ -259,6 +261,16 @@ export type PokemonTeamMegaFormOption = {
   hiddenAbility: PokemonAbility | null;
 };
 
+export type PokemonTeamGeneralFormOption = {
+  key: string;
+  label: string;
+  artworkImageUrl: string;
+  types: PokemonType[];
+  stats: PokemonBaseStats;
+  abilities: PokemonAbility[];
+  hiddenAbility: PokemonAbility | null;
+};
+
 export type PokemonTeamAbilityOption = PokemonAbility & {
   isHidden: boolean;
 };
@@ -274,6 +286,7 @@ export type PokemonTeamBuilderCatalogEntry = Pick<
   | "hiddenAbility"
 > & {
   gimmickAvailability: PokemonTeamGimmickAvailability;
+  generalForms: PokemonTeamGeneralFormOption[];
   megaForms: PokemonTeamMegaFormOption[];
 };
 
@@ -350,6 +363,7 @@ export type TeamTeraType = PokemonTypeName | "stellar";
 export type PokemonTeamMemberDraft = {
   slot: number;
   nationalDexNumber: number | null;
+  formKey: string | null;
   level: number;
   nature: string;
   item: string;

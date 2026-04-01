@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getManualMoveNameKo } from "../features/pokedex/data/move-name-ko.mjs";
 
 const POKE_API_BASE_URL = "https://pokeapi.co/api/v2";
 const MOVE_BATCH_SIZE = 40;
@@ -41,8 +42,13 @@ function getIdFromResourceUrl(resourceUrl) {
 }
 
 function getLocalizedText(names, fallbackName) {
+  const manualKo = getManualMoveNameKo(fallbackName);
+
   return {
-    ko: names.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name ?? formatLabel(fallbackName),
+    ko:
+      manualKo ??
+      names.find((entry) => entry.language.name === KOREAN_LANGUAGE_CODE)?.name ??
+      formatLabel(fallbackName),
     ja:
       names.find((entry) => JAPANESE_LANGUAGE_CODES.includes(entry.language.name))?.name ??
       formatLabel(fallbackName),

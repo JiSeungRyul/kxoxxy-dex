@@ -39,6 +39,11 @@
 - Team builder now labels hidden abilities in the ability selector, shows Korean ability descriptions under the selector, and switches the available ability list when a Mega form is selected.
 - Team builder now uses a search-based item selector backed by PostgreSQL item options, with the visible item candidate list narrowed differently for `자유`, `스토리`, and battle modes.
 - Team builder now uses Pokemon-specific searchable move selectors backed by PostgreSQL move and learnset data, filters visible move candidates by the selected team format, blocks duplicate move selection within the same Pokemon slot, and styles selected move fields with the chosen move type color.
+- Team builder move names now apply local Korean override fallbacks for newer moves when PokeAPI Korean names are missing, so visible selector labels stay Korean-first instead of falling back to English.
+- Team builder now exposes a first-pass general non-Mega form selector for Rotom appliance forms plus a small regional-form shortlist (`나옹(알로라/가라르)`, `알로라 라이츄`, `알로라 식스테일/나인테일`, `히스이 가디/윈디`, `팔데아 우파`, `히스이 조로아/조로아크`), and saved teams persist that selection through `formKey`.
+- Team builder move options now use that Rotom `formKey` to expose appliance signature moves such as `오버히트`, `하이드로펌프`, `리프스톰`, `눈보라`, and `에어슬래시` in the matching slot.
+- Team builder move options now also add a small regional-form override set where a clear learnset gap was identified: `알로라 라이츄 -> 사이코키네시스`, `알로라 식스테일 -> 프리즈드라이`, `알로라 나인테일 -> 오로라베일/문포스`, `히스이 윈디 -> 양날박치기`, `히스이 조로아크 -> Bitter Malice`.
+- General non-Mega form support still remains intentionally limited in this MVP step; broader regional, legendary, and other multi-form groups plus regional-form learnset exceptions stay in the follow-up backlog.
 - Daily encounter state stores whether the current encounter is shiny.
 - My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
 - Captured Pokemon progress and saved teams still do not sync across devices or accounts.

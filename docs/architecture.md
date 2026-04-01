@@ -28,7 +28,7 @@
 - `scripts/sync-items.mjs`
   - item snapshot generation from PokeAPI
 - `scripts/sync-moves.mjs`
-  - move snapshot generation from PokeAPI plus per-Pokemon learnset extraction
+  - move snapshot generation from PokeAPI plus per-Pokemon learnset extraction and small local Korean-name overrides for newer moves when PokeAPI omits Korean labels
 - `scripts/import-pokedex-to-db.mjs`
   - snapshot import into PostgreSQL
 - `scripts/import-items-to-db.mjs`
@@ -66,11 +66,13 @@
 
 ### Team Routes
 1. `app/teams/page.tsx` loads a small team-builder option list with dex number, Korean name, generation, and Pokedex-name metadata plus reduced item option entries from PostgreSQL through `getPokedexTeamBuilderOptionSnapshot()` and `getPokedexTeamBuilderItemOptionSnapshot()`
-2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` and selected Pokemon move options on demand through `app/api/pokedex/moves/route.ts` so the first render does not ship the full team-builder catalog or move learnset data
+2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` and selected slot-aware move options on demand through `app/api/pokedex/moves/route.ts` so the first render does not ship the full team-builder catalog or move learnset data
 3. The client creates or reuses the same anonymous session id used by daily and collection flows
 4. `app/api/teams/state/route.ts` reads and writes team and team-member rows through PostgreSQL
 5. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
 6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
+7. Saved team members now persist a nullable `formKey` field for limited non-Mega form support, separate from the existing Mega-only `megaFormKey`
+8. The current first-pass non-Mega form support is intentionally limited to Rotom appliance forms plus a small regional-form shortlist, including the same-dex multi-region `나옹(알로라/가라르)` case, and the move-query path uses slot + `formKey` overrides only for a bounded set of known form-specific move gaps instead of reopening the whole form-specific learnset catalog at once
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
@@ -81,6 +83,9 @@
 6. `scripts/import-items-to-db.mjs` imports the item snapshot into PostgreSQL
 7. `scripts/import-moves-to-db.mjs` imports the move snapshot and per-Pokemon learnset rows into PostgreSQL
 8. Runtime list/detail/daily catalog reads use the imported Pokemon catalog tables
+9. The current move pipeline stores learnsets at the national-dex level, so form-specific learnset exceptions are not yet separated inside `pokemon_move_catalog`
+10. The move pipeline still stores learnsets at the national-dex level, so the current Rotom form support uses a small query-time override layer rather than a broader form-normalized learnset model
+11. If broader non-Mega form-specific team building is added later, both the saved team-member model and the move-query path will need a wider `formKey` rollout than the current Rotom-plus-selected-regional first pass
 
 ## Data Contracts
 - `features/pokedex/types.ts` defines the stable payload contracts used by both snapshot and DB payload storage.
