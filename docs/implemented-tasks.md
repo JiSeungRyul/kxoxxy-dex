@@ -262,6 +262,21 @@
 - Kept `자유` and `스토리` mode behavior unchanged so duplicate held items remain allowed there.
 - Matched the client-side pre-save check and the server-side repository validation so API saves cannot bypass the new rule.
 
+## Team Builder General Form Label Polish (Added: 2026-04-01)
+- Polished the `/teams` general-form selector copy without changing the stored `formKey` model or expanding the supported form set.
+- Renamed the default selector option to `기본 폼`, localized supported regional-form labels to Korean `... 폼` wording, and promoted Rotom appliance options to clearer species-included labels such as `히트로토무`.
+- Added selector helper copy clarifying that the current support stays limited to Rotom appliance forms plus the existing small regional-form set, while `가라르 프리져/썬더/파이어` and `팔데아 켄타로스` remain separate follow-up backlog items.
+
+## Team Builder Legendary General Form Support (Added: 2026-04-01)
+- Extended the `/teams` general-form selector to include a small legendary/mythical shortlist that fits the existing `formKey` model without new schema or API changes.
+- Added `기라티나 오리진폼` and `쉐이미 스카이폼` as selectable saved-team general forms so their artwork, types, stats, and abilities follow the chosen form in the existing team builder flow.
+- Explicitly left `버드렉스 rider` forms in follow-up backlog because their rider-specific signature moves would need a broader move-query decision than this minimal selector expansion.
+
+## Team Builder Paldean Tauros Breed Support (Added: 2026-04-01)
+- Extended the `/teams` general-form selector to include `팔데아 켄타로스` breed forms within the existing `formKey` model.
+- Added `팔데아 컴뱃종`, `팔데아 블레이즈종`, and `팔데아 아쿠아종` as selectable saved-team general forms so breed-specific artwork, types, stats, and abilities follow the selected breed in the existing team builder flow.
+- Kept `지가르데` and similar ambiguous multi-state form groups in follow-up backlog because the current snapshot and selector model do not yet cleanly separate passive form choice from battle-state transformation semantics.
+
 ## Move Catalog Groundwork (Added: 2026-03-30)
 - Added `scripts/sync-moves.mjs` to fetch the full PokeAPI move list and extract per-Pokemon learnset rows using the local `data/pokedex.json` species snapshot.
 - Added `PokedexMove`, `PokedexPokemonMove`, and `PokedexMoveSnapshot` types plus `move_snapshots`, `move_catalog`, and `pokemon_move_catalog` schema entries for future move-backed team-builder work.

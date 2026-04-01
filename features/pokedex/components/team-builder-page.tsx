@@ -27,6 +27,7 @@ import {
   formatMegaFormOptionLabel,
   formatDexNumber,
   formatPokemonAbilityOptionLabel,
+  formatTeamGeneralFormOptionLabel,
   formatTeamMoveOptionLabel,
   formatTeamModeLabel,
   formatTeamTeraTypeLabel,
@@ -1035,7 +1036,11 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                         </h3>
                         {selectedGeneralForm ? (
                           <span className="rounded-full border border-ember/30 bg-ember/10 px-3 py-1 text-xs font-semibold text-ember">
-                            {selectedGeneralForm.label}
+                            {formatTeamGeneralFormOptionLabel(
+                              selectedPokemon.name,
+                              selectedPokemon.nationalDexNumber,
+                              selectedGeneralForm,
+                            )}
                           </span>
                         ) : null}
                         <p className="text-sm text-muted-foreground">{formatDexNumber(selectedPokemon.nationalDexNumber)}</p>
@@ -1147,7 +1152,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                 </div>
                 {selectedPokemon && generalForms.length > 0 ? (
                   <label className="space-y-2">
-                    <span className="text-sm font-semibold text-foreground">일반 폼</span>
+                    <span className="text-sm font-semibold text-foreground">일반 폼 선택</span>
                     <select
                       value={member.formKey ?? "__default__"}
                       onChange={(event) =>
@@ -1158,16 +1163,21 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
                       }
                       className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/30"
                     >
-                      <option value="__default__">기본</option>
+                      <option value="__default__">기본 폼</option>
                       {generalForms.map((form) => (
                         <option key={form.key} value={form.key}>
-                          {form.label}
+                          {formatTeamGeneralFormOptionLabel(
+                            selectedPokemon.name,
+                            selectedPokemon.nationalDexNumber,
+                            form,
+                          )}
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      현재 1차 일반 폼 지원은 로토무 appliance 폼과 일부 지역 폼만 제공합니다.
-                    </p>
+                    <div className="space-y-1 text-xs leading-5 text-muted-foreground">
+                      <p>현재는 로토무 appliance 폼, 일부 지역 폼, 기라티나·쉐이미의 단순 전용 폼, 그리고 팔데아 켄타로스 breed만 선택할 수 있습니다.</p>
+                      <p>가라르 프리져/썬더/파이어, 버드렉스 rider 폼, 지가르데 계열은 아직 별도 확장 대상입니다.</p>
+                    </div>
                   </label>
                 ) : null}
                 {showGimmickControls ? (
