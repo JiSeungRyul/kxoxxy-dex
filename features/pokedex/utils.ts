@@ -26,6 +26,7 @@ import type {
   PokemonTeamGimmickAvailability,
   PokemonTeamBuilderOptionEntry,
   PokemonTeamBuilderCatalogEntry,
+  PokemonTeamGeneralFormOption,
   PokemonTeamMegaFormOption,
   SortDirection,
   PokemonTeamMemberDraft,
@@ -58,6 +59,47 @@ export function formatTypeLabel(typeName: PokemonTypeName) {
 }
 
 export const TEAM_TERA_TYPE_OPTIONS = [...(Object.keys(POKEMON_TYPE_LABELS) as PokemonTypeName[]), "stellar"] as const;
+export const TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER: Readonly<Record<number, readonly string[]>> = {
+  128: ["paldea-combat-breed", "paldea-blaze-breed", "paldea-aqua-breed"],
+  52: ["alola", "galar"],
+  26: ["alola"],
+  37: ["alola"],
+  38: ["alola"],
+  58: ["hisui"],
+  59: ["hisui"],
+  194: ["paldea"],
+  479: ["heat", "wash", "frost", "fan", "mow"],
+  487: ["giratina-origin"],
+  492: ["shaymin-sky"],
+  570: ["hisui"],
+  571: ["hisui"],
+};
+const TEAM_GENERAL_FORM_REGION_LABELS: Partial<Record<string, string>> = {
+  alola: "알로라 폼",
+  galar: "가라르 폼",
+  hisui: "히스이 폼",
+  paldea: "팔데아 폼",
+};
+const TEAM_GENERAL_FORM_LABEL_OVERRIDES_BY_NATIONAL_DEX_NUMBER: Partial<Record<number, Partial<Record<string, string>>>> = {
+  128: {
+    "paldea-combat-breed": "팔데아 컴뱃종",
+    "paldea-blaze-breed": "팔데아 블레이즈종",
+    "paldea-aqua-breed": "팔데아 아쿠아종",
+  },
+  479: {
+    heat: "히트로토무",
+    wash: "워시로토무",
+    frost: "프로스트로토무",
+    fan: "스핀로토무",
+    mow: "커트로토무",
+  },
+  487: {
+    "giratina-origin": "오리진폼",
+  },
+  492: {
+    "shaymin-sky": "스카이폼",
+  },
+};
 export const TEAM_BUILDER_POKEDEX_NAMES_BY_FORMAT: Record<Exclude<TeamFormatId, "default">, string[]> = {
   gen6: ["칼로스중앙도감", "칼로스해안도감", "칼로스산악도감"],
   gen7: ["알로라도감", "멜레멜레도감", "아칼라도감", "울라우라도감", "포니도감"],
@@ -440,6 +482,63 @@ export function sanitizeTeamMegaFormKey(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 80) : null;
 }
 
+export function sanitizeTeamFormKey(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 80) : null;
+}
+
+export function getPokemonTeamGeneralForms(
+  nationalDexNumber: number | null | undefined,
+  pokemon:
+    | Pick<PokemonSummary, "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "generalForms">
+    | null
+    | undefined,
+) {
+  const supportedFormKeys =
+    nationalDexNumber === null || nationalDexNumber === undefined
+      ? undefined
+      : TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER[nationalDexNumber];
+
+  if (!pokemon || !supportedFormKeys || supportedFormKeys.length === 0) {
+    return [] as PokemonTeamGeneralFormOption[];
+  }
+
+  if ("generalForms" in pokemon) {
+    return pokemon.generalForms;
+  }
+
+  return pokemon.forms
+    .filter((form) => supportedFormKeys.includes(form.key))
+    .map((form) => ({
+      key: form.key,
+      label: form.label,
+      artworkImageUrl: form.artworkImageUrl,
+      types: form.types,
+      stats: form.stats,
+      abilities: form.abilities,
+      hiddenAbility: form.hiddenAbility,
+    }));
+}
+
+export function normalizeTeamFormKey(
+  nationalDexNumber: number | null | undefined,
+  formKey: string | null,
+  pokemon:
+    | Pick<PokemonSummary, "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "generalForms">
+    | null
+    | undefined,
+) {
+  const supportedForms = getPokemonTeamGeneralForms(nationalDexNumber, pokemon);
+  const sanitizedFormKey = sanitizeTeamFormKey(formKey);
+
+  if (!sanitizedFormKey || supportedForms.length === 0) {
+    return null;
+  }
+
+  return supportedForms.some((form) => form.key === sanitizedFormKey) ? sanitizedFormKey : null;
+}
+
 export function normalizeTeamMegaFormKey(
   format: TeamFormatId,
   gimmick: TeamGimmickId,
@@ -475,6 +574,30 @@ export function formatMegaFormOptionLabel(pokemonName: string, option: PokemonTe
 
   if (option.label.startsWith("메가진화 ")) {
     return `메가${pokemonName}${option.label.replace("메가진화 ", "")}`;
+  }
+
+  return option.label;
+}
+
+export function formatTeamGeneralFormOptionLabel(
+  pokemonName: string,
+  nationalDexNumber: number,
+  option: Pick<PokemonTeamGeneralFormOption, "key" | "label">,
+) {
+  const overriddenLabel = TEAM_GENERAL_FORM_LABEL_OVERRIDES_BY_NATIONAL_DEX_NUMBER[nationalDexNumber]?.[option.key];
+
+  if (overriddenLabel) {
+    return overriddenLabel;
+  }
+
+  const regionalLabel = TEAM_GENERAL_FORM_REGION_LABELS[option.key];
+
+  if (regionalLabel) {
+    return regionalLabel;
+  }
+
+  if (option.label === "기본") {
+    return `${pokemonName} 기본 폼`;
   }
 
   return option.label;
@@ -873,15 +996,25 @@ export function normalizeTeamLevel(value: unknown, mode: TeamModeId) {
 
 function getTeamAbilitySource(
   entry:
-    | Pick<PokemonSummary, "abilities" | "hiddenAbility" | "forms">
-    | Pick<PokemonTeamBuilderCatalogEntry, "abilities" | "hiddenAbility" | "megaForms">
+    | Pick<PokemonSummary, "nationalDexNumber" | "abilities" | "hiddenAbility" | "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "nationalDexNumber" | "abilities" | "hiddenAbility" | "generalForms" | "megaForms">
     | null
     | undefined,
   gimmick: TeamGimmickId = "none",
+  formKey: string | null = null,
   megaFormKey: string | null = null,
 ) {
   if (!entry) {
     return null;
+  }
+
+  const generalForm = getPokemonTeamGeneralForms(entry.nationalDexNumber, entry).find((form) => form.key === formKey) ?? null;
+
+  if (generalForm) {
+    return {
+      abilities: generalForm.abilities,
+      hiddenAbility: generalForm.hiddenAbility,
+    };
   }
 
   if (gimmick !== "mega") {
@@ -918,13 +1051,13 @@ function getTeamAbilitySource(
 
 export function getPokemonAbilityOptions(
   entry:
-    | Pick<PokemonSummary, "abilities" | "hiddenAbility" | "forms">
-    | Pick<PokemonTeamBuilderCatalogEntry, "abilities" | "hiddenAbility" | "megaForms">
+    | Pick<PokemonSummary, "nationalDexNumber" | "abilities" | "hiddenAbility" | "forms">
+    | Pick<PokemonTeamBuilderCatalogEntry, "nationalDexNumber" | "abilities" | "hiddenAbility" | "generalForms" | "megaForms">
     | null
     | undefined,
-  options?: { gimmick?: TeamGimmickId; megaFormKey?: string | null },
+  options?: { gimmick?: TeamGimmickId; formKey?: string | null; megaFormKey?: string | null },
 ) {
-  const abilitySource = getTeamAbilitySource(entry, options?.gimmick, options?.megaFormKey);
+  const abilitySource = getTeamAbilitySource(entry, options?.gimmick, options?.formKey, options?.megaFormKey);
 
   if (!abilitySource) {
     return [];
@@ -993,13 +1126,13 @@ export function getTeamValidationError({
   mode,
   members,
   pokemonByDexNumber,
-  moveNamesByDexNumber,
+  moveNamesBySlot,
 }: {
   teamName: string;
   mode?: TeamModeId;
   members: PokemonTeamMemberDraft[];
   pokemonByDexNumber?: Map<number, PokemonSummary>;
-  moveNamesByDexNumber?: Map<number, Set<string>>;
+  moveNamesBySlot?: Map<number, Set<string>>;
 }) {
   if (teamName.trim().length === 0) {
     return "�� �̸��� �Է����ּ���.";
@@ -1055,13 +1188,14 @@ export function getTeamValidationError({
       member.ability.length > 0 &&
       !getPokemonAbilityOptions(selectedPokemon, {
         gimmick: member.gimmick,
+        formKey: member.formKey,
         megaFormKey: member.megaFormKey,
       }).some((ability) => ability.name === member.ability)
     ) {
       return `${member.slot}�� ������ Ư���� ������ ���ϸ�� ���� �ʽ��ϴ�.`;
     }
 
-    const allowedMoveNames = moveNamesByDexNumber?.get(member.nationalDexNumber);
+    const allowedMoveNames = moveNamesBySlot?.get(member.slot);
 
     if (allowedMoveNames) {
       const invalidMove = member.moves
@@ -1162,6 +1296,7 @@ export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
   return {
     slot,
     nationalDexNumber: null,
+    formKey: null,
     level: getDefaultTeamLevel(),
     nature: "����",
     item: "",
@@ -1232,6 +1367,7 @@ export function sanitizeTeamMembers(value: unknown, mode: TeamModeId = getDefaul
     members[slot - 1] = {
       slot,
       nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
+      formKey: sanitizeTeamFormKey(candidate.formKey),
       level: normalizeTeamLevel(candidate.level, mode),
       nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "����",
       item: sanitizeTeamTextValue(candidate.item, 80),

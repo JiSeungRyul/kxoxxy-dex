@@ -226,6 +226,7 @@ export const teamMembers = pgTable(
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    formKey: text("form_key"),
     level: integer("level").default(50).notNull(),
     nature: text("nature").notNull(),
     item: text("item").notNull(),
