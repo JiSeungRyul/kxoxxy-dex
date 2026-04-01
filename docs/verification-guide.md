@@ -132,6 +132,14 @@
   - choosing `히트`, `워시`, `프로스트`, `스핀`, or `커트` updates the visible type badges and artwork
   - the matching signature move becomes selectable only for the matching form
   - saving and reloading the team preserves the selected Rotom form
+- With Giratina or Shaymin selected, also confirm:
+  - the `일반 폼 선택` selector appears
+  - choosing `오리진폼` or `스카이폼` updates the visible artwork, type badges, and ability list
+  - saving and reloading the team preserves the selected form
+- With Tauros selected, also confirm:
+  - the `일반 폼 선택` selector appears
+  - choosing `팔데아 컴뱃종`, `팔데아 블레이즈종`, or `팔데아 아쿠아종` updates the visible artwork, type badges, and ability list
+  - saving and reloading the team preserves the selected breed
 - Delete the saved team from `/my-teams` or through the API and confirm it disappears on reload.
 
 ## API Smoke Flow

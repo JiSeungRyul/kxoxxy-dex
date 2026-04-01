@@ -72,7 +72,7 @@
 5. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
 6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 7. Saved team members now persist a nullable `formKey` field for limited non-Mega form support, separate from the existing Mega-only `megaFormKey`
-8. The current first-pass non-Mega form support is intentionally limited to Rotom appliance forms plus a small regional-form shortlist, including the same-dex multi-region `나옹(알로라/가라르)` case, and the move-query path uses slot + `formKey` overrides only for a bounded set of known form-specific move gaps instead of reopening the whole form-specific learnset catalog at once
+8. The current first-pass non-Mega form support is intentionally limited to Rotom appliance forms, a small regional-form shortlist including the same-dex multi-region `나옹(알로라/가라르)` case, a small legendary/mythical shortlist (`기라티나 오리진폼`, `쉐이미 스카이폼`), and `팔데아 켄타로스` breed forms, while the move-query path uses slot + `formKey` overrides only for a bounded set of known form-specific move gaps instead of reopening the whole form-specific learnset catalog at once
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI

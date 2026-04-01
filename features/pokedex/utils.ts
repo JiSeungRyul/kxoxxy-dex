@@ -60,6 +60,7 @@ export function formatTypeLabel(typeName: PokemonTypeName) {
 
 export const TEAM_TERA_TYPE_OPTIONS = [...(Object.keys(POKEMON_TYPE_LABELS) as PokemonTypeName[]), "stellar"] as const;
 export const TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER: Readonly<Record<number, readonly string[]>> = {
+  128: ["paldea-combat-breed", "paldea-blaze-breed", "paldea-aqua-breed"],
   52: ["alola", "galar"],
   26: ["alola"],
   37: ["alola"],
@@ -68,8 +69,36 @@ export const TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER: Readonly<Rec
   59: ["hisui"],
   194: ["paldea"],
   479: ["heat", "wash", "frost", "fan", "mow"],
+  487: ["giratina-origin"],
+  492: ["shaymin-sky"],
   570: ["hisui"],
   571: ["hisui"],
+};
+const TEAM_GENERAL_FORM_REGION_LABELS: Partial<Record<string, string>> = {
+  alola: "알로라 폼",
+  galar: "가라르 폼",
+  hisui: "히스이 폼",
+  paldea: "팔데아 폼",
+};
+const TEAM_GENERAL_FORM_LABEL_OVERRIDES_BY_NATIONAL_DEX_NUMBER: Partial<Record<number, Partial<Record<string, string>>>> = {
+  128: {
+    "paldea-combat-breed": "팔데아 컴뱃종",
+    "paldea-blaze-breed": "팔데아 블레이즈종",
+    "paldea-aqua-breed": "팔데아 아쿠아종",
+  },
+  479: {
+    heat: "히트로토무",
+    wash: "워시로토무",
+    frost: "프로스트로토무",
+    fan: "스핀로토무",
+    mow: "커트로토무",
+  },
+  487: {
+    "giratina-origin": "오리진폼",
+  },
+  492: {
+    "shaymin-sky": "스카이폼",
+  },
 };
 export const TEAM_BUILDER_POKEDEX_NAMES_BY_FORMAT: Record<Exclude<TeamFormatId, "default">, string[]> = {
   gen6: ["칼로스중앙도감", "칼로스해안도감", "칼로스산악도감"],
@@ -545,6 +574,30 @@ export function formatMegaFormOptionLabel(pokemonName: string, option: PokemonTe
 
   if (option.label.startsWith("메가진화 ")) {
     return `메가${pokemonName}${option.label.replace("메가진화 ", "")}`;
+  }
+
+  return option.label;
+}
+
+export function formatTeamGeneralFormOptionLabel(
+  pokemonName: string,
+  nationalDexNumber: number,
+  option: Pick<PokemonTeamGeneralFormOption, "key" | "label">,
+) {
+  const overriddenLabel = TEAM_GENERAL_FORM_LABEL_OVERRIDES_BY_NATIONAL_DEX_NUMBER[nationalDexNumber]?.[option.key];
+
+  if (overriddenLabel) {
+    return overriddenLabel;
+  }
+
+  const regionalLabel = TEAM_GENERAL_FORM_REGION_LABELS[option.key];
+
+  if (regionalLabel) {
+    return regionalLabel;
+  }
+
+  if (option.label === "기본") {
+    return `${pokemonName} 기본 폼`;
   }
 
   return option.label;
