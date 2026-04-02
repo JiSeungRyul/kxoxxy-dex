@@ -125,7 +125,7 @@
 - `22` 완료: 익명 세션 경계는 이제 서버 관리 `httpOnly` 쿠키 기준으로 정리됨
 - `23` 완료: 향후 ownership은 `user_id` 중심으로 전환하되, legacy anonymous 데이터 migration은 비범위로 정의됨
 - 다음 시작점은 `24`: migration 적용/서버 재시작/route API smoke check 가이드를 더 명확히 정리하는 작업
-- `22). 브라우저 생성 익명 세션을 더 강한 서버 관리 세션으로 교체`
+- `x22). 브라우저 생성 익명 세션을 더 강한 서버 관리 세션으로 교체`
 - `x22-1). 현재 anonymous-session 흐름과 localStorage/sessionId 의존 경로 재확인`
 - `x22-2). 서버가 익명 세션을 발급/재사용하는 최소 세션 경계 설계`
 - `x22-3). /api/daily/state와 /api/teams/state를 서버 세션 우선 읽기로 전환`
@@ -133,22 +133,22 @@
 - `x22-5). 기존 localStorage 기반 세션과의 1차 하위 호환 범위 결정 및 정리`
 - `x22-6). /daily, /my-pokemon, /teams, /my-teams 세션 전환 smoke check`
 - `x22-7). session-guide / architecture / verification-guide에 새 세션 흐름 반영`
-- `23). anonymous-session에서 향후 user_id 기반 ownership으로 이동할 경로 정리`
+- `x23). anonymous-session에서 향후 user_id 기반 ownership으로 이동할 경로 정리`
 - `x23-1). 현재 anonymous-session ownership이 붙어 있는 테이블/API 범위 고정`
 - `x23-2). 목표 ownership 모델을 user_id 중심으로 정의`
 - `x23-3). 로그인 이후 새 데이터만 user_id로 저장하는 단순 전환 방향 정리`
 - `x23-4). 운영 중인 앱이 아니라는 전제에서 legacy anonymous 데이터 병합/보존을 비범위로 명시`
 - `x23-5). 향후 user_id 도입 시 필요한 DB 컬럼/제약 방향만 초안으로 정리`
 - `x23-6). database-plan / architecture에 ownership 전환 원칙 반영`
-- `24). migration 적용/서버 재시작 체크 보강`
-- `24-1). migration 이후 실제 실패 유형을 daily/team/session 기준으로 분류`
-- `24-2). 변경 종류별 필수 명령 순서와 재시작 필요 조건 고정`
-- `24-3). DB schema 변경 / seed 변경 / state API 변경 / catalog 경로 변경별 최소 검증 세트 정의`
-- `24-4). /daily /my-pokemon /teams /my-teams 와 state API의 최소 smoke-check 세트 재정리`
-- `24-5). verification-guide를 쿠키 기반 세션 기준으로 재검토하고 남은 오래된 문구 제거`
-- `24-6). Windows `.next/trace` 이슈와 dev/start 재시작 조건을 더 명확히 정리`
-- `24-7). failure triage 체크리스트 보강`
-- `24-8). 필요 시 반복 명령 예시나 helper script 후보까지 문서화`
+- `x24). migration 적용/서버 재시작 체크 보강`
+- `x24-1). migration 이후 실제 실패 유형을 daily/team/session 기준으로 분류`
+- `x24-2). 변경 종류별 필수 명령 순서와 재시작 필요 조건 고정`
+- `x24-3). DB schema 변경 / seed 변경 / state API 변경 / catalog 경로 변경별 최소 검증 세트 정의`
+- `x24-4). /daily /my-pokemon /teams /my-teams 와 state API의 최소 smoke-check 세트 재정리`
+- `x24-5). verification-guide를 쿠키 기반 세션 기준으로 재검토하고 남은 오래된 문구 제거`
+- `x24-6). Windows .next/trace 이슈와 dev/start 재시작 조건을 더 명확히 정리`
+- `x24-7). failure triage 체크리스트 보강`
+- `x24-8). 필요 시 반복 명령 예시나 helper script 후보까지 문서화`
 
 이유: 기능 개발 기준 다음 큰 묶음은 세션/ownership 기반 작업이고, 그 다음이 운영 체크 보강입니다.
 
