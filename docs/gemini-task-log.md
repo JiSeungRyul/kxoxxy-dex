@@ -28,7 +28,7 @@ This task focused on establishing a reliable manual verification protocol follow
 Implemented a full-stack "Like" system using the hardened anonymous session boundary.
 
 ### 27-1 ~ 27-3: Infrastructure & API
-- **DB Schema (27-1):** Added `favorite_pokemon` table to `db/schema/pokemon-catalog.ts` with Unique Index on `(anonymous_session_id, national_dex_number)`. Synchronized local DB using `drizzle-kit push`.
+- **DB Schema (27-1):** Added `favorite_pokemon` table to `db/schema/pokemon-catalog.ts` with Unique Index on `(anonymous_session_id, national_dex_number)`. The checked-in repository migration for this table must stay incremental and compatible with the existing anonymous-session catalog/runtime tables.
 - **Repository Logic (27-2):** Implemented `getFavoriteDexNumbers` and `toggleFavoritePokemon` in `features/pokedex/server/repository.ts`.
 - **State API (27-3):** Created `/api/favorites/state` endpoint to handle GET (fetch list) and POST (toggle favorite) requests, ensuring cookie-based session persistence.
 
@@ -42,6 +42,23 @@ Implemented a full-stack "Like" system using the hardened anonymous session boun
 - **Issue:** Favorites list appeared empty despite successful DB saves.
 - **Cause:** `/api/pokedex/catalog` rejected `view=favorites` requests with a 400 error.
 - **Fix:** Updated the Catalog API to whitelist the `favorites` view and return standard collection entries.
+
+### Follow-up Validation
+- After the favorites migration was corrected to an incremental repository migration, local runtime smoke checks confirmed the cookie-based favorites API round-trip:
+  - `GET /api/favorites/state` -> `200`
+  - `POST /api/favorites/state` with `nationalDexNumber: 25` -> `200`
+  - follow-up `GET /api/favorites/state` reflected the toggle result
+- `/favorites` also rendered successfully through `npm run start` on the updated local DB.
+
+### Follow-up Decoupling
+- The shared `PokedexPage` flow no longer treats `view === "favorites"` as part of the daily/my-pokemon collection-state load boundary.
+- `/favorites` now waits on the favorites-state request itself instead of first depending on `/api/daily/state`.
+- Local verification after this change:
+  - `npm run typecheck`
+  - `npm run build`
+  - `GET /api/favorites/state` -> `200`
+  - `GET /api/daily/state` -> `200`
+  - `GET /favorites` -> `200`
 
 ## 4. Backlog Management
 - **Status Updates:** Marked Tasks **22**, **23**, **24**, and **27-1 ~ 27-7** as completed (`x`) in `docs/todo-backlog.md`.

@@ -163,7 +163,11 @@
 - `x27-5). 포켓몬 목록(메인 도감) UI에 즐겨찾기 표시 및 토글 버튼 추가`
 - `x27-6). 즐겨찾기 전용 모아보기 페이지 구현 (/favorites)`
 - `x27-7). 헤더 네비게이션에 즐겨찾기 메뉴 추가`
-- `27-8). 즐겨찾기 기능 최종 스모크 체크 (저장/삭제/목록 조회)`
+- `x27-8). 즐겨찾기 기능 후속 안정화`
+- `x27-8-1). 잘못 생성된 favorites migration을 incremental repository migration으로 교체`
+- `x27-8-2). 쿠키 기반 favorites API/runtime smoke check 복구 및 재검증`
+- `x27-8-3). /favorites의 daily-state 결합 유지 여부 판단 및 필요 시 최소 분리`
+- `x27-8-4). favorites 후속 안정화 결과를 docs/task log에 최종 반영`
 - `28). 하이브리드 이후 추가 DB 통합`
 - `29). 계정 기반 ownership 전환`
 - `30). 더 깊은 catalog 정규화 재검토`

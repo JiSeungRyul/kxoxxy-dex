@@ -62,6 +62,12 @@
 - Reworked `/my-pokemon` so the first render now ships no gallery catalog and fetches captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
 - Verified the route payload restructuring with `npm run typecheck`, `npm run build`, and local smoke checks for `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, `/api/teams/state`, and `/api/pokedex/catalog` on 2026-03-25
 
+## Favorites Follow-Up Stabilization (Added: 2026-04-03)
+- Replaced the broken repository migration for `favorite_pokemon` with an incremental migration that only adds the favorites table, its foreign keys, and its unique index.
+- Re-verified the cookie-based favorites runtime so `GET /api/favorites/state` and `POST /api/favorites/state` now complete successfully on the migrated local DB.
+- Removed the unnecessary `/favorites` dependency on the daily collection-state load path so the favorites view now waits on favorites state directly instead of first relying on `/api/daily/state`.
+- Re-ran `npm run typecheck`, `npm run build`, and local smoke checks for `/favorites`, `/api/favorites/state`, and `/api/daily/state` after the decoupling change.
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration

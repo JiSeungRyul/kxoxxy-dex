@@ -85,6 +85,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   );
   const [currentPage, setCurrentPage] = useState(serverListState?.query.page ?? 1);
   const [favoriteDexNumbers, setFavoriteDexNumbers] = useState<number[]>([]);
+  const [isFavoriteStateReady, setIsFavoriteStateReady] = useState(view !== "favorites");
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
@@ -92,14 +93,38 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
   const [myPokemonDetails, setMyPokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
   const [favoritePokemonDetails, setFavoritePokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
-  const usesServerCollectionState = view === "daily" || view === "my-pokemon" || view === "favorites";
+  const usesServerCollectionState = view === "daily" || view === "my-pokemon";
 
   useEffect(() => {
-    fetch("/api/favorites/state")
+    if (view !== "favorites") {
+      setIsFavoriteStateReady(true);
+      return;
+    }
+
+    let isMounted = true;
+
+    void fetch("/api/favorites/state")
       .then((res) => res.json())
-      .then((data) => setFavoriteDexNumbers(data.favoriteDexNumbers ?? []))
-      .catch(() => {});
-  }, []);
+      .then((data) => {
+        if (isMounted) {
+          setFavoriteDexNumbers(data.favoriteDexNumbers ?? []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFavoriteDexNumbers([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsFavoriteStateReady(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [view]);
 
   async function toggleFavorite(nationalDexNumber: number) {
     try {
@@ -114,6 +139,10 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
+    } finally {
+      if (view === "favorites") {
+        setIsFavoriteStateReady(true);
+      }
     }
   }
 
@@ -122,6 +151,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const pokedexPokemon = pokemon as PokemonCatalogListEntry[];
   const dailyCandidateDexNumbers = dailyDexNumbers ?? pokemon.map((entry) => entry.nationalDexNumber);
   const sourcePokemon = view === "my-pokemon" ? myPokemonDetails : view === "favorites" ? favoritePokemonDetails : pokemon;
+  const isGalleryStateReady = view === "favorites" ? isFavoriteStateReady : isCollectionReady;
   const filteredPokemon = isServerDrivenPokedex
     ? pokemon
     : view === "pokedex"
@@ -309,7 +339,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       return;
     }
 
-    if (!isCollectionReady) {
+    if (!isGalleryStateReady) {
       return;
     }
 
@@ -353,7 +383,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     return () => {
       controller.abort();
     };
-  }, [collectionState.capturedDexNumbers, favoriteDexNumbers, isCollectionReady, view]);
+  }, [collectionState.capturedDexNumbers, favoriteDexNumbers, isGalleryStateReady, view]);
 
   useEffect(() => {
     setCurrentPage(1);
