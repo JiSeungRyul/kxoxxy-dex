@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -630,6 +633,38 @@ function SpecialEvolutionSection({
 }
 
 export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, nextPokemon }: PokemonDetailPageProps) {
+  const [favoriteDexNumbers, setFavoriteDexNumbers] = useState<number[]>([]);
+  const [isToggling, setIsToggling] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/favorites/state")
+      .then((res) => res.json())
+      .then((data) => setFavoriteDexNumbers(data.favoriteDexNumbers ?? []))
+      .catch(() => {});
+  }, []);
+
+  const isFavorite = favoriteDexNumbers.includes(pokemon.nationalDexNumber);
+
+  const handleToggleFavorite = async () => {
+    if (isToggling) return;
+    setIsToggling(true);
+    try {
+      const res = await fetch("/api/favorites/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nationalDexNumber: pokemon.nationalDexNumber }),
+      });
+      const data = await res.json();
+      if (data.favoriteDexNumbers) {
+        setFavoriteDexNumbers(data.favoriteDexNumbers);
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   const selectedForm = pokemon.forms.find((form) => form.key === selectedFormKey) ?? pokemon.forms[0];
   const displayPokedexEntries = getDisplayPokedexEntries(pokemon.pokedexEntries);
   const specialEvolutionStages = pokemon.evolutionChain.filter((stage) => getSpecialEvolutionForms(stage).length > 0);
@@ -696,9 +731,36 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
                 {formatPokemonNumber(pokemon.nationalDexNumber)}
               </p>
               <div className="space-y-2">
-                <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
-                  {pokemon.names.ko}
-                </h1>
+                <div className="flex items-center gap-4">
+                  <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
+                    {pokemon.names.ko}
+                  </h1>
+                  <button
+                    onClick={handleToggleFavorite}
+                    disabled={isToggling}
+                    className={`group flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-200 ${
+                      isFavorite
+                        ? "border-red-200 bg-red-50 text-red-500 shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-red-200 hover:bg-red-50/50 hover:text-red-400"
+                    }`}
+                    aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill={isFavorite ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`h-6 w-6 transition-transform group-active:scale-90 ${
+                        isToggling ? "opacity-50" : "opacity-100"
+                      }`}
+                    >
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-lg font-medium text-muted-foreground sm:text-xl">{pokemon.names.ja}</p>
                 <p className="text-base text-muted-foreground sm:text-lg">{pokemon.names.en}</p>
               </div>

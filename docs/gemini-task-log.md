@@ -24,17 +24,37 @@ This task focused on establishing a reliable manual verification protocol follow
 ### 24-8: Practical Command Examples
 - Added `curl`-based API check examples to `verification-guide.md` for rapid terminal-based verification without a browser.
 
-## 3. Backlog Management
-- **Status Updates:** Marked Tasks **22** (Anonymous Session Hardening), **23** (Ownership Transition Definition), and **24** (Verification Hardening) as completed (`x`) in `docs/todo-backlog.md`.
-- **Feature Planning (27):** Deconstructed Task **27 (Favorites)** into 8 granular sub-tasks (27-1 to 27-8), covering DB schema, repository logic, API implementation, and UI integration.
+## 3. Task 27: Favorites Feature Implementation (Completed 27-1 ~ 27-7)
+Implemented a full-stack "Like" system using the hardened anonymous session boundary.
 
-## 4. Git Operations
-- **Commit `3fb4600`:** "docs: finalize verification guide and update backlog"
-  - Finalized `docs/verification-guide.md`
-  - Updated `docs/todo-backlog.md`
+### 27-1 ~ 27-3: Infrastructure & API
+- **DB Schema (27-1):** Added `favorite_pokemon` table to `db/schema/pokemon-catalog.ts` with Unique Index on `(anonymous_session_id, national_dex_number)`. Synchronized local DB using `drizzle-kit push`.
+- **Repository Logic (27-2):** Implemented `getFavoriteDexNumbers` and `toggleFavoritePokemon` in `features/pokedex/server/repository.ts`.
+- **State API (27-3):** Created `/api/favorites/state` endpoint to handle GET (fetch list) and POST (toggle favorite) requests, ensuring cookie-based session persistence.
+
+### 27-4 ~ 27-7: UI & Navigation
+- **Detail Page (27-4):** Converted `PokemonDetailPage` to a client component and added a Heart SVG toggle button with real-time state sync.
+- **Pokedex Table (27-5):** Added a new "Favorites" column to the main Pokedex table with stop-propagation logic to allow liking from the list.
+- **Favorites Page (27-6):** Created `/favorites` route and extended `PokedexPage` & `MyPokemonGallery` to support a dedicated "Favorites" view mode.
+- **Global Navigation (27-7):** Integrated the "Favorites" link into the "Daily Encounter" dropdown in `SiteHeroHeader`.
+
+### Troubleshooting: Catalog API Support
+- **Issue:** Favorites list appeared empty despite successful DB saves.
+- **Cause:** `/api/pokedex/catalog` rejected `view=favorites` requests with a 400 error.
+- **Fix:** Updated the Catalog API to whitelist the `favorites` view and return standard collection entries.
+
+## 4. Backlog Management
+- **Status Updates:** Marked Tasks **22**, **23**, **24**, and **27-1 ~ 27-7** as completed (`x`) in `docs/todo-backlog.md`.
+- **Next Roadmap:** Planning Task **25 (Authentication)** to transition from anonymous sessions to permanent user accounts.
+
+## 5. Git Operations
+- **Commit `3fb4600`:** docs: finalize verification guide and update backlog
+- **Commit `484f3c5`:** docs: add task log for 2026-04-02 work
+- **Commit `3463325`:** docs: add detailed sub-tasks for Task 27 (Favorites)
 
 ---
 
 ## Next Steps
-- **Task 27-1:** Design and implement the DB schema for the `favorite_pokemon` table.
-- **Task 21-4-5:** Perform a final manual smoke check of the move selector UI in the browser.
+- **Task 27-8:** Final browser-based smoke check of the end-to-end favorite flow.
+- **Task 21-4-5:** Final manual check of the move selector UI.
+- **Task 25:** Initial design for Auth.js integration.

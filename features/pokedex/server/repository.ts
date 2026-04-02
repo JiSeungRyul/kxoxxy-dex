@@ -1637,3 +1637,59 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
 
   return getTeamsByAnonymousSessionId(anonymousSessionId);
 }
+
+export async function getFavoriteDexNumbers(sessionId: string): Promise<number[]> {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return [];
+  }
+
+  const rows = await postgresClient.unsafe<DexNumberRow[]>(
+    `
+      SELECT national_dex_number AS "nationalDexNumber"
+      FROM favorite_pokemon
+      WHERE anonymous_session_id = $1
+      ORDER BY created_at DESC
+    `,
+    [anonymousSessionId],
+  );
+
+  return rows.map((row) => row.nationalDexNumber);
+}
+
+export async function toggleFavoritePokemon(
+  sessionId: string,
+  nationalDexNumber: number,
+): Promise<{ isFavorite: boolean }> {
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+
+  if (!anonymousSessionId) {
+    return { isFavorite: false };
+  }
+
+  const existingRows = await postgresClient.unsafe<Array<{ id: number }>>(
+    `
+      SELECT id FROM favorite_pokemon
+      WHERE anonymous_session_id = $1 AND national_dex_number = $2
+      LIMIT 1
+    `,
+    [anonymousSessionId, nationalDexNumber],
+  );
+
+  if (existingRows.length > 0) {
+    await postgresClient.unsafe(`DELETE FROM favorite_pokemon WHERE id = $1`, [existingRows[0].id]);
+
+    return { isFavorite: false };
+  } else {
+    await postgresClient.unsafe(
+      `
+        INSERT INTO favorite_pokemon (anonymous_session_id, national_dex_number)
+        VALUES ($1, $2)
+      `,
+      [anonymousSessionId, nationalDexNumber],
+    );
+
+    return { isFavorite: true };
+  }
+}

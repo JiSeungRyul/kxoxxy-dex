@@ -28,7 +28,7 @@ export function SiteHeroHeader() {
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
-  const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
+  const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon" || pathname === "/favorites";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -115,6 +115,13 @@ export function SiteHeroHeader() {
                 className={SUBMENU_LINK_CLASS}
               >
                 내 포켓몬
+              </Link>
+              <Link
+                href="/favorites"
+                onClick={() => setIsDailyMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                내가 찜한 포켓몬
               </Link>
             </div>
           </div>

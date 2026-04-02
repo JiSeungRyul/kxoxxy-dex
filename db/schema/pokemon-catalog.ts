@@ -244,3 +244,23 @@ export const teamMembers = pgTable(
     teamMembersTeamSlotKey: uniqueIndex("team_members_team_slot_key").on(table.teamId, table.slot),
   }),
 );
+
+export const favoritePokemon = pgTable(
+  "favorite_pokemon",
+  {
+    id: serial("id").primaryKey(),
+    anonymousSessionId: integer("anonymous_session_id")
+      .notNull()
+      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    nationalDexNumber: integer("national_dex_number")
+      .notNull()
+      .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    favoritePokemonSessionPokemonKey: uniqueIndex("favorite_pokemon_session_pokemon_key").on(
+      table.anonymousSessionId,
+      table.nationalDexNumber,
+    ),
+  }),
+);
