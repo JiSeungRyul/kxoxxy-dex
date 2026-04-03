@@ -11,6 +11,8 @@
 - The daily and team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie.
 - The current client no longer creates new anonymous-session ids in local storage and only forwards an older stored session id once when migrating a browser onto the shared cookie boundary.
 - The client still mirrors collection state into `localStorage` as a compatibility fallback.
+- The preferred auth follow-up is minimal auth plus a separate server-managed authenticated session, while the current anonymous-session cookie remains the pre-login fallback.
+- Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and a development-only authenticated-session flow is now available for local ownership verification.
 
 ## High-Level Structure
 - `app/`
@@ -111,15 +113,31 @@
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
 - User-state split:
-  - anonymous server persistence exists, but account-linked user persistence does not
+  - anonymous fallback persistence exists alongside authenticated `user_id` persistence, but only through the current development-only auth boundary
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
 
 ## Ownership Transition Scope
-- The current runtime owner for daily and team state is still `anonymous_session_id`.
+- Daily and my-pokemon state now support both ownership paths:
+  - anonymous daily state by `anonymous_session_id`
+  - authenticated daily state by `user_id`
+- Team state now also supports both ownership paths:
+  - anonymous team state by `anonymous_session_id`
+  - authenticated team state by `user_id`
 - The long-term durable owner should be `user_id` once auth work begins.
 - The current project plan does not require preserving or merging old anonymous development-era records into future user-owned records.
 - That means the ownership follow-up is primarily a schema-and-runtime-boundary planning task, not a legacy-data migration project.
+
+## Preferred Authentication Shape
+- Start with one minimal auth path and a server-managed auth session instead of opening multiple providers or a broader account system immediately.
+- Keep the current `kxoxxy-anonymous-session` cookie for pre-login and no-auth flows.
+- Add a separate authenticated session boundary that resolves `users.id` for logged-in requests.
+- Prefer switching new authenticated writes directly to `user_id` ownership instead of making anonymous and authenticated ownership co-equal long-term paths.
+- The intended authenticated write order is favorites, then daily/my-pokemon state, then teams.
+- A shared ownership resolver now codifies that rule at the server boundary by returning authenticated `userId` first and anonymous `sessionId` as the fallback path.
+- That first authenticated write target is now live for favorites: authenticated favorites resolve by `user_id`, while anonymous favorites still resolve by `anonymous_session_id`.
+- That next authenticated write target is now also live for daily/my-pokemon: authenticated daily state resolves by `user_id`, while anonymous daily state still resolves by `anonymous_session_id`.
+- That final current authenticated write target is now also live for teams/my-teams: authenticated team state resolves by `user_id`, while anonymous team state still resolves by `anonymous_session_id`.
 
 ## Cache Strategy Review Scope (Added: 2026-03-25)
 

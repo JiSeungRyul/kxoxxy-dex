@@ -68,6 +68,45 @@
 - Removed the unnecessary `/favorites` dependency on the daily collection-state load path so the favorites view now waits on favorites state directly instead of first relying on `/api/daily/state`.
 - Re-ran `npm run typecheck`, `npm run build`, and local smoke checks for `/favorites`, `/api/favorites/state`, and `/api/daily/state` after the decoupling change.
 
+## Authentication Groundwork (Added: 2026-04-03)
+- Defined the preferred auth direction as minimal auth plus a separate server-managed authenticated session layered on top of the current anonymous-session fallback.
+- Added checked-in DB schema groundwork for `users`, `auth_accounts`, and `sessions` so later auth runtime work can resolve a durable `user_id`.
+- Added a minimal authenticated-session read boundary at `app/api/auth/session/route.ts` plus a shared server helper for resolving the current authenticated user from the future auth-session cookie.
+- Fixed the preferred authenticated write order as `favorites -> daily/my-pokemon -> teams` so the first account-linked rollout starts from the smallest persisted state.
+- Verified the new groundwork with `npm run typecheck`, `npm run build`, `npm run db:migrate`, unauthenticated `GET /api/auth/session`, and an authenticated local smoke check using a temporary `users`/`sessions` row plus `kxoxxy-auth-session` cookie.
+- Kept runtime auth, login/logout UI, and authenticated request handling explicitly out of this step.
+
+## Minimal Auth Session UI (Added: 2026-04-03)
+- Extended `app/api/auth/session/route.ts` so the current MVP auth boundary can create and clear a development-only auth session in addition to reading it.
+- Added a small auth panel to the shared site header so local sessions can be created and cleared without adding a dedicated auth page yet.
+- Verified the round-trip with local `POST /api/auth/session`, `GET /api/auth/session`, `DELETE /api/auth/session`, and final `GET /api/auth/session` checks using the issued `kxoxxy-auth-session` cookie.
+
+## Shared Ownership Resolver Groundwork (Added: 2026-04-03)
+- Added a shared server ownership resolver that prefers authenticated `userId` and falls back to anonymous `sessionId`.
+- Wired the favorites and teams state routes to that resolver so later `user_id` persistence work can start from one common owner-selection path.
+- Verified that anonymous requests still return the current anonymous-session-backed responses, while authenticated favorites and teams requests now return explicit pending-owner responses until their `user_id` persistence steps are implemented.
+
+## Authenticated Favorites Ownership (Added: 2026-04-03)
+- Extended `favorite_pokemon` so favorites can now belong to either `anonymous_session_id` or `user_id`.
+- Kept anonymous favorites intact while enabling authenticated favorites to read and write through the shared ownership resolver.
+- Verified both paths locally: anonymous favorites still toggle normally, and authenticated favorites now persist separately under `user_id`.
+
+## Authenticated Daily Ownership (Added: 2026-04-03)
+- Extended `daily_encounters` and `daily_captures` so daily/my-pokemon state can now belong to either `anonymous_session_id` or `user_id`.
+- Reused the shared ownership resolver in `app/api/daily/state/route.ts` so authenticated daily requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
+- Verified both paths locally with `npm run db:generate`, `npm run db:migrate`, `npm run build`, `npm run typecheck`, anonymous `GET/POST /api/daily/state`, authenticated `POST /api/auth/session`, authenticated `GET/POST /api/daily/state`, authenticated `release`, and a final anonymous `GET /api/daily/state` check confirming the two owners stay separated.
+
+## Authenticated Team Ownership (Added: 2026-04-03)
+- Extended `teams` so saved teams can now belong to either `anonymous_session_id` or `user_id` without changing the existing `team_members` shape.
+- Reused the shared ownership resolver in `app/api/teams/state/route.ts` so authenticated team requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
+- Verified both paths locally with `npm run db:generate`, `npm run db:migrate`, `npm run build`, `npm run typecheck`, anonymous `GET/POST /api/teams/state`, authenticated `POST /api/auth/session`, authenticated `GET/POST /api/teams/state`, authenticated delete, and a final anonymous `GET /api/teams/state` check confirming the two owners stay separated.
+
+## Ownership Priority Verification (Added: 2026-04-03)
+- Re-verified the authenticated-first / anonymous-fallback rule using one cookie jar that held both `kxoxxy-anonymous-session` and `kxoxxy-auth-session`.
+- Confirmed that anonymous favorites, daily capture state, and saved teams remain intact in the browser-scoped fallback state.
+- Confirmed that once the same browser receives an auth cookie, `favorites`, `/api/daily/state`, and `/api/teams/state` all switch to the authenticated `user_id` state instead of reading the existing anonymous state.
+- Confirmed that clearing the auth cookie restores visibility of the original anonymous favorites, daily capture state, and saved teams in the same browser session.
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration

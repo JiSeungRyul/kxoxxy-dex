@@ -154,7 +154,28 @@
 
 ## 7. 장기 계획
 - `25). Authentication`
-- `26). 서버 기반 사용자 영속화 확장`
+- `x25-1). 현재 anonymous-session 경계와 향후 auth session 공존 규칙 정의`
+- `x25-2). auth provider / session strategy / 최소 사용자 모델 결정`
+- `x25-3). users / auth_accounts / sessions 등 최소 auth schema 초안 정리`
+- `x25-4). 인증 후 어떤 쓰기부터 user_id 기준으로 전환할지 범위 확정`
+- `x25-5). 로그인/로그아웃 및 세션 확인용 최소 서버 경계(route or helper) 도입`
+- `x25-6). 최소 인증 UI 진입점 추가 (로그인/로그아웃/세션 상태 표시)`
+- `x25-7). 인증 성공 후 사용자 세션이 서버에서 읽히는지 smoke check`
+- `x25-8). docs/session-guide / architecture / current-product / database-plan 반영`
+
+`25` 방향 메모:
+- 처음 단계는 복잡한 멀티 provider보다 최소 auth + 서버 세션 방식이 더 적합합니다.
+- 현재 `kxoxxy-anonymous-session`은 pre-login fallback으로 유지하고, 로그인 후에는 별도의 authenticated session이 `user_id`를 해석하는 구조를 목표로 합니다.
+- 운영 중인 앱이 아니므로 legacy anonymous 데이터 merge는 기본 범위에 넣지 않습니다.
+- authenticated write 우선순위는 `favorites -> daily/my-pokemon -> teams` 순서를 기본으로 잡습니다.
+- 현재 단계의 로그인은 실제 provider 연동이 아니라 헤더에서 사용하는 개발용 최소 로그인/로그아웃 흐름입니다.
+- `x26). 서버 기반 사용자 영속화 확장`
+- `x26-1). authenticated request에서 user_id를 읽는 공용 ownership resolver 추가`
+- `x26-2). favorites를 첫 user_id write/read 대상으로 전환`
+- `x26-3). daily / my-pokemon state를 user_id 대응으로 확장`
+- `x26-4). teams / my-teams state를 user_id 대응으로 확장`
+- `x26-5). anonymous fallback과 authenticated write 우선순위 검증`
+- `x26-6). 관련 migration / docs / smoke check 정리`
 - `x27). Favorites`
 - `x27-1). 즐겨찾기 DB 스키마 설계 및 마이그레이션 (favorite_pokemon 테이블)`
 - `x27-2). 즐겨찾기 상태 관리를 위한 서버 repository 로직 추가 (toggle/get)`

@@ -979,15 +979,65 @@ async function getOrCreateAnonymousSessionId(sessionId: string) {
   return rows[0]?.id ?? null;
 }
 
-async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId: number): Promise<PokedexCollectionState> {
+type DailyOwnership =
+  | {
+      ownerType: "anonymous";
+      sessionId: string;
+    }
+  | {
+      ownerType: "user";
+      userId: number;
+    };
+
+type DailyOwner =
+  | {
+      column: "anonymous_session_id";
+      value: number;
+    }
+  | {
+      column: "user_id";
+      value: number;
+    };
+
+function getEmptyCollectionState(): PokedexCollectionState {
+  return {
+    capturedDexNumbers: [],
+    shinyCapturedDexNumbers: [],
+    capturedAtByDexNumber: {},
+    encountersByDate: {},
+    shinyEncountersByDate: {},
+  };
+}
+
+async function resolveDailyOwner(ownership: DailyOwnership): Promise<DailyOwner | null> {
+  if (ownership.ownerType === "user") {
+    return {
+      column: "user_id",
+      value: ownership.userId,
+    };
+  }
+
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(ownership.sessionId);
+
+  if (!anonymousSessionId) {
+    return null;
+  }
+
+  return {
+    column: "anonymous_session_id",
+    value: anonymousSessionId,
+  };
+}
+
+async function getStoredDailyCollectionStateByOwner(dailyOwner: DailyOwner): Promise<PokedexCollectionState> {
   const capturedRows = await postgresClient.unsafe<Array<{ nationalDexNumber: number; isShiny: boolean; capturedAt: string }>>(
     `
       SELECT national_dex_number AS "nationalDexNumber", is_shiny AS "isShiny", captured_at::text AS "capturedAt"
       FROM daily_captures
-      WHERE anonymous_session_id = $1
+      WHERE ${dailyOwner.column} = $1
       ORDER BY national_dex_number ASC
     `,
-    [anonymousSessionId],
+    [dailyOwner.value],
   );
   const encounterRows = await postgresClient.unsafe<
     Array<{ encounterDate: string; nationalDexNumber: number; isShiny: boolean }>
@@ -998,10 +1048,10 @@ async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessio
         national_dex_number AS "nationalDexNumber",
         is_shiny AS "isShiny"
       FROM daily_encounters
-      WHERE anonymous_session_id = $1
+      WHERE ${dailyOwner.column} = $1
       ORDER BY encounter_date ASC
     `,
-    [anonymousSessionId],
+    [dailyOwner.value],
   );
 
   return {
@@ -1020,16 +1070,29 @@ async function getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessio
 }
 
 async function upsertDailyEncounterForSession({
-  anonymousSessionId,
+  dailyOwner,
   dateKey,
   nationalDexNumber,
   isShiny,
 }: {
-  anonymousSessionId: number;
+  dailyOwner: DailyOwner;
   dateKey: string;
   nationalDexNumber: number;
   isShiny: boolean;
 }) {
+  if (dailyOwner.column === "user_id") {
+    await postgresClient.unsafe(
+      `
+        INSERT INTO daily_encounters (user_id, encounter_date, national_dex_number, is_shiny)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (user_id, encounter_date)
+        DO UPDATE SET national_dex_number = EXCLUDED.national_dex_number, is_shiny = EXCLUDED.is_shiny, updated_at = NOW()
+      `,
+      [dailyOwner.value, dateKey, nationalDexNumber, isShiny],
+    );
+    return;
+  }
+
   await postgresClient.unsafe(
     `
       INSERT INTO daily_encounters (anonymous_session_id, encounter_date, national_dex_number, is_shiny)
@@ -1037,24 +1100,21 @@ async function upsertDailyEncounterForSession({
       ON CONFLICT (anonymous_session_id, encounter_date)
       DO UPDATE SET national_dex_number = EXCLUDED.national_dex_number, is_shiny = EXCLUDED.is_shiny, updated_at = NOW()
     `,
-    [anonymousSessionId, dateKey, nationalDexNumber, isShiny],
+    [dailyOwner.value, dateKey, nationalDexNumber, isShiny],
   );
 }
 
-export async function getDailyCollectionState(sessionId: string, dateKey = getLocalDateKey()): Promise<PokedexCollectionState> {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function getDailyCollectionState(
+  ownership: DailyOwnership,
+  dateKey = getLocalDateKey(),
+): Promise<PokedexCollectionState> {
+  const dailyOwner = await resolveDailyOwner(ownership);
 
-  if (!anonymousSessionId) {
-    return {
-      capturedDexNumbers: [],
-      shinyCapturedDexNumbers: [],
-      capturedAtByDexNumber: {},
-      encountersByDate: {},
-      shinyEncountersByDate: {},
-    };
+  if (!dailyOwner) {
+    return getEmptyCollectionState();
   }
 
-  const state = await getStoredDailyCollectionStateByAnonymousSessionId(anonymousSessionId);
+  const state = await getStoredDailyCollectionStateByOwner(dailyOwner);
 
   if (state.encountersByDate[dateKey]) {
     return state;
@@ -1080,7 +1140,7 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
   const isShiny = rollDailyEncounterShiny();
 
   await upsertDailyEncounterForSession({
-    anonymousSessionId,
+    dailyOwner,
     dateKey,
     nationalDexNumber: encounterDexNumber,
     isShiny,
@@ -1099,20 +1159,14 @@ export async function getDailyCollectionState(sessionId: string, dateKey = getLo
   };
 }
 
-export async function captureDailyEncounter(sessionId: string, dateKey = getLocalDateKey()) {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function captureDailyEncounter(ownership: DailyOwnership, dateKey = getLocalDateKey()) {
+  const dailyOwner = await resolveDailyOwner(ownership);
 
-  if (!anonymousSessionId) {
-    return {
-      capturedDexNumbers: [],
-      shinyCapturedDexNumbers: [],
-      capturedAtByDexNumber: {},
-      encountersByDate: {},
-      shinyEncountersByDate: {},
-    };
+  if (!dailyOwner) {
+    return getEmptyCollectionState();
   }
 
-  const state = await getDailyCollectionState(sessionId, dateKey);
+  const state = await getDailyCollectionState(ownership, dateKey);
   const nationalDexNumber = state.encountersByDate[dateKey];
   const isShiny = state.shinyEncountersByDate[dateKey] ?? false;
 
@@ -1120,63 +1174,63 @@ export async function captureDailyEncounter(sessionId: string, dateKey = getLoca
     return state;
   }
 
-  await postgresClient.unsafe(
-    `
-      INSERT INTO daily_captures (anonymous_session_id, national_dex_number, is_shiny)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (anonymous_session_id, national_dex_number)
-      DO NOTHING
-    `,
-    [anonymousSessionId, nationalDexNumber, isShiny],
-  );
-
-  return getDailyCollectionState(sessionId, dateKey);
-}
-
-export async function resetDailyEncounterCapture(sessionId: string, dateKey = getLocalDateKey()) {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
-
-  if (!anonymousSessionId) {
-    return {
-      capturedDexNumbers: [],
-      shinyCapturedDexNumbers: [],
-      capturedAtByDexNumber: {},
-      encountersByDate: {},
-      shinyEncountersByDate: {},
-    };
+  if (dailyOwner.column === "user_id") {
+    await postgresClient.unsafe(
+      `
+        INSERT INTO daily_captures (user_id, national_dex_number, is_shiny)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, national_dex_number)
+        DO NOTHING
+      `,
+      [dailyOwner.value, nationalDexNumber, isShiny],
+    );
+  } else {
+    await postgresClient.unsafe(
+      `
+        INSERT INTO daily_captures (anonymous_session_id, national_dex_number, is_shiny)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (anonymous_session_id, national_dex_number)
+        DO NOTHING
+      `,
+      [dailyOwner.value, nationalDexNumber, isShiny],
+    );
   }
 
-  const state = await getDailyCollectionState(sessionId, dateKey);
+  return getDailyCollectionState(ownership, dateKey);
+}
+
+export async function resetDailyEncounterCapture(ownership: DailyOwnership, dateKey = getLocalDateKey()) {
+  const dailyOwner = await resolveDailyOwner(ownership);
+
+  if (!dailyOwner) {
+    return getEmptyCollectionState();
+  }
+
+  const state = await getDailyCollectionState(ownership, dateKey);
   const nationalDexNumber = state.encountersByDate[dateKey];
 
   if (nationalDexNumber) {
     await postgresClient.unsafe(
       `
         DELETE FROM daily_captures
-        WHERE anonymous_session_id = $1
+        WHERE ${dailyOwner.column} = $1
         AND national_dex_number = $2
       `,
-      [anonymousSessionId, nationalDexNumber],
+      [dailyOwner.value, nationalDexNumber],
     );
   }
 
-  return getDailyCollectionState(sessionId, dateKey);
+  return getDailyCollectionState(ownership, dateKey);
 }
 
-export async function rerollDailyEncounter(sessionId: string, dateKey = getLocalDateKey()) {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function rerollDailyEncounter(ownership: DailyOwnership, dateKey = getLocalDateKey()) {
+  const dailyOwner = await resolveDailyOwner(ownership);
 
-  if (!anonymousSessionId) {
-    return {
-      capturedDexNumbers: [],
-      shinyCapturedDexNumbers: [],
-      capturedAtByDexNumber: {},
-      encountersByDate: {},
-      shinyEncountersByDate: {},
-    };
+  if (!dailyOwner) {
+    return getEmptyCollectionState();
   }
 
-  const state = await getDailyCollectionState(sessionId, dateKey);
+  const state = await getDailyCollectionState(ownership, dateKey);
   const currentEncounterDexNumber = state.encountersByDate[dateKey];
 
   if (!currentEncounterDexNumber || state.capturedDexNumbers.includes(currentEncounterDexNumber)) {
@@ -1203,38 +1257,32 @@ export async function rerollDailyEncounter(sessionId: string, dateKey = getLocal
   const isShiny = rollDailyEncounterShiny();
 
   await upsertDailyEncounterForSession({
-    anonymousSessionId,
+    dailyOwner,
     dateKey,
     nationalDexNumber: rerolledEncounterDexNumber,
     isShiny,
   });
 
-  return getDailyCollectionState(sessionId, dateKey);
+  return getDailyCollectionState(ownership, dateKey);
 }
 
-export async function releaseCapturedPokemon(sessionId: string, nationalDexNumber: number) {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function releaseCapturedPokemon(ownership: DailyOwnership, nationalDexNumber: number) {
+  const dailyOwner = await resolveDailyOwner(ownership);
 
-  if (!anonymousSessionId) {
-    return {
-      capturedDexNumbers: [],
-      shinyCapturedDexNumbers: [],
-      capturedAtByDexNumber: {},
-      encountersByDate: {},
-      shinyEncountersByDate: {},
-    };
+  if (!dailyOwner) {
+    return getEmptyCollectionState();
   }
 
   await postgresClient.unsafe(
     `
       DELETE FROM daily_captures
-      WHERE anonymous_session_id = $1
+      WHERE ${dailyOwner.column} = $1
       AND national_dex_number = $2
     `,
-    [anonymousSessionId, nationalDexNumber],
+    [dailyOwner.value, nationalDexNumber],
   );
 
-  return getDailyCollectionState(sessionId);
+  return getDailyCollectionState(ownership);
 }
 
 type TeamRow = {
@@ -1265,6 +1313,26 @@ type TeamMemberRow = {
   pokemon: PokemonSummary;
 };
 
+type TeamOwnership =
+  | {
+      ownerType: "anonymous";
+      sessionId: string;
+    }
+  | {
+      ownerType: "user";
+      userId: number;
+    };
+
+type TeamOwner =
+  | {
+      column: "anonymous_session_id";
+      value: number;
+    }
+  | {
+      column: "user_id";
+      value: number;
+    };
+
 function getEmptyStoredTeamMemberFallback(slot: number): PokemonTeamMemberDraft {
   return {
     ...sanitizeTeamMembers([{ slot }])[0],
@@ -1283,6 +1351,33 @@ function getEmptyStoredTeamMember(slot: number): PokemonTeamMember {
 }
 
 async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise<PokemonTeam[]> {
+  return getTeamsByOwner({
+    column: "anonymous_session_id",
+    value: anonymousSessionId,
+  });
+}
+
+async function resolveTeamOwner(ownership: TeamOwnership): Promise<TeamOwner | null> {
+  if (ownership.ownerType === "user") {
+    return {
+      column: "user_id",
+      value: ownership.userId,
+    };
+  }
+
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(ownership.sessionId);
+
+  if (!anonymousSessionId) {
+    return null;
+  }
+
+  return {
+    column: "anonymous_session_id",
+    value: anonymousSessionId,
+  };
+}
+
+async function getTeamsByOwner(teamOwner: TeamOwner): Promise<PokemonTeam[]> {
   const latestSnapshot = await getLatestSnapshotRecord();
   const teamRows = await postgresClient.unsafe<TeamRow[]>(
     `
@@ -1294,10 +1389,10 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
         created_at::text AS "createdAt",
         updated_at::text AS "updatedAt"
       FROM teams
-      WHERE anonymous_session_id = $1
+      WHERE ${teamOwner.column} = $1
       ORDER BY updated_at DESC, id DESC
     `,
-    [anonymousSessionId],
+    [teamOwner.value],
   );
 
   if (teamRows.length === 0) {
@@ -1378,18 +1473,18 @@ async function getTeamsByAnonymousSessionId(anonymousSessionId: number): Promise
   });
 }
 
-export async function getStoredTeams(sessionId: string): Promise<PokemonTeam[]> {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function getStoredTeams(ownership: TeamOwnership): Promise<PokemonTeam[]> {
+  const teamOwner = await resolveTeamOwner(ownership);
 
-  if (!anonymousSessionId) {
+  if (!teamOwner) {
     return [];
   }
 
-  return getTeamsByAnonymousSessionId(anonymousSessionId);
+  return getTeamsByOwner(teamOwner);
 }
 
 export async function saveTeam(
-  sessionId: string,
+  ownership: TeamOwnership,
   team: {
     id?: number | null;
     name: string;
@@ -1398,9 +1493,9 @@ export async function saveTeam(
     members: PokemonTeamMemberDraft[];
   },
 ): Promise<{ teams: PokemonTeam[]; savedTeamId: number | null; error?: string }> {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+  const teamOwner = await resolveTeamOwner(ownership);
 
-  if (!anonymousSessionId) {
+  if (!teamOwner) {
     return {
       teams: [],
       savedTeamId: null,
@@ -1412,7 +1507,7 @@ export async function saveTeam(
   const normalizedTeamMode = sanitizeTeamMode(team.mode);
   const sanitizedMembers = sanitizeTeamMembers(team.members, normalizedTeamMode);
   const selectedMembers = sanitizedMembers.filter((member) => member.nationalDexNumber !== null);
-  const existingTeams = await getTeamsByAnonymousSessionId(anonymousSessionId);
+  const existingTeams = await getTeamsByOwner(teamOwner);
 
   const validationError = getTeamValidationError({
     teamName: normalizedTeamName,
@@ -1526,10 +1621,10 @@ export async function saveTeam(
           SELECT id
           FROM teams
           WHERE id = $1
-          AND anonymous_session_id = $2
+          AND ${teamOwner.column} = $2
           LIMIT 1
         `,
-        [teamId, anonymousSessionId],
+        [teamId, teamOwner.value],
       );
 
       if (ownedTeamRows.length === 0) {
@@ -1554,14 +1649,24 @@ export async function saveTeam(
         [teamId],
       );
     } else {
-      const insertedTeamRows = await transaction.unsafe<Array<{ id: number }>>(
-        `
-          INSERT INTO teams (anonymous_session_id, name, format, mode)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id
-        `,
-        [anonymousSessionId, normalizedTeamName, normalizedTeamFormat, normalizedTeamMode],
-      );
+      const insertedTeamRows =
+        teamOwner.column === "user_id"
+          ? await transaction.unsafe<Array<{ id: number }>>(
+              `
+                INSERT INTO teams (user_id, name, format, mode)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id
+              `,
+              [teamOwner.value, normalizedTeamName, normalizedTeamFormat, normalizedTeamMode],
+            )
+          : await transaction.unsafe<Array<{ id: number }>>(
+              `
+                INSERT INTO teams (anonymous_session_id, name, format, mode)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id
+              `,
+              [teamOwner.value, normalizedTeamName, normalizedTeamFormat, normalizedTeamMode],
+            );
 
       teamId = insertedTeamRows[0]?.id ?? null;
     }
@@ -1614,15 +1719,15 @@ export async function saveTeam(
   });
 
   return {
-    teams: await getTeamsByAnonymousSessionId(anonymousSessionId),
+    teams: await getTeamsByOwner(teamOwner),
     savedTeamId,
   };
 }
 
-export async function deleteStoredTeam(sessionId: string, teamId: number) {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+export async function deleteStoredTeam(ownership: TeamOwnership, teamId: number) {
+  const teamOwner = await resolveTeamOwner(ownership);
 
-  if (!anonymousSessionId) {
+  if (!teamOwner) {
     return [];
   }
 
@@ -1630,18 +1735,58 @@ export async function deleteStoredTeam(sessionId: string, teamId: number) {
     `
       DELETE FROM teams
       WHERE id = $1
-      AND anonymous_session_id = $2
+      AND ${teamOwner.column} = $2
     `,
-    [teamId, anonymousSessionId],
+    [teamId, teamOwner.value],
   );
 
-  return getTeamsByAnonymousSessionId(anonymousSessionId);
+  return getTeamsByOwner(teamOwner);
 }
 
-export async function getFavoriteDexNumbers(sessionId: string): Promise<number[]> {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+type FavoriteOwnership =
+  | {
+      ownerType: "anonymous";
+      sessionId: string;
+    }
+  | {
+      ownerType: "user";
+      userId: number;
+    };
+
+async function resolveFavoriteOwner(ownership: FavoriteOwnership): Promise<
+  | {
+      column: "anonymous_session_id";
+      value: number;
+    }
+  | {
+      column: "user_id";
+      value: number;
+    }
+  | null
+> {
+  if (ownership.ownerType === "user") {
+    return {
+      column: "user_id",
+      value: ownership.userId,
+    };
+  }
+
+  const anonymousSessionId = await getOrCreateAnonymousSessionId(ownership.sessionId);
 
   if (!anonymousSessionId) {
+    return null;
+  }
+
+  return {
+    column: "anonymous_session_id",
+    value: anonymousSessionId,
+  };
+}
+
+export async function getFavoriteDexNumbers(ownership: FavoriteOwnership): Promise<number[]> {
+  const favoriteOwner = await resolveFavoriteOwner(ownership);
+
+  if (!favoriteOwner) {
     return [];
   }
 
@@ -1649,47 +1794,59 @@ export async function getFavoriteDexNumbers(sessionId: string): Promise<number[]
     `
       SELECT national_dex_number AS "nationalDexNumber"
       FROM favorite_pokemon
-      WHERE anonymous_session_id = $1
+      WHERE ${favoriteOwner.column} = $1
       ORDER BY created_at DESC
     `,
-    [anonymousSessionId],
+    [favoriteOwner.value],
   );
 
   return rows.map((row) => row.nationalDexNumber);
 }
 
 export async function toggleFavoritePokemon(
-  sessionId: string,
+  ownership: FavoriteOwnership,
   nationalDexNumber: number,
 ): Promise<{ isFavorite: boolean }> {
-  const anonymousSessionId = await getOrCreateAnonymousSessionId(sessionId);
+  const favoriteOwner = await resolveFavoriteOwner(ownership);
 
-  if (!anonymousSessionId) {
+  if (!favoriteOwner) {
     return { isFavorite: false };
   }
 
   const existingRows = await postgresClient.unsafe<Array<{ id: number }>>(
     `
       SELECT id FROM favorite_pokemon
-      WHERE anonymous_session_id = $1 AND national_dex_number = $2
+      WHERE ${favoriteOwner.column} = $1 AND national_dex_number = $2
       LIMIT 1
     `,
-    [anonymousSessionId, nationalDexNumber],
+    [favoriteOwner.value, nationalDexNumber],
   );
 
   if (existingRows.length > 0) {
     await postgresClient.unsafe(`DELETE FROM favorite_pokemon WHERE id = $1`, [existingRows[0].id]);
 
     return { isFavorite: false };
-  } else {
+  }
+
+  if (favoriteOwner.column === "user_id") {
     await postgresClient.unsafe(
       `
-        INSERT INTO favorite_pokemon (anonymous_session_id, national_dex_number)
+        INSERT INTO favorite_pokemon (user_id, national_dex_number)
         VALUES ($1, $2)
       `,
-      [anonymousSessionId, nationalDexNumber],
+      [favoriteOwner.value, nationalDexNumber],
     );
 
     return { isFavorite: true };
   }
+
+  await postgresClient.unsafe(
+    `
+      INSERT INTO favorite_pokemon (anonymous_session_id, national_dex_number)
+      VALUES ($1, $2)
+    `,
+    [favoriteOwner.value, nationalDexNumber],
+  );
+
+  return { isFavorite: true };
 }

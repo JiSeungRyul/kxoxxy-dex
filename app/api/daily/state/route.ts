@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyAnonymousSessionCookie, resolveAnonymousSessionId } from "@/features/pokedex/server/anonymous-session";
+import { applyOwnershipCookies, resolveRequestOwnership } from "@/features/pokedex/server/ownership";
 import {
   captureDailyEncounter,
   getDailyCollectionState,
@@ -13,13 +13,15 @@ type DailyAction = "capture" | "reset" | "reroll" | "release";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, searchParams.get("sessionId"));
-  const state = await getDailyCollectionState(sessionId);
+  const ownership = await resolveRequestOwnership(request, searchParams.get("sessionId"));
+  const state = await getDailyCollectionState(
+    ownership.ownerType === "user"
+      ? { ownerType: "user", userId: ownership.userId }
+      : { ownerType: "anonymous", sessionId: ownership.sessionId },
+  );
   const response = NextResponse.json(state);
 
-  if (shouldSetCookie) {
-    applyAnonymousSessionCookie(response, sessionId);
-  }
+  applyOwnershipCookies(response, ownership);
 
   return response;
 }
@@ -30,19 +32,23 @@ export async function POST(request: NextRequest) {
     action?: DailyAction;
     nationalDexNumber?: number;
   };
-  const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, body.sessionId);
+  const ownership = await resolveRequestOwnership(request, body.sessionId);
+  const dailyOwner =
+    ownership.ownerType === "user"
+      ? { ownerType: "user" as const, userId: ownership.userId }
+      : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
 
   let state;
 
   switch (body.action) {
     case "capture":
-      state = await captureDailyEncounter(sessionId);
+      state = await captureDailyEncounter(dailyOwner);
       break;
     case "reset":
-      state = await resetDailyEncounterCapture(sessionId);
+      state = await resetDailyEncounterCapture(dailyOwner);
       break;
     case "reroll":
-      state = await rerollDailyEncounter(sessionId);
+      state = await rerollDailyEncounter(dailyOwner);
       break;
     case "release":
       if (!Number.isInteger(body.nationalDexNumber)) {
@@ -51,7 +57,7 @@ export async function POST(request: NextRequest) {
 
       {
         const nationalDexNumber = Number(body.nationalDexNumber);
-        state = await releaseCapturedPokemon(sessionId, nationalDexNumber);
+        state = await releaseCapturedPokemon(dailyOwner, nationalDexNumber);
       }
       break;
     default:
@@ -60,9 +66,7 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json(state);
 
-  if (shouldSetCookie) {
-    applyAnonymousSessionCookie(response, sessionId);
-  }
+  applyOwnershipCookies(response, ownership);
 
   return response;
 }

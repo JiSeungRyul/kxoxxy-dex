@@ -159,13 +159,72 @@ export const anonymousSessions = pgTable(
   }),
 );
 
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    name: text("name"),
+    image: text("image"),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    usersEmailKey: uniqueIndex("users_email_key").on(table.email),
+  }),
+);
+
+export const authAccounts = pgTable(
+  "auth_accounts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    accountType: text("account_type").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    scope: text("scope"),
+    tokenType: text("token_type"),
+    expiresAt: integer("expires_at"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    authAccountsProviderAccountKey: uniqueIndex("auth_accounts_provider_account_key").on(
+      table.provider,
+      table.providerAccountId,
+    ),
+  }),
+);
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionToken: text("session_token").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionsSessionTokenKey: uniqueIndex("sessions_session_token_key").on(table.sessionToken),
+  }),
+);
+
 export const dailyEncounters = pgTable(
   "daily_encounters",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id")
-      .notNull()
-      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
     encounterDate: date("encounter_date").notNull(),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
@@ -179,6 +238,7 @@ export const dailyEncounters = pgTable(
       table.anonymousSessionId,
       table.encounterDate,
     ),
+    dailyEncountersUserDateKey: uniqueIndex("daily_encounters_user_date_key").on(table.userId, table.encounterDate),
   }),
 );
 
@@ -186,9 +246,8 @@ export const dailyCaptures = pgTable(
   "daily_captures",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id")
-      .notNull()
-      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
@@ -200,14 +259,17 @@ export const dailyCaptures = pgTable(
       table.anonymousSessionId,
       table.nationalDexNumber,
     ),
+    dailyCapturesUserPokemonKey: uniqueIndex("daily_captures_user_pokemon_key").on(
+      table.userId,
+      table.nationalDexNumber,
+    ),
   }),
 );
 
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
-  anonymousSessionId: integer("anonymous_session_id")
-    .notNull()
-    .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   format: text("format").default("default").notNull(),
   mode: text("mode").default("free").notNull(),
@@ -249,9 +311,8 @@ export const favoritePokemon = pgTable(
   "favorite_pokemon",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id")
-      .notNull()
-      .references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
@@ -260,6 +321,10 @@ export const favoritePokemon = pgTable(
   (table) => ({
     favoritePokemonSessionPokemonKey: uniqueIndex("favorite_pokemon_session_pokemon_key").on(
       table.anonymousSessionId,
+      table.nationalDexNumber,
+    ),
+    favoritePokemonUserPokemonKey: uniqueIndex("favorite_pokemon_user_pokemon_key").on(
+      table.userId,
       table.nationalDexNumber,
     ),
   }),

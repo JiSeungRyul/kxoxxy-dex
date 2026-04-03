@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-import { applyAnonymousSessionCookie, resolveAnonymousSessionId } from "@/features/pokedex/server/anonymous-session";
+import { applyOwnershipCookies, resolveRequestOwnership } from "@/features/pokedex/server/ownership";
 import { deleteStoredTeam, getStoredTeams, saveTeam } from "@/features/pokedex/server/repository";
 import type { PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import { sanitizeTeamFormat, sanitizeTeamMode } from "@/features/pokedex/utils";
@@ -10,13 +10,15 @@ type TeamAction = "save" | "delete";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, searchParams.get("sessionId"));
-    const teams = await getStoredTeams(sessionId);
+    const ownership = await resolveRequestOwnership(request, searchParams.get("sessionId"));
+    const teamOwner =
+      ownership.ownerType === "user"
+        ? { ownerType: "user" as const, userId: ownership.userId }
+        : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
+    const teams = await getStoredTeams(teamOwner);
     const response = NextResponse.json({ teams });
 
-    if (shouldSetCookie) {
-      applyAnonymousSessionCookie(response, sessionId);
-    }
+    applyOwnershipCookies(response, ownership);
 
     return response;
   } catch {
@@ -38,7 +40,11 @@ export async function POST(request: NextRequest) {
         members?: PokemonTeamMemberDraft[];
       };
     };
-    const { sessionId, shouldSetCookie } = resolveAnonymousSessionId(request, body.sessionId);
+    const ownership = await resolveRequestOwnership(request, body.sessionId);
+    const teamOwner =
+      ownership.ownerType === "user"
+        ? { ownerType: "user" as const, userId: ownership.userId }
+        : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
 
     switch (body.action) {
       case "save": {
@@ -46,7 +52,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "team payload is required" }, { status: 400 });
         }
 
-        const result = await saveTeam(sessionId, {
+        const result = await saveTeam(teamOwner, {
           id: Number.isInteger(body.team.id) ? Number(body.team.id) : null,
           name: body.team.name,
           format: sanitizeTeamFormat(body.team.format),
@@ -60,9 +66,7 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json(result);
 
-        if (shouldSetCookie) {
-          applyAnonymousSessionCookie(response, sessionId);
-        }
+        applyOwnershipCookies(response, ownership);
 
         return response;
       }
@@ -71,12 +75,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "teamId is required" }, { status: 400 });
         }
 
-        const teams = await deleteStoredTeam(sessionId, Number(body.teamId));
+        const teams = await deleteStoredTeam(teamOwner, Number(body.teamId));
         const response = NextResponse.json({ teams });
 
-        if (shouldSetCookie) {
-          applyAnonymousSessionCookie(response, sessionId);
-        }
+        applyOwnershipCookies(response, ownership);
 
         return response;
       }

@@ -8,6 +8,10 @@
 ## What Exists Today
 - PostgreSQL is configured for local development.
 - Drizzle configuration and initial catalog schema are present.
+- Minimal auth schema groundwork is now checked in for:
+  - `users`
+  - `auth_accounts`
+  - `sessions`
 - Current catalog tables:
   - `pokedex_snapshots`
   - `pokemon_catalog`
@@ -97,6 +101,7 @@ Result:
 - `users`
 - `auth_accounts`
 - `sessions`
+- preferred first step: one minimal auth path with a server-managed authenticated session that can resolve `users.id`
 
 ### User-Owned Gameplay State
 - `captured_pokemon`
@@ -126,7 +131,7 @@ Result:
 
 ## Current Anonymous Ownership Scope
 - `anonymous_sessions` is the current owner lookup table for anonymous runtime state.
-- `daily_encounters` and `daily_captures` are currently owned by `anonymous_session_id`.
+- `daily_encounters` and `daily_captures` now support both `anonymous_session_id` and `user_id`.
 - `teams` is currently owned by `anonymous_session_id`.
 - `team_members` is currently owned indirectly through `teams.id`.
 - The affected runtime APIs are:
@@ -147,6 +152,27 @@ Result:
 - Once auth exists, new daily/team state for authenticated users should be written directly under `user_id`.
 - Existing anonymous-session records do not need automatic migration just to unlock the auth design.
 - If a future product requirement wants account-linking for anonymous pre-login progress, that should be treated as a separate feature rather than assumed by default.
+- The preferred auth implementation shape is:
+  - keep `kxoxxy-anonymous-session` as the pre-login fallback
+  - add a separate server-managed authenticated session
+  - resolve `users.id` from the authenticated session
+  - move new authenticated writes to `user_id` without requiring legacy anonymous merge
+
+## Preferred Write Transition Order
+- The first authenticated `user_id` write target should be `favorite_pokemon`.
+- The next authenticated write target should be the daily/my-pokemon state pair because they already share one server-backed collection boundary.
+- Team writes should follow after that because they have the broadest payload shape and the most save-time validation.
+- This order keeps the first account-linked rollout focused on the smallest, lowest-risk state before expanding into more complex persisted flows.
+- The current codebase now has a shared authenticated-first / anonymous-fallback ownership resolver, so later write migrations should reuse that boundary instead of re-implementing owner selection per route.
+- `favorite_pokemon` now already supports both ownership paths:
+  - anonymous favorites by `anonymous_session_id`
+  - authenticated favorites by `user_id`
+- `daily_captures` and `daily_encounters` now also already support both ownership paths:
+  - anonymous daily state by `anonymous_session_id`
+  - authenticated daily state by `user_id`
+- `teams` now also already supports both ownership paths:
+  - anonymous teams by `anonymous_session_id`
+  - authenticated teams by `user_id`
 
 ## Ownership Transition Rules
 - Do not block auth or ownership design on preserving old anonymous-session rows.
@@ -156,8 +182,6 @@ Result:
 - Keep the transition plan focused on future authenticated writes, not on historical anonymous backfill.
 
 ## Likely DB Follow-Up Shape
-- `daily_captures` and `daily_encounters` will likely need a future `user_id` ownership path or successor tables tied to `users`.
-- `teams` and `team_members` will likely need a future `user_id` ownership path or successor tables tied to `users`.
 - The exact migration can stay minimal if legacy anonymous-session data is allowed to be dropped.
 - The main planning task now is to document the target ownership boundary, not to preserve every temporary anonymous row.
 - The likely minimum DB follow-up is one of these two approaches:
@@ -174,13 +198,9 @@ Result:
 - Treat anonymous-session ownership as transitional and disposable unless a later requirement explicitly elevates data retention.
 
 ## Out Of Scope Right Now
-- Auth.js integration
 - completed user/auth schema implementation
-- fully account-linked collection state
-- team persistence
-- favorites persistence
+- real provider-backed auth
 - legacy anonymous-session data migration or merge design
 
 ## Near-Term TODO
-- Document the target `user_id` ownership boundary for daily and team state without over-designing legacy anonymous-session migration.
 - Add follow-up checks for migration application and local server restart behavior during DB-related development.

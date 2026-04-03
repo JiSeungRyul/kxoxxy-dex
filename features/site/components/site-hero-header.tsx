@@ -4,7 +4,7 @@ import type { FocusEventHandler } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ThemeToggle } from "@/features/theme/components/theme-toggle";
 
@@ -23,10 +23,23 @@ function getDropdownClass(isOpen: boolean) {
 const SUBMENU_LINK_CLASS =
   "block rounded-[0.9rem] px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted";
 
+type AuthSessionResponse = {
+  authenticated?: boolean;
+  user?: {
+    id: number;
+    email: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+};
+
 export function SiteHeroHeader() {
   const pathname = usePathname();
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthMutating, setIsAuthMutating] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon" || pathname === "/favorites";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
@@ -40,6 +53,70 @@ export function SiteHeroHeader() {
       setIsTeamsMenuOpen(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void fetch("/api/auth/session")
+      .then((response) => response.json())
+      .then((payload: AuthSessionResponse) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAuthUser(payload.authenticated ? (payload.user ?? null) : null);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAuthUser(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleDevelopmentLogin() {
+    setIsAuthMutating(true);
+
+    try {
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: "dev@kxoxxydex.local",
+          name: "개발 테스트 사용자",
+        }),
+      });
+      const payload = (await response.json()) as AuthSessionResponse;
+      setAuthUser(payload.user ?? null);
+    } finally {
+      setIsAuthLoading(false);
+      setIsAuthMutating(false);
+    }
+  }
+
+  async function handleLogout() {
+    setIsAuthMutating(true);
+
+    try {
+      await fetch("/api/auth/session", {
+        method: "DELETE",
+      });
+      setAuthUser(null);
+    } finally {
+      setIsAuthLoading(false);
+      setIsAuthMutating(false);
+    }
+  }
 
   return (
     <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
@@ -70,7 +147,28 @@ export function SiteHeroHeader() {
           </div>
         </div>
 
-        <ThemeToggle />
+        <div className="flex flex-wrap items-start justify-end gap-3">
+          <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-right shadow-card">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Auth
+            </p>
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              {isAuthLoading ? "세션 확인 중" : authUser ? (authUser.name ?? authUser.email) : "비로그인 상태"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {authUser ? authUser.email : "현재는 개발용 최소 로그인만 지원합니다."}
+            </p>
+            <button
+              type="button"
+              onClick={authUser ? handleLogout : handleDevelopmentLogin}
+              disabled={isAuthMutating}
+              className="mt-3 inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isAuthMutating ? "처리 중..." : authUser ? "로그아웃" : "개발용 로그인"}
+            </button>
+          </div>
+          <ThemeToggle />
+        </div>
       </div>
 
       <nav

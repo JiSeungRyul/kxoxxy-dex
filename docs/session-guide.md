@@ -118,3 +118,48 @@ If the task depends on route or API performance measurement, read docs/performan
   - `docs/architecture.md`
 - The next practical task is backlog item `24`: tighten post-migration and post-restart verification guidance.
 
+## Authentication Direction (Added: 2026-04-03)
+- The preferred auth direction for this repo is minimal auth plus server-managed authenticated sessions, not a broad multi-provider rollout on day one.
+- The intended runtime shape is:
+  - pre-login fallback -> existing `kxoxxy-anonymous-session` cookie
+  - authenticated session -> separate server-managed auth session that resolves a durable `user_id`
+- Auth should be introduced without removing the current anonymous-session flow immediately.
+- Once auth exists, new authenticated writes should move directly to `user_id` ownership instead of extending long-lived dual ownership.
+- Legacy anonymous-session data merge remains out of scope unless a later product requirement explicitly reopens it.
+- Minimal auth groundwork now exists at the schema level:
+  - `users`
+  - `auth_accounts`
+  - `sessions`
+- A minimal authenticated-session read boundary now also exists at `/api/auth/session`.
+- The header now has a development-only minimal auth panel that can create and clear a server-managed auth session for local verification.
+- Local verification for that boundary now includes:
+  - unauthenticated `GET /api/auth/session` -> `authenticated: false`
+  - temporary local `users` + `sessions` rows plus `kxoxxy-auth-session` cookie -> `authenticated: true`
+- Local verification for the current minimal login UI now also includes:
+  - `POST /api/auth/session` -> auth cookie issued
+  - follow-up `GET /api/auth/session` -> `authenticated: true`
+  - `DELETE /api/auth/session` -> auth cookie cleared
+  - final `GET /api/auth/session` -> `authenticated: false`
+- A shared ownership resolver now exists for later `user_id` persistence work:
+  - authenticated request -> `ownerType: "user"` with `userId`
+  - unauthenticated request -> `ownerType: "anonymous"` with fallback `sessionId`
+- Favorites, daily, and my-pokemon state now use that shared ownership boundary.
+- Favorites now persist for authenticated requests through `user_id`.
+- Daily and my-pokemon state now also persist for authenticated requests through `user_id`, while anonymous daily/my-pokemon state still remains on `anonymous_session_id`.
+- Teams and my-teams state now also persist for authenticated requests through `user_id`, while anonymous team state still remains on `anonymous_session_id`.
+- Real provider-backed auth is still not implemented, but the current local development auth flow can now verify authenticated favorites, daily/my-pokemon, and teams ownership separately from anonymous state.
+- Local ownership-priority verification now also confirms the intended fallback order in one browser session:
+  - anonymous cookies can hold favorites, daily capture state, and saved teams
+  - adding `kxoxxy-auth-session` makes the same browser read the authenticated `user_id` state instead of the anonymous state
+  - clearing the auth cookie reveals the original anonymous state again
+
+## Ownership Transition Status (Added: 2026-04-03)
+- Backlog item `26` is now fully completed.
+- Current authenticated `user_id` persistence is live for:
+  - favorites
+  - daily / my-pokemon state
+  - teams / my-teams state
+- Current anonymous persistence is still kept as the no-auth fallback through `kxoxxy-anonymous-session`.
+- The remaining auth follow-up is no longer the `user_id` write transition itself.
+- The next larger follow-up is replacing the current development-only auth flow with a real provider-backed authentication boundary when backlog item `25` is revisited at runtime quality level.
+

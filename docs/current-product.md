@@ -33,6 +33,12 @@
 - Daily encounter now uses anonymous-session-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
 - My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- A minimal authenticated-session read boundary now exists at `/api/auth/session`, but it is not yet connected to a real login/logout flow.
+- The site header now exposes a development-only minimal auth panel that can create and clear a server-managed auth session for local verification.
+- Favorites, daily, and team routes now resolve ownership through a shared authenticated-first / anonymous-fallback server helper.
+- Favorites now persist separately for authenticated users through `user_id`.
+- Daily encounter state and My Pokemon collection state now also persist separately for authenticated users through `user_id`.
+- Team builder and My Teams state now also persist separately for authenticated users through `user_id`.
 - The daily and team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie, and the current client no longer generates new `sessionId` values in local storage.
 - When an older browser still has a legacy `kxoxxy-anonymous-session` local-storage value, the client now forwards it only during the first state load so the server can migrate that browser onto the shared cookie boundary.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
@@ -53,17 +59,21 @@
 - Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
 ## Current Constraints
-- Authentication is not implemented.
-- Server-backed user persistence is not implemented.
+- Real provider-backed authentication is not implemented.
+- Minimal auth schema groundwork exists, and a development-only login/logout flow is available for local verification.
+- The current header auth panel is development-only and is not a real provider-backed sign-in experience.
+- Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams, but only through the current development-only auth flow.
+- The preferred next step is minimal auth with a separate server-managed authenticated session layered on top of the current anonymous-session fallback.
 - Automated tests are not present.
 - Catalog data operations are still split across snapshot generation and DB import workflows.
-- Anonymous daily persistence and anonymous team persistence exist, but account-linked user persistence does not.
+- Anonymous daily persistence and anonymous team persistence exist, and account-linked persistence now exists for favorites, daily/my-pokemon, and teams.
 - Daily and team persistence require the new DB tables to be migrated before the API routes can work.
 - After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
 
 ## Current Risks
 - Anonymous session identity is browser-scoped and is not durable across devices or account changes.
-- Collection ownership is still anonymous-session-based rather than account-linked.
+- Anonymous ownership still exists as a fallback path, but authenticated favorites, collection state, and teams now resolve through `user_id`.
+- Auth is still development-only, so any future cross-device or real account-linked persistence depends on replacing the temporary auth flow with a durable provider-backed session boundary.
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources
