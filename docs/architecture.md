@@ -6,14 +6,10 @@
   - list, detail, daily, and my-pokemon catalog reads are DB-backed
   - snapshot generation and DB import still coexist in the data pipeline
 - The target runtime shape is a clearer frontend UI -> server/API -> PostgreSQL data boundary, even while the catalog source pipeline remains hybrid for now.
-- Daily encounter, collection state, and saved team data are stored per anonymous session in PostgreSQL.
-- That anonymous-session ownership is still transitional; the long-term target is a cleaner `user_id`-based ownership boundary once auth work begins.
-- The daily and team state APIs now issue or reuse a shared server-managed `httpOnly` anonymous-session cookie.
-- The current client no longer creates new anonymous-session ids in local storage and only forwards an older stored session id once when migrating a browser onto the shared cookie boundary.
-- The client still mirrors collection state into `localStorage` as a compatibility fallback.
-- The preferred auth follow-up is minimal auth plus a separate server-managed authenticated session, while the current anonymous-session cookie remains the pre-login fallback.
-- Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and a development-only authenticated-session flow is now available for local ownership verification.
-- The preferred next auth replacement step is to keep the current-session read boundary and ownership resolver, while replacing only the development-only session issuance and logout boundary with a real provider-backed auth flow.
+- Persisted user state now resolves through authenticated `user_id` for favorites, daily/my-pokemon, and teams/my-teams.
+- Legacy anonymous-session ownership is no longer part of the active runtime or active schema path for persisted product features.
+- The current auth shape is minimal provider-backed Google sign-in plus a server-managed authenticated session that resolves `users.id`.
+- Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and the active runtime uses the provider-backed authenticated-session flow rather than the older development-only issuance path.
 
 ## High-Level Structure
 - `app/`
@@ -64,19 +60,19 @@
 
 ### Daily And Collection Routes
 1. `app/daily/page.tsx` loads a dex-number-only daily candidate snapshot from PostgreSQL through `getPokedexDailyDexNumberSnapshot()`
-2. The current client requests daily state through the server-managed cookie boundary and only forwards a legacy stored session id once when migrating an older browser
-3. `app/api/daily/state/route.ts` issues or reuses a shared server-managed `httpOnly` anonymous-session cookie and reads/writes anonymous-session daily state through PostgreSQL
+2. `PokedexPage` requests daily state through `app/api/daily/state/route.ts`
+3. `app/api/daily/state/route.ts` requires authenticated session and reads/writes daily state through `user_id`
 4. `PokedexPage` fetches encounter and recent-capture detail on demand through `app/api/pokedex/catalog/route.ts` when the daily client state is ready
-5. `app/my-pokemon/page.tsx` ships no gallery catalog on first render and relies on the same anonymous-session collection state to request captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
-6. `PokedexPage` loads collection state from the same anonymous-session API for both `/daily` and `/my-pokemon`
-7. The client mirrors the returned state into `localStorage` as a fallback and compatibility layer
+5. `app/my-pokemon/page.tsx` ships no gallery catalog on first render and relies on the same authenticated collection state to request captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
+6. `PokedexPage` loads collection state from the same authenticated API for both `/daily` and `/my-pokemon`
+7. When auth is absent, `/daily` and `/my-pokemon` render login CTA states instead of returning persisted collection data
 
 ### Team Routes
 1. `app/teams/page.tsx` loads a small team-builder option list with dex number, Korean name, generation, and Pokedex-name metadata plus reduced item option entries from PostgreSQL through `getPokedexTeamBuilderOptionSnapshot()` and `getPokedexTeamBuilderItemOptionSnapshot()`
 2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` and selected slot-aware move options on demand through `app/api/pokedex/moves/route.ts` so the first render does not ship the full team-builder catalog or move learnset data
-3. The current client requests team state through the same server-managed cookie boundary and only forwards a legacy stored session id once when migrating an older browser
-4. `app/api/teams/state/route.ts` issues or reuses the same shared server-managed `httpOnly` anonymous-session cookie and reads/writes team and team-member rows through PostgreSQL
-5. `app/my-teams/page.tsx` reads the saved team list for the current anonymous session
+3. `TeamBuilderPage` requests saved team state through `app/api/teams/state/route.ts`
+4. `app/api/teams/state/route.ts` requires authenticated session and reads/writes team and team-member rows through `user_id`
+5. `app/my-teams/page.tsx` reads the saved team list for the current authenticated user
 6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 7. Saved team members now persist a nullable `formKey` field for limited non-Mega form support, separate from the existing Mega-only `megaFormKey`
 8. The current first-pass non-Mega form support is intentionally limited to Rotom appliance forms, a small regional-form shortlist including the same-dex multi-region `나옹(알로라/가라르)` case, a small legendary/mythical shortlist (`기라티나 오리진폼`, `쉐이미 스카이폼`), and `팔데아 켄타로스` breed forms, while the move-query path uses slot + `formKey` overrides only for a bounded set of known form-specific move gaps instead of reopening the whole form-specific learnset catalog at once
@@ -93,6 +89,31 @@
 9. The current move pipeline stores learnsets at the national-dex level, so form-specific learnset exceptions are not yet separated inside `pokemon_move_catalog`
 10. The move pipeline still stores learnsets at the national-dex level, so the current Rotom form support uses a small query-time override layer rather than a broader form-normalized learnset model
 11. If broader non-Mega form-specific team building is added later, both the saved team-member model and the move-query path will need a wider `formKey` rollout than the current Rotom-plus-selected-regional first pass
+12. `28-5` confirms that the existing DB catalog is still sufficient for the current MVP team-builder scope: searchable item options, searchable move options, saved `formKey`, and the current bounded form-specific move override set do not yet require broader schema changes
+
+## Hybrid Boundary Status
+- `28-1` confirms that the current hybrid split is no longer “some routes use files, some routes use DB”.
+- Instead, the current split is:
+  - runtime route/API reads -> imported PostgreSQL catalog/state tables
+  - snapshot generation and seed/import workflow -> checked-in `data/*.json` plus PokeAPI fetch scripts
+- The remaining runtime coupling to the snapshot model is indirect:
+  - repository helpers such as `getLatestSnapshotRecord()` and `getLatestMoveSnapshotRecord()` still select the latest imported snapshot lineage before reading catalog rows
+  - this means runtime is DB-backed, but not yet fully detached from snapshot-version concepts in the schema
+- The clearest examples:
+  - `/daily` first render reads dex numbers from PostgreSQL, not from `data/pokedex.json`
+  - `/teams` first render reads Pokemon/item option payloads from PostgreSQL, not from local snapshot files
+  - `/api/pokedex/moves` reads move and learnset rows from PostgreSQL, but the imported move catalog still originates from `data/move-catalog.json`
+- `28-2` further splits that boundary by domain:
+  - pokedex runtime -> `pokemon_catalog`, generation/import -> `data/pokedex.json` + `pokedex_snapshots`
+  - item runtime -> `item_catalog`, generation/import -> `data/item-catalog.json` + `item_snapshots`
+  - move runtime -> `move_catalog` + `pokemon_move_catalog`, generation/import -> `data/move-catalog.json` + `move_snapshots`
+  - move generation still has the strongest snapshot coupling because `scripts/sync-moves.mjs` reads `data/pokedex.json` before import
+- `28-3` narrows the next cleanup target:
+  - old local-file runtime helpers such as `readPokedexSnapshot()` / `getPokedexSnapshot()` / `getPokemonBySlug()` are cleanup candidates
+  - DB lineage selectors such as `getLatestSnapshotRecord()` and `getLatestMoveSnapshotRecord()` are not cleanup candidates yet because active runtime flows still depend on them
+- `28-6` does not add new catalog indexes yet:
+  - current runtime still leans on existing slug keys, snapshot filtering, and the current `pokemon_move_catalog` uniqueness/index shape
+  - any future index work should be driven by heavier Korean-name search, broader filtered-list traffic, or wider move legality access patterns rather than by speculative early tuning
 
 ## Data Contracts
 - `features/pokedex/types.ts` defines the stable payload contracts used by both snapshot and DB payload storage.
@@ -147,11 +168,19 @@
   - `app/api/favorites/state/route.ts` reads only authenticated session-backed `user_id`
   - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
   - `/favorites` and the favorite-toggle entry points now treat Google sign-in as the persistence entry boundary
+- `29-10` is now live for daily/my-pokemon:
+  - `app/api/daily/state/route.ts` reads and writes only authenticated session-backed `user_id`
+  - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
+  - `/daily` and `/my-pokemon` now treat Google sign-in as the persistence entry boundary for collection progress
+- `29-11` is now live for teams/my-teams:
+  - `app/api/teams/state/route.ts` reads and writes only authenticated session-backed `user_id`
+  - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
+  - `/teams` and `/my-teams` now treat Google sign-in as the persistence entry boundary for saved team management
+- `29-12` now removes the leftover anonymous-session runtime helpers and local-storage handoff path, so auth-required persistence is the only active runtime path for favorites, daily/my-pokemon, and teams/my-teams
 
 ## Auth Replacement Boundary
 - The current reusable auth boundary is:
   - `features/pokedex/server/auth-session.ts#resolveAuthenticatedUserSession()`
-  - `features/pokedex/server/ownership.ts`
   - `app/api/auth/session/route.ts` GET handler
 - The current development-only boundary that should be replaced is:
   - `createDevelopmentAuthSession()`

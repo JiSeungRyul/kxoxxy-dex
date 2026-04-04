@@ -20,10 +20,12 @@
   - `move_snapshots`
   - `move_catalog`
   - `pokemon_move_catalog`
-- Additional runtime tables are present for anonymous daily state:
-  - `anonymous_sessions`
+- Additional runtime user-state tables are present:
   - `daily_captures`
   - `daily_encounters`
+  - `favorite_pokemon`
+  - `teams`
+  - `team_members`
   - both daily tables now store `is_shiny` flags
 - Import path:
   - `data/pokedex.json` -> `scripts/import-pokedex-to-db.mjs` -> PostgreSQL
@@ -37,7 +39,7 @@
 
 ## Local DB Bootstrap Order
 When starting from a fresh environment, `docker compose up -d` is not enough by itself.
-Compose starts PostgreSQL, but the schema and catalog data still need to be applied.
+Compose starts PostgreSQL, but the schema and imported runtime catalog data still need to be applied.
 
 Use this order:
 
@@ -71,6 +73,21 @@ Result:
 - `npm run db:seed:moves` regenerates `data/move-catalog.json` from PokeAPI and the checked-in Pokemon snapshot, then populates move tables from it.
 - `npm run dev` starts the app against a non-empty local DB.
 
+## Sync vs Seed Responsibility
+- `28-4` clarifies that the repository now has two different catalog workflows:
+  - sync workflow -> refresh checked-in local snapshot files from upstream data sources
+  - seed/import workflow -> load those local snapshot files into PostgreSQL for DB-backed runtime use
+- Current command split:
+  - `npm run sync:pokedex` refreshes `data/pokedex.json`
+  - `npm run sync:items` refreshes `data/item-catalog.json`
+  - `npm run sync:moves` refreshes `data/move-catalog.json` and still depends on `data/pokedex.json`
+  - `npm run db:seed:pokedex` imports the current local Pokemon snapshot
+  - `npm run db:seed:items` imports the current local item snapshot
+  - `npm run db:seed:moves` regenerates the move snapshot and imports it
+- Default guidance:
+  - use `db:migrate` + `db:seed:*` for normal runtime/bootstrap verification
+  - use `sync:*` only when the task explicitly includes upstream dataset refresh
+
 ## Why This Is The Default Workflow
 - Docker Compose manages container startup, not application schema state.
 - Drizzle migrations are the source of truth for table structure.
@@ -94,6 +111,28 @@ Result:
   - per-Pokemon move learnset rows
   - selected lookup columns plus full JSON payload
 - This is a transitional catalog model, not a fully normalized long-term schema.
+
+## Current Domain Split
+- Pokedex catalog:
+  - runtime reads use `pokemon_catalog`
+  - import lineage still uses `pokedex_snapshots`
+  - upstream generation still starts from `data/pokedex.json`
+- Item catalog:
+  - runtime reads use `item_catalog`
+  - import lineage still uses `item_snapshots`
+  - upstream generation still starts from `data/item-catalog.json`
+- Move catalog:
+  - runtime reads use `move_catalog` and `pokemon_move_catalog`
+  - import lineage still uses `move_snapshots`
+  - upstream generation still starts from `data/move-catalog.json`
+  - move snapshot generation still depends on `data/pokedex.json` to derive per-Pokemon move rows before import
+- This means all three catalog domains are DB-first at runtime, but all three are still snapshot-first at generation/import time.
+- `28-5` also clarifies the current sufficiency boundary:
+  - the existing catalog tables are sufficient for current MVP item selection, move selection, saved `formKey`, and the current bounded form-specific move override layer
+  - they are not yet a full solution for broader form-normalized learnset correctness across wider multi-form groups
+- `28-6` leaves the current catalog indexes unchanged for now:
+  - current slug keys and existing move-entry uniqueness are sufficient for the present runtime queries
+  - likely first follow-up candidates, if load grows, are Korean-name search indexing on `pokemon_catalog`, filtered-list composite indexing around `snapshot_id` + generation, and wider move access-pattern review on `pokemon_move_catalog`
 
 ## Planned Domains
 
@@ -129,15 +168,18 @@ Result:
 - Because the app is not currently operating with production user data, legacy anonymous-session records do not need a complex merge or migration plan.
 - For the current planning scope, treat old anonymous-session records as disposable development-era data unless a later product requirement explicitly says otherwise.
 
-## Current Anonymous Ownership Scope
-- `anonymous_sessions` is the current owner lookup table for anonymous runtime state.
-- `daily_encounters` and `daily_captures` now support both `anonymous_session_id` and `user_id`.
-- `teams` is currently owned by `anonymous_session_id`.
-- `team_members` is currently owned indirectly through `teams.id`.
+## Current Ownership Scope
+- Persisted runtime state now resolves through `user_id`.
+- The active user-state tables are:
+  - `daily_encounters`
+  - `daily_captures`
+  - `favorite_pokemon`
+  - `teams`
+  - `team_members`
 - The affected runtime APIs are:
   - `app/api/daily/state/route.ts`
+  - `app/api/favorites/state/route.ts`
   - `app/api/teams/state/route.ts`
-- The current cookie boundary only identifies the anonymous session; it does not change the underlying owner model away from `anonymous_session_id`.
 
 ## Target Ownership Model
 - After auth work begins, the intended durable owner for user state is `users.id`.
@@ -165,16 +207,7 @@ Result:
 - The next authenticated write target should be the daily/my-pokemon state pair because they already share one server-backed collection boundary.
 - Team writes should follow after that because they have the broadest payload shape and the most save-time validation.
 - This order keeps the first account-linked rollout focused on the smallest, lowest-risk state before expanding into more complex persisted flows.
-- The current codebase now has a shared authenticated-first / anonymous-fallback ownership resolver, so later write migrations should reuse that boundary instead of re-implementing owner selection per route.
-- `favorite_pokemon` now already supports both ownership paths:
-  - anonymous favorites by `anonymous_session_id`
-  - authenticated favorites by `user_id`
-- `daily_captures` and `daily_encounters` now also already support both ownership paths:
-  - anonymous daily state by `anonymous_session_id`
-  - authenticated daily state by `user_id`
-- `teams` now also already supports both ownership paths:
-  - anonymous teams by `anonymous_session_id`
-  - authenticated teams by `user_id`
+- The runtime write path is now already simplified to authenticated `user_id` ownership across favorites, daily/my-pokemon, and teams.
 
 ## Ownership Transition Rules
 - Do not block auth or ownership design on preserving old anonymous-session rows.
@@ -184,20 +217,15 @@ Result:
 - Keep the transition plan focused on authenticated-only persistence, not on historical anonymous backfill.
 
 ## Likely DB Follow-Up Shape
-- The exact migration can stay minimal if legacy anonymous-session data is allowed to be dropped.
-- The main planning task now is to document the target ownership boundary, not to preserve every temporary anonymous row.
-- The likely minimum DB follow-up is one of these two approaches:
-  - add nullable `user_id` ownership to the current daily/team tables, then switch authenticated writes to it
-  - add successor user-owned tables and retire anonymous-owned tables later
-- For this repo's current scope, either option is acceptable as long as `user_id` becomes the clear durable owner and anonymous ownership remains transitional.
+- The anonymous-session bridge is no longer needed for the active schema.
+- The next DB follow-up should focus on account features or deeper catalog work, not on preserving temporary anonymous ownership.
 
 ## Migration Rules
 - Do not assume catalog normalization is the highest-priority DB task.
 - Keep user-owned state separate from catalog data.
 - Preserve compatibility with the current `PokemonSummary` payload shape until a deliberate schema migration is planned.
 - Treat `features/pokedex/server/repository.ts` as the runtime truth when evaluating whether a DB plan is already live.
-- Treat the current anonymous daily tables as a bridge toward account-linked user state, not the final user-data model.
-- Treat anonymous-session ownership as transitional and disposable unless a later requirement explicitly elevates data retention.
+- Treat `user_id` as the only active durable owner for persisted product features.
 
 ## Out Of Scope Right Now
 - completed user/auth schema implementation
@@ -209,15 +237,11 @@ Result:
   - preserve `users`, `auth_accounts`, and `sessions`
   - preserve the current-session read helper and `user_id` ownership resolver
   - replace only the development-only session issuance path with a real provider-backed sign-in/sign-out flow
-- After provider-backed auth is verified, begin removing anonymous persistence from user-facing product features in this order:
-  - favorites
-  - daily / my-pokemon
-  - teams / my-teams
-- The first cutover is now live:
-  - `favorite_pokemon` still has legacy anonymous columns in schema, but runtime favorites reads/writes now require authenticated `user_id`
-  - the remaining anonymous favorites path should now be treated as cleanup work rather than active product behavior
-  - keep provider env vars optional until real auth credentials are available so local development can continue using the current fallback
 - The first provider-backed target is now Google:
   - sign-in redirect starts at `/api/auth/sign-in`
   - callback lands at `/api/auth/callback/google`
   - successful callback should continue materializing local `sessions` rows so the existing ownership resolver keeps working unchanged
+- The anonymous ownership cleanup is now also live at the schema layer:
+  - `daily_captures`, `daily_encounters`, `favorite_pokemon`, and `teams` no longer keep `anonymous_session_id`
+  - `anonymous_sessions` is removed
+  - persisted product features now use only authenticated `user_id` ownership in both runtime and active schema

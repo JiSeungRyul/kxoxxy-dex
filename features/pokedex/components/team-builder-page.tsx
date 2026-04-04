@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import type {
   PokedexItemOptionEntry,
   PokedexMoveOptionEntry,
@@ -154,6 +153,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isAuthRequired, setIsAuthRequired] = useState(false);
   const selectedTeamId = Number(searchParams.get("teamId"));
   const selectedPokemonByDexNumber = new Map(
     selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
@@ -213,19 +213,20 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }, [isBattleMode, members, selectedPokemonByDexNumber]);
 
   async function loadTeams() {
-    const legacySessionId = getLegacyAnonymousSessionId();
-    const stateUrl =
-      legacySessionId === null
-        ? "/api/teams/state"
-        : `/api/teams/state?sessionId=${encodeURIComponent(legacySessionId)}`;
-    const response = await fetch(stateUrl);
+    const response = await fetch("/api/teams/state");
 
     if (!response.ok) {
+      if (response.status === 401) {
+        setIsAuthRequired(true);
+        setTeams([]);
+        return [];
+      }
+
       throw new Error("팀 목록을 불러오지 못했습니다.");
     }
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
-    clearLegacyAnonymousSessionId();
+    setIsAuthRequired(false);
     setTeams(Array.isArray(payload.teams) ? payload.teams : []);
 
     return Array.isArray(payload.teams) ? payload.teams : [];
@@ -847,10 +848,17 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
       };
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
         setError(payload.error ?? "팀 저장에 실패했습니다.");
         return;
       }
 
+      setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
       setNotice(teamId ? "변경사항을 저장했습니다." : "팀을 저장했습니다.");
@@ -867,6 +875,26 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (isAuthRequired) {
+    return (
+      <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+          팀 저장 기능을 사용하려면 로그인이 필요합니다
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          로그인하면 계정에 저장된 팀을 불러오고, 팀 빌딩 결과를 기기와 세션에 관계없이 이어서 관리할 수 있습니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.assign("/api/auth/sign-in")}
+          className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+        >
+          Google로 로그인
+        </button>
+      </section>
+    );
   }
 
   return (

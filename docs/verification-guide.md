@@ -34,6 +34,12 @@ When changing the DB schema, seed data, or session-related server logic, follow 
 1. `npm run db:seed:pokedex` (or items/moves as needed)
 2. Clear any server-side cache if `unstable_cache` was used (or restart the server).
 
+### D. Upstream Dataset Refresh
+1. Run the matching `sync:*` command only for the domain you intend to refresh.
+2. Then run the matching `db:seed:*` import command.
+3. Restart the server if the affected route uses cached catalog helpers.
+4. Recheck the affected route/API immediately.
+
 ---
 
 ## 2. Failure Triage (24-1, 24-7)
@@ -45,8 +51,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 | **500 Internal Server Error** | Missing Table or Column | Check server logs for `Relation "..." does not exist` | Run `npm run db:migrate` |
 | **Empty Data / Broken Images** | Missing Catalog Seeds | Check `/api/pokedex/catalog` for empty arrays | Run `npm run db:seed:pokedex` |
 | **Old Data Still Appears** | Next.js / Windows Cache | Change a UI string; if it doesn't update, it's a lock issue | Stop node.exe and restart `npm run dev` |
-| **Progress Not Saved** | Session/Cookie Issue | Check DevTools -> Application -> Cookies for `kxoxxy-anonymous-session` | Clear Cookies and refresh to mint a new one |
-| **"Session ID is required"** | Legacy Client Version | Check if the browser is sending `sessionId` in the JSON body | Refresh the page; the new cookie-based client will fix it |
+| **401 Authentication Required** | Missing Auth Session | Check `/api/auth/session` and confirm `authenticated: true` | Sign in again through Google and retry |
 
 ---
 
@@ -65,28 +70,29 @@ If a feature fails after a migration or update, use this checklist to identify t
 4. Verify the Pokedex list (`/pokedex`) still paginates correctly.
 
 ### C. Session Logic Change (e.g., Cookie boundary hardening)
-1. Clear all browser cookies and local storage.
-2. Open `/daily` and verify a `kxoxxy-anonymous-session` cookie is created.
-3. Capture a Pokemon.
-4. Open `/my-pokemon` and verify the captured Pokemon appears (proving session sharing).
-5. Verify `/api/daily/state` returns data without requiring an explicit `sessionId` query param.
+1. Clear auth cookies or sign out.
+2. Open `/daily` and verify the page shows a login CTA instead of persisted progress.
+3. Confirm `GET /api/daily/state` returns `401` while signed out.
+4. Sign in through Google.
+5. Capture a Pokemon, open `/my-pokemon`, and verify the captured Pokemon appears under the same account.
 
 ---
 
 ## 4. Route Smoke Flow (Baseline)
 
 ### `/daily` & `/my-pokemon`
-- Open `/daily`. Verify the `kxoxxy-anonymous-session` `httpOnly` cookie exists.
-- `GET /api/daily/state` should return a valid JSON state.
-- Capture/Reroll/Reset should all work and return `200 OK`.
+- While signed out, open `/daily` and verify the login CTA renders.
+- After sign-in, `GET /api/daily/state` should return a valid JSON state.
+- Capture/Reroll/Reset should all work and return `200 OK` while authenticated.
 - Open `/my-pokemon`. Captured cards must load via `/api/pokedex/catalog` on demand.
 
 ### `/teams` & `/my-teams`
-- Open `/teams`. The first render must ship a reduced option payload (verify in Network tab).
+- While signed out, open `/teams` and verify the login CTA renders.
+- After sign-in, open `/teams`. The first render must ship a reduced option payload (verify in Network tab).
 - Select a Pokemon. Verify `/api/pokedex/catalog?view=teams` is called.
 - Save a team. Verify the redirect to `/teams?teamId=...`.
 - Open `/my-teams`. The saved team must appear and load its members correctly.
 
 ## 5. Environment Notes (24-6)
 - **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
-- **Anonymous Migration:** The server allows a one-time handoff of `localStorage["kxoxxy-anonymous-session"]`. To test this, manually set the local storage key before loading the page without a cookie.
+- **Auth Requirement:** Persisted routes now require a valid `kxoxxy-auth-session`; signed-out behavior should be a login CTA plus `401` from the matching state API.

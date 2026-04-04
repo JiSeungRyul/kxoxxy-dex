@@ -18,8 +18,8 @@
 - Sort by dex number, name, and base stats
 - Navigate paginated results
 - View Pokemon detail pages with forms, evolution, abilities, and matchup references
-- Use anonymous-session-backed daily encounter and captured-Pokemon collection flows
-- Build and browse anonymous-session-backed Pokemon teams
+- Use login-required daily encounter and captured-Pokemon collection flows
+- Build and browse login-required Pokemon teams
 - Use light and dark theme modes
 
 ## Tech Stack
@@ -35,6 +35,16 @@
 - `data/pokedex.json` is the generated local catalog snapshot.
 - PostgreSQL is used for current runtime list, detail, daily, and my-pokemon catalog flows.
 - The repository is currently in a hybrid migration stage:
-  - runtime routes use PostgreSQL-backed catalog queries
-  - snapshot generation and DB import still remain in the pipeline
+  - runtime routes and catalog APIs already use PostgreSQL-backed catalog queries
+  - snapshot generation and DB import still remain in the pipeline as the upstream content-generation path
+- `28-1` clarified the current boundary:
+  - hybrid no longer mainly means “runtime files vs runtime DB”
+  - it now mainly means “DB-backed runtime reads vs snapshot-based generation/import pipeline”
+- `28-2` clarified the per-domain split:
+  - pokedex/item/move runtime reads are already PostgreSQL-backed
+  - pokedex/item/move generation and import still begin from snapshot files
+  - move generation remains the most snapshot-coupled because it also reads the Pokemon snapshot when constructing learnset data
+- `28-7` closes the documentation pass:
+  - `project-overview`, `architecture`, `current-product`, and `session-guide` now all describe the same current hybrid model
+  - current persisted gameplay features are account-bound at runtime, while catalog generation/import remains snapshot-first
 - As the migration continues, API-derived catalog data is expected to be stored in PostgreSQL.

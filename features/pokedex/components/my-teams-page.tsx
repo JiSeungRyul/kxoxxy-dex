@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import type { PokemonBaseStats, PokemonTeam } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
@@ -50,22 +49,24 @@ export function MyTeamsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthRequired, setIsAuthRequired] = useState(false);
 
   async function loadTeams() {
-    const legacySessionId = getLegacyAnonymousSessionId();
-    const stateUrl =
-      legacySessionId === null
-        ? "/api/teams/state"
-        : `/api/teams/state?sessionId=${encodeURIComponent(legacySessionId)}`;
-    const response = await fetch(stateUrl);
+    const response = await fetch("/api/teams/state");
 
     if (!response.ok) {
+      if (response.status === 401) {
+        setIsAuthRequired(true);
+        setTeams([]);
+        return;
+      }
+
       throw new Error("저장된 팀을 불러오지 못했습니다.");
     }
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
     const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
-    clearLegacyAnonymousSessionId();
+    setIsAuthRequired(false);
     setTeams(nextTeams);
     setExpandedTeamId((currentTeamId) => currentTeamId ?? nextTeams[0]?.id ?? null);
   }
@@ -101,10 +102,17 @@ export function MyTeamsPage() {
       const payload = (await response.json()) as { error?: string; teams?: PokemonTeam[] };
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
         setError(payload.error ?? "팀 삭제에 실패했습니다.");
         return;
       }
 
+      setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
       setExpandedTeamId(nextTeams[0]?.id ?? null);
@@ -131,6 +139,26 @@ export function MyTeamsPage() {
     );
   }
 
+  if (isAuthRequired) {
+    return (
+      <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+          저장된 팀을 보려면 로그인이 필요합니다
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          로그인하면 계정에 저장된 팀을 불러오고, 여러 기기에서 같은 팀 목록을 이어서 관리할 수 있습니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.assign("/api/auth/sign-in")}
+          className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+        >
+          Google로 로그인
+        </button>
+      </section>
+    );
+  }
+
   if (teams.length === 0) {
     return <EmptyState />;
   }
@@ -143,7 +171,7 @@ export function MyTeamsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">My Teams</p>
             <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-foreground">내 팀 보기</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              현재 브라우저의 익명 세션에 저장된 팀 목록입니다. 나중에 로그인 기능이 들어가면 계정 단위로 이어질 수 있습니다.
+              로그인한 계정에 저장된 팀 목록입니다. 팀 빌더에서 저장한 구성을 여기에서 다시 확인하고 수정할 수 있습니다.
             </p>
           </div>
           <Link

@@ -122,8 +122,8 @@
 
 ## 6. 세션/데이터 모델 강화
 - 현재 상태 요약:
-- `22` 완료: 익명 세션 경계는 이제 서버 관리 `httpOnly` 쿠키 기준으로 정리됨
-- `23` 완료: 향후 ownership은 `user_id` 중심으로 전환하되, legacy anonymous 데이터 migration은 비범위로 정의됨
+- `x22` 완료: 익명 세션 경계는 이제 서버 관리 `httpOnly` 쿠키 기준으로 정리됨
+- `x23` 완료: 향후 ownership은 `user_id` 중심으로 전환하되, legacy anonymous 데이터 migration은 비범위로 정의됨
 - 다음 시작점은 `24`: migration 적용/서버 재시작/route API smoke check 가이드를 더 명확히 정리하는 작업
 - `x22). 브라우저 생성 익명 세션을 더 강한 서버 관리 세션으로 교체`
 - `x22-1). 현재 anonymous-session 흐름과 localStorage/sessionId 의존 경로 재확인`
@@ -153,7 +153,7 @@
 이유: 기능 개발 기준 다음 큰 묶음은 세션/ownership 기반 작업이고, 그 다음이 운영 체크 보강입니다.
 
 ## 7. 장기 계획
-- `25). Authentication`
+- `x25). Authentication`
 - `x25-1). 현재 anonymous-session 경계와 향후 auth session 공존 규칙 정의`
 - `x25-2). auth provider / session strategy / 최소 사용자 모델 결정`
 - `x25-3). users / auth_accounts / sessions 등 최소 auth schema 초안 정리`
@@ -165,10 +165,10 @@
 
 `25` 방향 메모:
 - 처음 단계는 복잡한 멀티 provider보다 최소 auth + 서버 세션 방식이 더 적합합니다.
-- 현재 `kxoxxy-anonymous-session`은 pre-login fallback으로 유지하고, 로그인 후에는 별도의 authenticated session이 `user_id`를 해석하는 구조를 목표로 합니다.
+- 현재 persisted state는 `kxoxxy-auth-session` 기반 authenticated session으로만 읽고 씁니다.
 - 운영 중인 앱이 아니므로 legacy anonymous 데이터 merge는 기본 범위에 넣지 않습니다.
 - authenticated write 우선순위는 `favorites -> daily/my-pokemon -> teams` 순서를 기본으로 잡습니다.
-- 현재 단계의 로그인은 실제 provider 연동이 아니라 헤더에서 사용하는 개발용 최소 로그인/로그아웃 흐름입니다.
+- 현재 단계의 로그인은 Google provider-backed flow 기준입니다.
 - `x26). 서버 기반 사용자 영속화 확장`
 - `x26-1). authenticated request에서 user_id를 읽는 공용 ownership resolver 추가`
 - `x26-2). favorites를 첫 user_id write/read 대상으로 전환`
@@ -189,7 +189,7 @@
 - `x27-8-2). 쿠키 기반 favorites API/runtime smoke check 복구 및 재검증`
 - `x27-8-3). /favorites의 daily-state 결합 유지 여부 판단 및 필요 시 최소 분리`
 - `x27-8-4). favorites 후속 안정화 결과를 docs/task log에 최종 반영`
-- `29). 계정 기반 ownership 전환`
+- `x29). 계정 기반 ownership 전환`
 - `x29-1). 개발용 auth session과 실제 계정 기반 auth session의 차이/교체 범위 고정`
 - `x29-2). real provider-backed auth의 최소 목표 경계 정의 (sign-in / sign-out / current session)`
 - `x29-3). 현재 development-only auth route와 header auth panel을 실제 auth 흐름으로 교체할 최소 설계 정리`
@@ -199,9 +199,9 @@
 - `x29-7). docs/session-guide / architecture / current-product / database-plan 반영`
 - `x29-8). persistence 기능을 로그인 필수 범위로 전환할 제품/런타임 경계 고정`
 - `x29-9). favorites read/write를 auth-required로 전환`
-- `29-10). daily / my-pokemon state read/write를 auth-required로 전환`
-- `29-11). teams / my-teams state read/write를 auth-required로 전환`
-- `29-12). anonymous persistence fallback 제거 범위 정리 및 smoke check`
+- `x29-10). daily / my-pokemon state read/write를 auth-required로 전환`
+- `x29-11). teams / my-teams state read/write를 auth-required로 전환`
+- `x29-12). anonymous persistence fallback 제거 범위 정리 및 smoke check`
 
 `29` 설계 메모:
 - 현재 `resolveAuthenticatedUserSession()`와 ownership resolver는 유지하고, 세션 발급 주체만 development-only route에서 real provider-backed auth 경계로 교체하는 방향이 기본입니다.
@@ -220,8 +220,42 @@
     - persisted state API(`/api/favorites/state`, `/api/daily/state`, `/api/teams/state`)는 unauthenticated request에 더 이상 anonymous owner를 발급하지 않음
     - unauthenticated request는 auth-required 응답을 돌리고, 클라이언트는 저장 UI 대신 로그인 CTA를 표시
     - 기존 anonymous persistence와 legacy local-storage/session handoff 제거는 `29-9` ~ `29-12`에서 순차 수행
-- `28). 하이브리드 이후 추가 DB 통합`
+- `x28). 하이브리드 이후 추가 DB 통합`
+- `x28-1). 현재 hybrid catalog/data pipeline에서 runtime이 아직 snapshot 전제를 두는 지점 재확인`
+- `x28-2). pokedex / item / move import pipeline 중 DB가 이미 source of truth인 부분과 아직 snapshot-first인 부분 분리`
+- `x28-3). runtime route에서 더 이상 필요 없는 snapshot-era fallback/helper 후보 정리`
+- `x28-4). catalog import/seed workflow를 현재 DB-first runtime 관점으로 재정리`
+- `x28-5). item / move / form 관련 후속 기능이 DB catalog만으로 충분한지 검토`
+- `x28-6). 필요 시 DB catalog 테이블/인덱스 보강 후보 정리`
+- `x28-7). hybrid 설명 문서(project-overview / architecture / current-product / session-guide) 현재형으로 재정리`
+
+`28` 방향 메모:
+- 이 묶음은 auth나 user persistence가 아니라 catalog/data pipeline 정리 작업입니다.
+- 지금 runtime은 이미 list/detail/daily/team catalog read에서 PostgreSQL 의존이 크므로, `28`의 핵심은 snapshot 생성 자체를 지우는 것이 아니라 runtime source-of-truth와 import pipeline 책임을 더 명확히 나누는 것입니다.
+- `28-3` 기준으로는 local file snapshot runtime helper만 정리 후보이고, `getLatestSnapshotRecord()` / `getLatestMoveSnapshotRecord()`처럼 DB 안에서 최신 imported lineage를 고르는 helper는 아직 active runtime dependency로 남깁니다.
+- `28-5` 기준으로는 현재 MVP 범위의 item selector, move selector, saved `formKey`, and bounded form-specific move overrides는 existing DB catalog(`item_catalog`, `move_catalog`, `pokemon_move_catalog`, `pokemon_catalog`)로 계속 감당 가능합니다.
+- 대신 broader multi-form learnset normalization이나 wider form-specific move legality는 아직 current DB catalog만으로는 충분하지 않고, 그쪽은 `30` 또는 별도 follow-up schema work로 남깁니다.
+- `28-6` 기준으로는 immediate index addition이 필요한 명확한 병목은 아직 없고, 후속 후보만 정리합니다:
+  - larger Pokedex search scale이면 `pokemon_catalog(name_ko)` text-search/trigram 계열 검토
+  - heavier filtered list usage가 생기면 `pokemon_catalog(snapshot_id, generation_id, national_dex_number)` 계열 composite 검토
+  - broader move legality/form work가 커지면 `pokemon_move_catalog(snapshot_id, national_dex_number, move_slug or move_id)` 계열 access-pattern 재검토
+- 우선순위는 broad normalization보다 현재 hybrid 책임 경계를 문서와 코드에서 맞추는 쪽입니다.
+- 추천 순서는 `28-1 -> 28-2 -> 28-3 -> 28-4 -> 28-5 -> 28-6 -> 28-7` 입니다.
 - `30). 더 깊은 catalog 정규화 재검토`
+- `30-1). 현재 catalog payload 중심 테이블(`pokemon_catalog`, `item_catalog`, `move_catalog`, `pokemon_move_catalog`)에서 정규화 압력이 큰 지점 재분류`
+- `30-2). 포켓몬 detail/list payload에서 lookup column과 full payload가 중복되는 필드를 정리 후보로 분리`
+- `30-3). item / move catalog에서 slug/name/type/category 계층을 별도 reference 테이블로 분리할 실익 검토`
+- `30-4). move learnset를 national-dex 단위에서 form-aware 구조로 넓힐 필요 범위 재평가`
+- `30-5). saved formKey / move legality / wider form family를 함께 다룰 장기 schema 방향 초안 정리`
+- `30-6). current query path가 정규화 이후에도 유지되어야 할 최소 read-model 요구사항 정리`
+- `30-7). normalization을 하더라도 import pipeline / runtime read-model / client contract를 어떻게 분리할지 원칙 정리`
+- `30-8). 실제 normalization migration으로 들어가기 전 비범위와 선행조건 명시`
+
+`30` 방향 메모:
+- 이 묶음은 즉시 구현이 아니라 long-term schema review 작업입니다.
+- 현재 MVP/runtime은 existing payload-heavy catalog tables로 충분하므로, `30`은 broad rewrite가 아니라 pressure point를 문서로 정리하는 단계부터 시작합니다.
+- 특히 move learnset / wider form support / reference table 분리는 서로 연결돼 있으므로 따로 보지 않고 같은 normalization 검토 축으로 다룹니다.
+- 추천 순서는 `30-1 -> 30-2 -> 30-3 -> 30-4 -> 30-5 -> 30-6 -> 30-7 -> 30-8` 입니다.
 - `31). 마이 페이지 / 계정 허브`
 - `31-1). 현재 로그인 사용자 프로필 카드 (이름 / 이메일 / provider) 노출`
 - `31-2). 내 활동 요약 (즐겨찾기 수 / 포획 수 / 저장 팀 수) 집계`

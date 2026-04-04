@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-import { applyOwnershipCookies, resolveRequestOwnership } from "@/features/pokedex/server/ownership";
+import { resolveAuthenticatedUserSession } from "@/features/pokedex/server/auth-session";
 import { deleteStoredTeam, getStoredTeams, saveTeam } from "@/features/pokedex/server/repository";
 import type { PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import { sanitizeTeamFormat, sanitizeTeamMode } from "@/features/pokedex/utils";
@@ -9,18 +9,16 @@ type TeamAction = "save" | "delete";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const ownership = await resolveRequestOwnership(request, searchParams.get("sessionId"));
-    const teamOwner =
-      ownership.ownerType === "user"
-        ? { ownerType: "user" as const, userId: ownership.userId }
-        : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
+    const session = await resolveAuthenticatedUserSession(request);
+
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
+    }
+
+    const teamOwner = { ownerType: "user" as const, userId: session.userId };
     const teams = await getStoredTeams(teamOwner);
-    const response = NextResponse.json({ teams });
 
-    applyOwnershipCookies(response, ownership);
-
-    return response;
+    return NextResponse.json({ teams });
   } catch {
     return NextResponse.json({ error: "Failed to load teams" }, { status: 500 });
   }
@@ -29,7 +27,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
-      sessionId?: string;
       action?: TeamAction;
       teamId?: number;
       team?: {
@@ -40,11 +37,13 @@ export async function POST(request: NextRequest) {
         members?: PokemonTeamMemberDraft[];
       };
     };
-    const ownership = await resolveRequestOwnership(request, body.sessionId);
-    const teamOwner =
-      ownership.ownerType === "user"
-        ? { ownerType: "user" as const, userId: ownership.userId }
-        : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
+    const session = await resolveAuthenticatedUserSession(request);
+
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
+    }
+
+    const teamOwner = { ownerType: "user" as const, userId: session.userId };
 
     switch (body.action) {
       case "save": {
@@ -64,11 +63,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: result.error ?? "team could not be saved", teams: result.teams }, { status: 400 });
         }
 
-        const response = NextResponse.json(result);
-
-        applyOwnershipCookies(response, ownership);
-
-        return response;
+        return NextResponse.json(result);
       }
       case "delete": {
         if (!Number.isInteger(body.teamId)) {
@@ -76,11 +71,8 @@ export async function POST(request: NextRequest) {
         }
 
         const teams = await deleteStoredTeam(teamOwner, Number(body.teamId));
-        const response = NextResponse.json({ teams });
 
-        applyOwnershipCookies(response, ownership);
-
-        return response;
+        return NextResponse.json({ teams });
       }
       default:
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });

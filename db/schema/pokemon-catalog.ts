@@ -146,19 +146,6 @@ export const pokemonMoveCatalog = pgTable(
   }),
 );
 
-export const anonymousSessions = pgTable(
-  "anonymous_sessions",
-  {
-    id: serial("id").primaryKey(),
-    sessionId: text("session_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    anonymousSessionsSessionIdKey: uniqueIndex("anonymous_sessions_session_id_key").on(table.sessionId),
-  }),
-);
-
 export const users = pgTable(
   "users",
   {
@@ -223,8 +210,9 @@ export const dailyEncounters = pgTable(
   "daily_encounters",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     encounterDate: date("encounter_date").notNull(),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
@@ -234,10 +222,6 @@ export const dailyEncounters = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    dailyEncountersSessionDateKey: uniqueIndex("daily_encounters_session_date_key").on(
-      table.anonymousSessionId,
-      table.encounterDate,
-    ),
     dailyEncountersUserDateKey: uniqueIndex("daily_encounters_user_date_key").on(table.userId, table.encounterDate),
   }),
 );
@@ -246,8 +230,9 @@ export const dailyCaptures = pgTable(
   "daily_captures",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
@@ -255,10 +240,6 @@ export const dailyCaptures = pgTable(
     capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    dailyCapturesSessionPokemonKey: uniqueIndex("daily_captures_session_pokemon_key").on(
-      table.anonymousSessionId,
-      table.nationalDexNumber,
-    ),
     dailyCapturesUserPokemonKey: uniqueIndex("daily_captures_user_pokemon_key").on(
       table.userId,
       table.nationalDexNumber,
@@ -268,8 +249,9 @@ export const dailyCaptures = pgTable(
 
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
-  anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   format: text("format").default("default").notNull(),
   mode: text("mode").default("free").notNull(),
@@ -311,18 +293,15 @@ export const favoritePokemon = pgTable(
   "favorite_pokemon",
   {
     id: serial("id").primaryKey(),
-    anonymousSessionId: integer("anonymous_session_id").references(() => anonymousSessions.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     nationalDexNumber: integer("national_dex_number")
       .notNull()
       .references(() => pokemonCatalog.nationalDexNumber, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    favoritePokemonSessionPokemonKey: uniqueIndex("favorite_pokemon_session_pokemon_key").on(
-      table.anonymousSessionId,
-      table.nationalDexNumber,
-    ),
     favoritePokemonUserPokemonKey: uniqueIndex("favorite_pokemon_user_pokemon_key").on(
       table.userId,
       table.nationalDexNumber,

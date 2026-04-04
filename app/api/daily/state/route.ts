@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { applyOwnershipCookies, resolveRequestOwnership } from "@/features/pokedex/server/ownership";
+import { resolveAuthenticatedUserSession } from "@/features/pokedex/server/auth-session";
 import {
   captureDailyEncounter,
   getDailyCollectionState,
@@ -12,31 +12,29 @@ import {
 type DailyAction = "capture" | "reset" | "reroll" | "release";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const ownership = await resolveRequestOwnership(request, searchParams.get("sessionId"));
-  const state = await getDailyCollectionState(
-    ownership.ownerType === "user"
-      ? { ownerType: "user", userId: ownership.userId }
-      : { ownerType: "anonymous", sessionId: ownership.sessionId },
-  );
-  const response = NextResponse.json(state);
+  const session = await resolveAuthenticatedUserSession(request);
 
-  applyOwnershipCookies(response, ownership);
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
+  }
 
-  return response;
+  const state = await getDailyCollectionState({ ownerType: "user", userId: session.userId });
+
+  return NextResponse.json(state);
 }
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
-    sessionId?: string;
     action?: DailyAction;
     nationalDexNumber?: number;
   };
-  const ownership = await resolveRequestOwnership(request, body.sessionId);
-  const dailyOwner =
-    ownership.ownerType === "user"
-      ? { ownerType: "user" as const, userId: ownership.userId }
-      : { ownerType: "anonymous" as const, sessionId: ownership.sessionId };
+  const session = await resolveAuthenticatedUserSession(request);
+
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
+  }
+
+  const dailyOwner = { ownerType: "user" as const, userId: session.userId };
 
   let state;
 
@@ -64,9 +62,5 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
   }
 
-  const response = NextResponse.json(state);
-
-  applyOwnershipCookies(response, ownership);
-
-  return response;
+  return NextResponse.json(state);
 }

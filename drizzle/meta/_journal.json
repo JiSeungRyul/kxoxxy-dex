@@ -134,6 +134,13 @@
       "when": 1775149751729,
       "tag": "0018_goofy_the_hood",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775324147092,
+      "tag": "0019_giant_virginia_dare",
+      "breakpoints": true
     }
   ]
 }

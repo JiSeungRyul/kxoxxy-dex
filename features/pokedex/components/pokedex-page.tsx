@@ -11,7 +11,6 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
-import { clearLegacyAnonymousSessionId, getLegacyAnonymousSessionId } from "@/features/pokedex/client/session";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
@@ -67,8 +66,6 @@ type PokemonCatalogResponse<T> = {
   pokemon?: T[];
 };
 
-const POKEDEX_COLLECTION_STORAGE_KEY = "kxoxxy-pokedex-collection";
-
 export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "pokedex", serverListState }: PokedexPageProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,6 +86,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [isFavoriteAuthRequired, setIsFavoriteAuthRequired] = useState(false);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
+  const [isCollectionAuthRequired, setIsCollectionAuthRequired] = useState(false);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
   const [dailyPokemonDetails, setDailyPokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
   const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
@@ -242,39 +240,31 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
 
   function persistCollectionState(nextState: PokedexCollectionState) {
     setCollectionState(nextState);
-    window.localStorage.setItem(POKEDEX_COLLECTION_STORAGE_KEY, JSON.stringify(nextState));
   }
 
   useEffect(() => {
     if (usesServerCollectionState) {
       const controller = new AbortController();
-      const legacySessionId = getLegacyAnonymousSessionId();
-      const stateUrl =
-        legacySessionId === null
-          ? "/api/daily/state"
-          : `/api/daily/state?sessionId=${encodeURIComponent(legacySessionId)}`;
 
       void (async () => {
         try {
-          const response = await fetch(stateUrl, { signal: controller.signal });
+          const response = await fetch("/api/daily/state", { signal: controller.signal });
 
           if (!response.ok) {
+            if (response.status === 401) {
+              setCollectionState(getInitialCollectionState());
+              setIsCollectionAuthRequired(true);
+              return;
+            }
+
             throw new Error("Failed to load daily collection state.");
           }
 
           const nextState = sanitizeCollectionState(await response.json());
-          clearLegacyAnonymousSessionId();
+          setIsCollectionAuthRequired(false);
           persistCollectionState(nextState);
         } catch {
-          try {
-            const storedCollection = window.localStorage.getItem(POKEDEX_COLLECTION_STORAGE_KEY);
-
-            if (storedCollection) {
-              persistCollectionState(sanitizeCollectionState(JSON.parse(storedCollection)));
-            }
-          } catch {
-            persistCollectionState(getInitialCollectionState());
-          }
+          persistCollectionState(getInitialCollectionState());
         } finally {
           setIsCollectionReady(true);
         }
@@ -285,16 +275,8 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       };
     }
 
-    try {
-      const storedCollection = window.localStorage.getItem(POKEDEX_COLLECTION_STORAGE_KEY);
-
-      if (storedCollection) {
-        setCollectionState(sanitizeCollectionState(JSON.parse(storedCollection)));
-      }
-    } catch {
-      setCollectionState(getInitialCollectionState());
-    }
-
+    setIsCollectionAuthRequired(false);
+    setCollectionState(getInitialCollectionState());
     setIsCollectionReady(true);
   }, [usesServerCollectionState]);
 
@@ -555,14 +537,6 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     usesServerCollectionState,
   ]);
 
-  useEffect(() => {
-    if (!isCollectionReady) {
-      return;
-    }
-
-    window.localStorage.setItem(POKEDEX_COLLECTION_STORAGE_KEY, JSON.stringify(collectionState));
-  }, [collectionState, isCollectionReady]);
-
   function resetFilters() {
     setSearchTerm("");
     setSelectedType(ALL_TYPE_FILTER);
@@ -592,10 +566,17 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setCollectionState(getInitialCollectionState());
+          setIsCollectionAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+        }
+
         return;
       }
 
       const nextState = sanitizeCollectionState(await response.json());
+      setIsCollectionAuthRequired(false);
       persistCollectionState(nextState);
     } finally {
       setIsSyncingDailyState(false);
@@ -713,7 +694,23 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   return (
     <main className="min-h-full w-full">
       <div className="space-y-6">
-        {view === "daily" ? (
+        {view === "daily" && isCollectionAuthRequired ? (
+          <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+            <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+              오늘의 포켓몬을 저장하려면 로그인이 필요합니다
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              로그인하면 오늘 만난 포켓몬과 포획 기록이 계정 기준으로 저장되고, 내 포켓몬 컬렉션과도 연결됩니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.assign("/api/auth/sign-in")}
+              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+            >
+              Google로 로그인
+            </button>
+          </section>
+        ) : view === "daily" ? (
           <DailyEncounter
             encounter={isCollectionReady ? displayedTodayEncounter : null}
             isShiny={isCollectionReady ? isTodayEncounterShiny : false}
@@ -738,6 +735,22 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
               로그인하면 계정에 저장된 즐겨찾기 포켓몬을 기기와 세션에 관계없이 불러올 수 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.assign("/api/auth/sign-in")}
+              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+            >
+              Google로 로그인
+            </button>
+          </section>
+        ) : view === "my-pokemon" && isCollectionAuthRequired ? (
+          <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+            <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+              내 포켓몬을 보려면 로그인이 필요합니다
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              로그인하면 계정에 저장된 포획 포켓몬과 오늘의 포켓몬 진행 상태를 함께 불러올 수 있습니다.
             </p>
             <button
               type="button"

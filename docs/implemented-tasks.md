@@ -139,6 +139,18 @@
 - Updated favorite toggles in the main Pokedex and Pokemon detail page so missing auth redirects into Google sign-in rather than silently creating anonymous state.
 - Moved favorites to an independent top-level navigation item so it no longer sits under the daily submenu while account-linked UX is becoming more prominent.
 
+## Daily Collection Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/daily/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from daily/my-pokemon by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/daily` and `/my-pokemon` to show Google sign-in CTA states instead of anonymous saved progress.
+- Updated capture, release, reset, and reroll flows so missing auth redirects into Google sign-in rather than silently creating anonymous state.
+
+## Team Persistence Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/teams/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from teams/my-teams by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/teams` and `/my-teams` to show Google sign-in CTA states instead of anonymous saved teams.
+- Updated team save and delete flows so missing auth redirects into Google sign-in rather than silently creating anonymous team state.
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration
@@ -364,6 +376,12 @@
 - Defined the current anonymous ownership scope for daily and team state in `docs/database-plan.md`, including the current owner tables and affected APIs.
 - Defined the target long-term ownership model as `user_id`-based rather than `anonymous_session_id`-based once auth work begins.
 - Explicitly kept legacy anonymous-session data migration and merge logic out of scope because this repository is not currently operating with production user data.
+
+## Auth-Required Persistence Cleanup (Added: 2026-04-05)
+- Completed the auth-required cutover for favorites, daily/my-pokemon, and teams/my-teams so the persisted state APIs now return `401` instead of anonymous fallback data when signed out.
+- Removed the remaining anonymous-session runtime helper files and the old local-storage session handoff path from the active runtime.
+- Stopped mirroring persisted collection state into local storage now that those saved features are fully account-bound.
+- Followed that runtime cleanup with a DB cleanup migration that removes `anonymous_sessions` and the legacy `anonymous_session_id` columns from the persisted state tables.
 
 ## Move Catalog Groundwork (Added: 2026-03-30)
 - Added `scripts/sync-moves.mjs` to fetch the full PokeAPI move list and extract per-Pokemon learnset rows using the local `data/pokedex.json` species snapshot.
