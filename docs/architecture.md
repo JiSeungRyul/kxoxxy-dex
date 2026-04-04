@@ -124,6 +124,32 @@
 - `move_catalog.payload` stores a full `PokedexMove`-shaped object.
 - `move_snapshots.payload` stores the full move snapshot payload.
 - `pokemon_move_catalog.payload` stores a full `PokedexPokemonMove`-shaped object.
+- `30-1` identifies the main normalization pressure in this contract shape:
+  - each catalog table stores both a read-optimized payload blob and repeated lookup columns
+  - `pokemon_move_catalog` also repeats move/version/method labels that could be reference-driven in a more normalized model
+  - form-specific legality is not yet represented as first-class catalog data
+- `30-2` further narrows the duplicated-field candidates:
+  - list/detail/team queries often read `slug`, Korean name, generation, type/category/pocket metadata from top-level columns while the same concepts still exist inside each row's payload
+  - this duplication is useful today for cheap filtering and projection, but it is the clearest catalog-field normalization target if the schema is revisited later
+- `30-3` keeps reference-table extraction as a later option rather than an immediate goal:
+  - item category/pocket and move type/damage-class/target metadata are still used mainly as projected labels
+  - they are not yet strong standalone-domain tables in the current product
+- `30-4` also keeps full form-aware learnset normalization deferred:
+  - the current national-dex-level move catalog plus bounded `formKey` override path is still acceptable for the currently supported form shortlist
+  - a wider schema change is only justified when broader form legality becomes a first-class runtime requirement
+- `30-5` sets the longer-term direction for that wider schema change:
+  - `formKey` should eventually become part of a stronger form identity model
+  - move legality and wider form-family metadata should evolve on the same identity boundary rather than through separate ad hoc exceptions
+- `30-6` fixes the minimum read-model contract that must survive any later normalization:
+  - route and API handlers still need to expose the current reduced list/detail/team/item/move projections
+  - normalization is therefore a storage-model change first, not a client-contract rewrite first
+- `30-7` adds the layering rule for that future work:
+  - import scripts absorb upstream-shape changes
+  - repository/read-model helpers absorb storage-shape changes
+  - client payload contracts change only if the server can no longer preserve the existing projections
+- `30-8` closes the review with explicit preconditions:
+  - no normalization migration should start until supported form scope, legality expectations, read-model contracts, and import/backfill order are fixed
+  - broad client-facing contract churn is explicitly out of scope for the first normalization step
 
 ## Current Architectural Risks
 - Mixed read paths:

@@ -361,3 +361,105 @@ If the task depends on route or API performance measurement, read docs/performan
   - future sessions should no longer describe the current product as anonymous-session-backed at runtime
   - the repository is still hybrid, but the hybrid boundary now lives in catalog generation/import rather than in active route rendering
 
+## Normalization Pressure Points (Added: 2026-04-05)
+- `30-1` is now completed at the documentation level.
+- The current normalization pressure points are:
+  - `pokemon_catalog`, `item_catalog`, and `move_catalog` each keep selected lookup columns plus the full JSON payload for the same domain object
+  - `pokemon_move_catalog` stores both FK-style ids and repeated move/version/method labels alongside its full payload
+  - form-specific legality still lives outside the catalog schema in saved `formKey` plus bounded query-time overrides
+- Practical implication:
+  - the current model is intentionally payload-heavy for runtime convenience
+  - future normalization work should focus first on duplicated catalog metadata and learnset/form modeling, not on the authenticated gameplay-state tables
+
+## Duplicate Catalog Field Candidates (Added: 2026-04-05)
+- `30-2` is now completed at the documentation level.
+- Current duplicated lookup-versus-payload candidates:
+  - `pokemon_catalog`
+    - lookup columns: `slug`, `name_ko`, `generation_id`, `generation_label`, `primary_type`, `secondary_type`
+    - overlapping payload fields: `payload.slug`, `payload.name`, `payload.generation`, `payload.types`
+  - `item_catalog`
+    - lookup columns: `slug`, `name_ko`, `category_slug`, `category_name`, `pocket_slug`, `pocket_name`
+    - overlapping payload fields: `payload.slug`, `payload.name`, `payload.category`, `payload.pocket`
+  - `move_catalog`
+    - lookup columns: `slug`, `name_ko`, `generation_id`, `generation_label`, `type_name`, `damage_class_slug`, `damage_class_name`, `target_slug`, `target_name`
+    - overlapping payload fields: `payload.slug`, `payload.name`, `payload.generation`, `payload.type`, `payload.damageClass`, `payload.target`
+- Why these duplicates still exist today:
+  - lookup columns support simple filtering, ordering, joins, and reduced JSON projections
+  - full payload fields support read-model hydration without reconstructing the domain object at query time
+- Practical implication:
+  - later normalization should distinguish “true query-support columns” from “payload duplication kept only for convenience”
+
+## Reference Table Split Check (Added: 2026-04-05)
+- `30-3` is now completed at the documentation level.
+- Current judgment:
+  - item `category` / `pocket`
+  - move `type` / `damageClass` / `target`
+  do not yet justify separate reference tables in the current MVP/runtime.
+- Why:
+  - current runtime mostly projects these as nested label objects for selectors and detail payloads
+  - there is little evidence of write-heavy reuse, independent lifecycle management, or multi-context mutation that would justify extra joins
+- Practical implication:
+  - if normalization work happens later, these reference tables are secondary candidates
+  - move learnset modeling and form-specific legality remain the more important normalization axis
+
+## Form-Aware Learnset Boundary (Added: 2026-04-05)
+- `30-4` is now completed at the documentation level.
+- Current judgment:
+  - the repo can still stay on national-dex-level `pokemon_move_catalog` for the current MVP scope
+  - the existing saved `formKey` plus bounded query-time move override layer is still enough for the currently supported Rotom/regional/selected-legendary forms
+- A broader form-aware learnset schema becomes justified only when several conditions stack together:
+  - wider non-Mega form coverage beyond the current shortlist
+  - broader move legality correctness for those forms
+  - more ambiguous or multi-branch form families that are awkward to model with per-dex overrides
+  - product pressure to validate or expose form-specific legality as first-class data rather than as a bounded exception set
+- Practical implication:
+  - form-aware learnset normalization is a later trigger-based migration, not the next immediate cleanup step
+
+## Long-Term Form Schema Direction (Added: 2026-04-05)
+- `30-5` is now completed at the documentation level.
+- Current long-term direction draft:
+  - saved `formKey` should remain the short-term persistence handle, but in a broader normalization step it should map to a richer form identity rather than staying a loose string-only exception layer
+  - move legality should eventually hang off that broader form identity when wider form coverage makes the current national-dex override model too fragile
+  - broader form-family metadata should eventually become a clearer read-model than “full Pokemon payload forms array plus helper overrides”
+- Practical implication:
+  - the likely future shape is not “replace `formKey`”, but “promote it into a stronger form identity boundary”
+  - that future step should evolve team-member persistence, move legality modeling, and broader form metadata together rather than independently
+
+## Minimum Read-Model Requirements (Added: 2026-04-05)
+- `30-6` is now completed at the documentation level.
+- Even if catalog tables are normalized later, the runtime should still be able to materialize these shapes without widening route payloads:
+  - `PokemonSummary` for list/detail consumption
+  - `PokemonCollectionCatalogEntry` and `PokemonCollectionPageEntry` for collection and my-pokemon flows
+  - `PokemonTeamBuilderOptionEntry` for first-render team selection
+  - `PokemonTeamBuilderCatalogEntry` for selected team-member detail hydration
+  - `PokedexItemOptionEntry` for searchable item selection
+  - `PokedexMoveOptionEntry` for searchable move selection
+- Practical implication:
+  - later normalization should preserve or rebuild these read-models at the server boundary
+  - client components should not be forced to understand a more normalized relational shape directly
+
+## Normalization Layering Principle (Added: 2026-04-05)
+- `30-7` is now completed at the documentation level.
+- Future normalization should keep the following separation:
+  - import pipeline -> converts upstream snapshot data into storage rows
+  - runtime read-model -> reconstructs the current route/API projections from storage
+  - client contract -> stays aligned with `features/pokedex/types.ts`
+- Practical implication:
+  - later schema work should first be absorbed by import scripts and server repository projections
+  - client payload contracts should remain the last layer to change, not the first
+
+## Normalization Preconditions And Non-Goals (Added: 2026-04-05)
+- `30-8` is now completed at the documentation level.
+- Explicit non-goals before a real normalization migration:
+  - do not rewrite the client around relational table shapes
+  - do not replace current read-model projections first
+  - do not open full form-aware learnset migration until the supported form/legality scope actually requires it
+  - do not split every duplicated label field into reference tables just because duplication exists
+- Explicit prerequisites before a real normalization migration:
+  - freeze the supported form coverage and legality expectations
+  - freeze the minimum route/API read-models that must survive the migration
+  - define import-script backfill or regeneration steps for the new storage model
+  - define migration order and rollback expectations before touching runtime-critical catalog tables
+- Practical implication:
+  - `30` is now a completed review pass, not an approved immediate schema rewrite
+

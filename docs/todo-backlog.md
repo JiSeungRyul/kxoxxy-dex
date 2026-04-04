@@ -241,19 +241,53 @@
   - broader move legality/form work가 커지면 `pokemon_move_catalog(snapshot_id, national_dex_number, move_slug or move_id)` 계열 access-pattern 재검토
 - 우선순위는 broad normalization보다 현재 hybrid 책임 경계를 문서와 코드에서 맞추는 쪽입니다.
 - 추천 순서는 `28-1 -> 28-2 -> 28-3 -> 28-4 -> 28-5 -> 28-6 -> 28-7` 입니다.
-- `30). 더 깊은 catalog 정규화 재검토`
-- `30-1). 현재 catalog payload 중심 테이블(`pokemon_catalog`, `item_catalog`, `move_catalog`, `pokemon_move_catalog`)에서 정규화 압력이 큰 지점 재분류`
-- `30-2). 포켓몬 detail/list payload에서 lookup column과 full payload가 중복되는 필드를 정리 후보로 분리`
-- `30-3). item / move catalog에서 slug/name/type/category 계층을 별도 reference 테이블로 분리할 실익 검토`
-- `30-4). move learnset를 national-dex 단위에서 form-aware 구조로 넓힐 필요 범위 재평가`
-- `30-5). saved formKey / move legality / wider form family를 함께 다룰 장기 schema 방향 초안 정리`
-- `30-6). current query path가 정규화 이후에도 유지되어야 할 최소 read-model 요구사항 정리`
-- `30-7). normalization을 하더라도 import pipeline / runtime read-model / client contract를 어떻게 분리할지 원칙 정리`
-- `30-8). 실제 normalization migration으로 들어가기 전 비범위와 선행조건 명시`
+- `x30). 더 깊은 catalog 정규화 재검토`
+- `x30-1). 현재 catalog payload 중심 테이블(`pokemon_catalog`, `item_catalog`, `move_catalog`, `pokemon_move_catalog`)에서 정규화 압력이 큰 지점 재분류`
+- `x30-2). 포켓몬 detail/list payload에서 lookup column과 full payload가 중복되는 필드를 정리 후보로 분리`
+- `x30-3). item / move catalog에서 slug/name/type/category 계층을 별도 reference 테이블로 분리할 실익 검토`
+- `x30-4). move learnset를 national-dex 단위에서 form-aware 구조로 넓힐 필요 범위 재평가`
+- `x30-5). saved formKey / move legality / wider form family를 함께 다룰 장기 schema 방향 초안 정리`
+- `x30-6). current query path가 정규화 이후에도 유지되어야 할 최소 read-model 요구사항 정리`
+- `x30-7). normalization을 하더라도 import pipeline / runtime read-model / client contract를 어떻게 분리할지 원칙 정리`
+- `x30-8). 실제 normalization migration으로 들어가기 전 비범위와 선행조건 명시`
 
 `30` 방향 메모:
 - 이 묶음은 즉시 구현이 아니라 long-term schema review 작업입니다.
 - 현재 MVP/runtime은 existing payload-heavy catalog tables로 충분하므로, `30`은 broad rewrite가 아니라 pressure point를 문서로 정리하는 단계부터 시작합니다.
+- `30-1` 기준 핵심 pressure point는 세 곳입니다:
+  - `pokemon_catalog` / `item_catalog` / `move_catalog`가 lookup column과 full JSON payload를 함께 들고 있는 중복 구조
+  - `pokemon_move_catalog`가 move/version/method metadata를 다시 들고 있는 denormalized learnset 구조
+  - form-specific legality는 saved `formKey`와 query-time override에 남아 있고 catalog schema 안에는 아직 fully modeled되지 않은 구조
+- `30-2` 기준으로는 특히 아래 중복 필드가 정리 후보입니다:
+  - `pokemon_catalog`: `slug`, `name_ko`, `generation_id`, `generation_label`, `primary_type`, `secondary_type` vs `payload.slug / payload.name / payload.generation / payload.types`
+  - `item_catalog`: `slug`, `name_ko`, `category_*`, `pocket_*` vs `payload.slug / payload.name / payload.category / payload.pocket`
+  - `move_catalog`: `slug`, `name_ko`, `generation_*`, `type_name`, `damage_class_*`, `target_*` vs `payload.slug / payload.name / payload.generation / payload.type / payload.damageClass / payload.target`
+- `30-3` 기준 판단은 아래처럼 고정합니다:
+  - item `category` / `pocket`, move `damageClass` / `target` / `type`를 지금 즉시 reference table로 분리할 실익은 크지 않음
+  - 현재 사용 패턴이 mostly read-only label projection이라 join depth만 늘고 체감 이득은 작음
+  - 더 강한 실익이 생기는 시점은 shared metadata reuse, admin editing, analytics, or multi-locale reference reuse가 실제 요구될 때
+- `30-4` 기준 판단은 아래처럼 고정합니다:
+  - 현재 bounded scope에서는 national-dex-level `pokemon_move_catalog` + query-time `formKey` override로 계속 버틸 수 있음
+  - broader form-aware learnset schema가 실제로 필요한 trigger는 wide multi-form legality, more ambiguous families, and larger saved-form coverage가 함께 열릴 때
+  - 즉 immediate follow-up은 full form-normalized learnset migration이 아니라 trigger condition 문서화입니다
+- `30-5` 장기 방향 초안은 아래처럼 둡니다:
+  - saved team member의 `formKey`는 장기적으로 form identity의 일부가 되고
+  - learnset legality도 national dex만이 아니라 그 form identity 축에 연결되며
+  - broader form family는 eventually 별도 form metadata/read-model에서 풀고, current `pokemon_catalog.payload.forms` 단일 의존은 줄이는 방향
+- `30-6` 기준으로는 정규화가 오더라도 아래 read-model shape는 유지 대상입니다:
+  - list/detail route가 바로 소비하는 `PokemonSummary` 또는 그 축약 projection
+  - collection / my-pokemon / team-builder가 쓰는 reduced Pokemon catalog entry
+  - searchable item option entry
+  - searchable move option entry
+  - team-builder form/mega/gimmick availability projection
+- `30-7` 원칙은 아래처럼 고정합니다:
+  - import pipeline은 upstream snapshot -> DB storage 변환 책임
+  - runtime read-model은 normalized storage를 현재 route/API projection으로 재구성하는 서버 책임
+  - client contract는 `features/pokedex/types.ts` 기준 payload contract를 유지하는 책임
+  - 따라서 normalization은 import/storage/read-model 레이어에서 흡수하고, client는 가능한 한 마지막에만 영향받게 함
+- `30-8` 기준 비범위와 선행조건은 아래처럼 고정합니다:
+  - 비범위: immediate broad rewrite, client payload contract 변경, full form-aware learnset migration, reference-table wholesale split
+  - 선행조건: supported form scope 결정, required legality strictness 결정, target read-model contract 고정, import script backfill 계획, migration 순서와 rollback 전략 정의
 - 특히 move learnset / wider form support / reference table 분리는 서로 연결돼 있으므로 따로 보지 않고 같은 normalization 검토 축으로 다룹니다.
 - 추천 순서는 `30-1 -> 30-2 -> 30-3 -> 30-4 -> 30-5 -> 30-6 -> 30-7 -> 30-8` 입니다.
 - `31). 마이 페이지 / 계정 허브`

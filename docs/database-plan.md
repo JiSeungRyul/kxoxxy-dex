@@ -111,6 +111,33 @@ Result:
   - per-Pokemon move learnset rows
   - selected lookup columns plus full JSON payload
 - This is a transitional catalog model, not a fully normalized long-term schema.
+- `30-1` reclassifies the main normalization pressure points inside that transitional model:
+  - duplicated lookup columns versus full payload storage in `pokemon_catalog`, `item_catalog`, and `move_catalog`
+  - denormalized move/version/method metadata repeated inside `pokemon_move_catalog`
+  - form-specific legality remaining outside the imported catalog schema
+- `30-2` now narrows the first duplicated-field candidates:
+  - Pokemon: slug/name/generation/type lookup columns versus the same concepts inside `PokemonSummary`
+  - Item: slug/name/category/pocket lookup columns versus the same concepts inside `PokedexItem`
+  - Move: slug/name/generation/type/damage-class/target lookup columns versus the same concepts inside `PokedexMove`
+- `30-3` keeps reference-table extraction as a low-priority follow-up:
+  - item category/pocket and move type/damage-class/target do not yet show enough independent lifecycle or reuse pressure to justify immediate table splits
+  - if normalization continues later, duplicated learnset/form modeling is a higher-value target than these label-reference tables
+- `30-4` keeps full form-aware learnset normalization out of the immediate plan:
+  - the current national-dex-based `pokemon_move_catalog` is still acceptable for the present bounded form scope
+  - broader schema work should wait until the supported form set and legality requirements exceed what the current override layer can safely carry
+- `30-5` adds the current long-term direction draft:
+  - team-member `formKey` is the current persistence hook, but longer-term normalization should promote it toward a stronger form identity model
+  - any broader learnset legality redesign should key off that same form identity boundary rather than layering more per-dex overrides
+- `30-6` adds a guardrail for future schema work:
+  - list/detail/team/item/move runtime projections are now the minimum read-model contract
+  - future normalization should preserve those server-side projections rather than pushing relational complexity into client code
+- `30-7` adds the layer-separation rule:
+  - import scripts own upstream snapshot-to-storage translation
+  - runtime repository helpers own storage-to-read-model projection
+  - client contracts should remain stable unless a read-model change is intentionally chosen
+- `30-8` closes the current review with explicit non-goals and prerequisites:
+  - non-goals: immediate broad rewrite, client-contract-first rewrite, full form-aware learnset rollout, wholesale reference-table split
+  - prerequisites: fixed form/legality scope, fixed read-model contract, import/backfill plan, and migration/rollback order
 
 ## Current Domain Split
 - Pokedex catalog:
