@@ -25,12 +25,15 @@ const SUBMENU_LINK_CLASS =
 
 type AuthSessionResponse = {
   authenticated?: boolean;
+  authMode?: "development" | "provider";
+  authProvider?: "google" | null;
   user?: {
     id: number;
     email: string;
     name: string | null;
     image: string | null;
   } | null;
+  error?: string;
 };
 
 export function SiteHeroHeader() {
@@ -38,10 +41,13 @@ export function SiteHeroHeader() {
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(null);
+  const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("development");
+  const [authProvider, setAuthProvider] = useState<AuthSessionResponse["authProvider"]>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
-  const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon" || pathname === "/favorites";
+  const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
+  const isFavoritesActive = pathname === "/favorites";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -65,10 +71,14 @@ export function SiteHeroHeader() {
         }
 
         setAuthUser(payload.authenticated ? (payload.user ?? null) : null);
+        setAuthMode(payload.authMode ?? "development");
+        setAuthProvider(payload.authProvider ?? null);
       })
       .catch(() => {
         if (isMounted) {
           setAuthUser(null);
+          setAuthMode("development");
+          setAuthProvider(null);
         }
       })
       .finally(() => {
@@ -83,10 +93,15 @@ export function SiteHeroHeader() {
   }, []);
 
   async function handleDevelopmentLogin() {
+    if (authMode === "provider" && authProvider === "google") {
+      window.location.assign("/api/auth/sign-in");
+      return;
+    }
+
     setIsAuthMutating(true);
 
     try {
-      const response = await fetch("/api/auth/session", {
+      const response = await fetch("/api/auth/sign-in", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,6 +112,13 @@ export function SiteHeroHeader() {
         }),
       });
       const payload = (await response.json()) as AuthSessionResponse;
+      setAuthMode(payload.authMode ?? "development");
+      setAuthProvider(payload.authProvider ?? null);
+
+      if (!response.ok) {
+        setAuthUser(null);
+        return;
+      }
       setAuthUser(payload.user ?? null);
     } finally {
       setIsAuthLoading(false);
@@ -108,9 +130,12 @@ export function SiteHeroHeader() {
     setIsAuthMutating(true);
 
     try {
-      await fetch("/api/auth/session", {
-        method: "DELETE",
+      const response = await fetch("/api/auth/sign-out", {
+        method: "POST",
       });
+      const payload = (await response.json()) as AuthSessionResponse;
+      setAuthMode(payload.authMode ?? authMode ?? "development");
+      setAuthProvider(payload.authProvider ?? authProvider ?? null);
       setAuthUser(null);
     } finally {
       setIsAuthLoading(false);
@@ -156,7 +181,11 @@ export function SiteHeroHeader() {
               {isAuthLoading ? "세션 확인 중" : authUser ? (authUser.name ?? authUser.email) : "비로그인 상태"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {authUser ? authUser.email : "현재는 개발용 최소 로그인만 지원합니다."}
+              {authUser
+                ? authUser.email
+                : authMode === "provider" && authProvider === "google"
+                  ? "Google 로그인 경계는 준비됐지만 실제 provider 연동은 아직 붙지 않았습니다."
+                  : "현재는 개발용 최소 로그인만 지원합니다."}
             </p>
             <button
               type="button"
@@ -164,7 +193,13 @@ export function SiteHeroHeader() {
               disabled={isAuthMutating}
               className="mt-3 inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isAuthMutating ? "처리 중..." : authUser ? "로그아웃" : "개발용 로그인"}
+              {isAuthMutating
+                ? "처리 중..."
+                : authUser
+                  ? "로그아웃"
+                  : authMode === "provider" && authProvider === "google"
+                    ? "Google로 로그인"
+                    : "개발용 로그인"}
             </button>
           </div>
           <ThemeToggle />
@@ -214,16 +249,17 @@ export function SiteHeroHeader() {
               >
                 내 포켓몬
               </Link>
-              <Link
-                href="/favorites"
-                onClick={() => setIsDailyMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                내가 찜한 포켓몬
-              </Link>
             </div>
           </div>
         </div>
+
+        <Link
+          href="/favorites"
+          aria-current={isFavoritesActive ? "page" : undefined}
+          className={getNavLinkClass(isFavoritesActive)}
+        >
+          즐겨찾기
+        </Link>
 
         <div
           className="relative"

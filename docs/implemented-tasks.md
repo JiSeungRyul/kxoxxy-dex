@@ -107,6 +107,38 @@
 - Confirmed that once the same browser receives an auth cookie, `favorites`, `/api/daily/state`, and `/api/teams/state` all switch to the authenticated `user_id` state instead of reading the existing anonymous state.
 - Confirmed that clearing the auth cookie restores visibility of the original anonymous favorites, daily capture state, and saved teams in the same browser session.
 
+## Auth Route Split Groundwork (Added: 2026-04-05)
+- Kept `GET /api/auth/session` as the current-session read boundary for the header and other client UI.
+- Added separate `POST /api/auth/sign-in` and `POST /api/auth/sign-out` routes so future provider-backed auth can replace session issuance without changing the ownership resolver or current-session read path.
+- Added optional auth environment placeholders to `.env.example` and kept the current development login fallback active while real provider credentials are not yet available.
+
+## Google Auth Route Groundwork (Added: 2026-04-05)
+- Added a Google OAuth callback route at `app/api/auth/callback/google/route.ts`.
+- Extended the auth-session server helper so Google sign-in can:
+  - build the provider redirect URL
+  - validate a short-lived auth-state cookie
+  - exchange the callback code for Google tokens
+  - upsert `users` and `auth_accounts`
+  - create the local `sessions` row consumed by the existing ownership resolver
+- Verified the route layer locally with `npm run build`, `npm run typecheck`, `GET /api/auth/session`, `GET /api/auth/sign-in`, and an invalid-state callback guard check for `/api/auth/callback/google`.
+
+## Google Auth Runtime Verification (Added: 2026-04-05)
+- Completed a real local Google login round-trip through `/api/auth/sign-in` and `/api/auth/callback/google`.
+- Confirmed Google callback upserts local `users` / `auth_accounts` and creates a local `sessions` row consumed by `resolveAuthenticatedUserSession()`.
+- Verified provider-backed authenticated state through:
+  - `GET /api/auth/session`
+  - favorites toggle round-trip
+  - daily capture / release round-trip
+  - teams save / delete round-trip
+- Cleaned up the verification favorite, capture, and saved team after the smoke check.
+
+## Favorites Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/favorites/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from favorites by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/favorites` to show a Google sign-in CTA instead of anonymous saved data.
+- Updated favorite toggles in the main Pokedex and Pokemon detail page so missing auth redirects into Google sign-in rather than silently creating anonymous state.
+- Moved favorites to an independent top-level navigation item so it no longer sits under the daily submenu while account-linked UX is becoming more prominent.
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration

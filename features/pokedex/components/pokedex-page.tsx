@@ -86,6 +86,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [currentPage, setCurrentPage] = useState(serverListState?.query.page ?? 1);
   const [favoriteDexNumbers, setFavoriteDexNumbers] = useState<number[]>([]);
   const [isFavoriteStateReady, setIsFavoriteStateReady] = useState(view !== "favorites");
+  const [isFavoriteAuthRequired, setIsFavoriteAuthRequired] = useState(false);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
@@ -98,16 +99,31 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   useEffect(() => {
     if (view !== "favorites") {
       setIsFavoriteStateReady(true);
+      setIsFavoriteAuthRequired(false);
       return;
     }
 
     let isMounted = true;
 
     void fetch("/api/favorites/state")
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401 && isMounted) {
+            setFavoriteDexNumbers([]);
+            setIsFavoriteAuthRequired(true);
+          }
+
+          throw new Error(data.error ?? "Failed to load favorites.");
+        }
+
+        return data;
+      })
       .then((data) => {
         if (isMounted) {
           setFavoriteDexNumbers(data.favoriteDexNumbers ?? []);
+          setIsFavoriteAuthRequired(false);
         }
       })
       .catch(() => {
@@ -134,8 +150,21 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         body: JSON.stringify({ nationalDexNumber }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setFavoriteDexNumbers([]);
+          setIsFavoriteAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
+        throw new Error(data.error ?? "Failed to toggle favorite.");
+      }
+
       if (data.favoriteDexNumbers) {
         setFavoriteDexNumbers(data.favoriteDexNumbers);
+        setIsFavoriteAuthRequired(false);
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -702,7 +731,23 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           />
         ) : null}
 
-        {view === "my-pokemon" || view === "favorites" ? (
+        {view === "favorites" && isFavoriteAuthRequired ? (
+          <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+            <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+              즐겨찾기를 보려면 로그인이 필요합니다
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              로그인하면 계정에 저장된 즐겨찾기 포켓몬을 기기와 세션에 관계없이 불러올 수 있습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.assign("/api/auth/sign-in")}
+              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+            >
+              Google로 로그인
+            </button>
+          </section>
+        ) : view === "my-pokemon" || view === "favorites" ? (
           <MyPokemonGallery
             pokemon={sourcePokemon}
             shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}

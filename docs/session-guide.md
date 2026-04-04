@@ -147,7 +147,7 @@ If the task depends on route or API performance measurement, read docs/performan
 - Favorites now persist for authenticated requests through `user_id`.
 - Daily and my-pokemon state now also persist for authenticated requests through `user_id`, while anonymous daily/my-pokemon state still remains on `anonymous_session_id`.
 - Teams and my-teams state now also persist for authenticated requests through `user_id`, while anonymous team state still remains on `anonymous_session_id`.
-- Real provider-backed auth is still not implemented, but the current local development auth flow can now verify authenticated favorites, daily/my-pokemon, and teams ownership separately from anonymous state.
+- Real provider-backed Google auth is now live for local runtime verification, and authenticated favorites, daily/my-pokemon, and teams ownership can now be exercised without the old development-only auth path.
 - Local ownership-priority verification now also confirms the intended fallback order in one browser session:
   - anonymous cookies can hold favorites, daily capture state, and saved teams
   - adding `kxoxxy-auth-session` makes the same browser read the authenticated `user_id` state instead of the anonymous state
@@ -162,4 +162,78 @@ If the task depends on route or API performance measurement, read docs/performan
 - Current anonymous persistence is still kept as the no-auth fallback through `kxoxxy-anonymous-session`.
 - The remaining auth follow-up is no longer the `user_id` write transition itself.
 - The next larger follow-up is replacing the current development-only auth flow with a real provider-backed authentication boundary when backlog item `25` is revisited at runtime quality level.
+
+## Account Auth Replacement Plan (Added: 2026-04-05)
+- Backlog items `29-1` through `29-3` are now defined at the planning level.
+- Keep:
+  - `resolveAuthenticatedUserSession()` as the current-session read boundary
+  - the shared ownership resolver that prefers authenticated `userId`
+  - `/api/auth/session` as the current-session read endpoint for the header and other client UI
+- Replace:
+  - `createDevelopmentAuthSession()` as the session-issuance path
+  - the old development-only `POST /api/auth/sign-in` login flow
+  - the old development-only `POST /api/auth/sign-out` logout flow
+  - the header button copy and click path that currently says `개발용 로그인`
+- Preferred real-auth shape:
+  - one minimal provider-backed sign-in entry
+  - one sign-out entry
+  - keep current-session reads separate from session issuance
+- The replacement goal is to preserve the existing `user_id` ownership behavior for favorites, daily/my-pokemon, and teams while swapping only the auth-session issuance and lifecycle boundary.
+- The current no-key groundwork now reflects that split:
+  - `GET /api/auth/session` stays as the current-session read endpoint
+  - `GET /api/auth/sign-in` and `POST /api/auth/sign-out` are the new issuance/lifecycle boundaries
+  - provider env vars stay optional for now, and when they are empty the sign-in route keeps the current development fallback
+- Google auth route groundwork is now live when provider env vars are present:
+  - `GET /api/auth/sign-in` redirects to Google and sets an auth-state cookie
+  - `GET /api/auth/callback/google` validates `state`, exchanges `code`, upserts `users` / `auth_accounts`, creates a local `sessions` row, and issues `kxoxxy-auth-session`
+  - `POST /api/auth/sign-out` clears the local auth session
+- Local verification for that provider-backed route layer currently covers:
+  - `GET /api/auth/session` -> `authMode: "provider"`
+  - `GET /api/auth/sign-in` -> Google redirect URL plus `kxoxxy-auth-state`
+  - invalid-state callback guard -> redirect with `authError=invalid-state`
+- Browser-driven Google login verification now also covers:
+  - real Google callback -> local `users` / `auth_accounts` / `sessions` row creation
+  - provider-backed `GET /api/auth/session` -> `authenticated: true`
+  - provider-backed favorites toggle round-trip
+  - provider-backed daily capture / release round-trip
+  - provider-backed teams save / delete round-trip
+
+## Persistence Auth Requirement Direction (Added: 2026-04-05)
+- Product direction is now shifting away from long-lived anonymous persistence.
+- Keep browse-only routes open without login:
+  - `/`
+  - `/pokedex`
+  - `/pokemon/[slug]`
+- Move persisted user-state routes toward auth-required behavior:
+  - `/favorites`
+  - `/daily`
+  - `/my-pokemon`
+  - `/teams`
+  - `/my-teams`
+- Under that direction, the intended steady state is:
+  - unauthenticated user -> catalog browsing only plus login CTA for persistence features
+  - authenticated user -> all persistence reads/writes resolved by `user_id`
+- `29-8` policy is now fixed at the runtime level:
+  - unauthenticated requests to persisted state APIs should no longer mint or reuse anonymous owners
+  - persisted state routes should render auth-required empty/login states instead of anonymous saved data
+  - browse-only routes remain public and unchanged
+- That means the current anonymous persistence boundary should be treated as transitional implementation debt, not the desired product end state.
+- Impacted runtime pieces when this cutover begins:
+  - `app/api/favorites/state/route.ts`
+  - `app/api/daily/state/route.ts`
+  - `app/api/teams/state/route.ts`
+  - `features/pokedex/server/ownership.ts`
+  - `features/pokedex/server/anonymous-session.ts`
+  - `features/pokedex/client/session.ts`
+  - login CTA / empty-state copy in the favorites, daily, collection, and team-builder UI
+- The preferred sequence is:
+  - finish real provider-backed auth verification first
+  - gate favorites behind authenticated session
+  - gate daily / my-pokemon behind authenticated session
+  - gate teams / my-teams behind authenticated session
+  - then remove the remaining anonymous persistence fallback paths and legacy local-storage handoff logic
+- Favorites is now the first route fully switched to auth-required persistence:
+  - `/api/favorites/state` now returns `401` with `authRequired: true` when no authenticated session exists
+  - `/favorites` now shows a login CTA instead of anonymous saved data
+  - favorites toggles from the main Pokedex and Pokemon detail page now use Google sign-in as the entry point when auth is missing
 

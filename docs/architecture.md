@@ -13,6 +13,7 @@
 - The client still mirrors collection state into `localStorage` as a compatibility fallback.
 - The preferred auth follow-up is minimal auth plus a separate server-managed authenticated session, while the current anonymous-session cookie remains the pre-login fallback.
 - Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and a development-only authenticated-session flow is now available for local ownership verification.
+- The preferred next auth replacement step is to keep the current-session read boundary and ownership resolver, while replacing only the development-only session issuance and logout boundary with a real provider-backed auth flow.
 
 ## High-Level Structure
 - `app/`
@@ -113,7 +114,7 @@
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
 - User-state split:
-  - anonymous fallback persistence exists alongside authenticated `user_id` persistence, but only through the current development-only auth boundary
+  - the current runtime still carries anonymous fallback persistence alongside authenticated `user_id` persistence, but the desired product end state is auth-required persistence rather than long-lived dual ownership
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
 
@@ -130,14 +131,40 @@
 
 ## Preferred Authentication Shape
 - Start with one minimal auth path and a server-managed auth session instead of opening multiple providers or a broader account system immediately.
-- Keep the current `kxoxxy-anonymous-session` cookie for pre-login and no-auth flows.
 - Add a separate authenticated session boundary that resolves `users.id` for logged-in requests.
-- Prefer switching new authenticated writes directly to `user_id` ownership instead of making anonymous and authenticated ownership co-equal long-term paths.
+- Prefer switching persisted product features directly to authenticated `user_id` ownership instead of making anonymous and authenticated ownership co-equal long-term paths.
 - The intended authenticated write order is favorites, then daily/my-pokemon state, then teams.
-- A shared ownership resolver now codifies that rule at the server boundary by returning authenticated `userId` first and anonymous `sessionId` as the fallback path.
+- A shared ownership resolver now codifies the current transitional rule at the server boundary by returning authenticated `userId` first and anonymous `sessionId` as the fallback path.
 - That first authenticated write target is now live for favorites: authenticated favorites resolve by `user_id`, while anonymous favorites still resolve by `anonymous_session_id`.
 - That next authenticated write target is now also live for daily/my-pokemon: authenticated daily state resolves by `user_id`, while anonymous daily state still resolves by `anonymous_session_id`.
 - That final current authenticated write target is now also live for teams/my-teams: authenticated team state resolves by `user_id`, while anonymous team state still resolves by `anonymous_session_id`.
+- The next intended cutover is to stop treating those anonymous paths as user-facing persistence and instead gate persisted state behind authenticated session checks.
+- `29-8` fixes the runtime policy for that cutover:
+  - public browsing stays open
+  - persisted state APIs stop issuing anonymous ownership for unauthenticated requests
+  - client routes that depend on persisted state should show auth-required CTA/empty states instead of anonymous saved data
+- `29-9` is now live for favorites:
+  - `app/api/favorites/state/route.ts` reads only authenticated session-backed `user_id`
+  - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
+  - `/favorites` and the favorite-toggle entry points now treat Google sign-in as the persistence entry boundary
+
+## Auth Replacement Boundary
+- The current reusable auth boundary is:
+  - `features/pokedex/server/auth-session.ts#resolveAuthenticatedUserSession()`
+  - `features/pokedex/server/ownership.ts`
+  - `app/api/auth/session/route.ts` GET handler
+- The current development-only boundary that should be replaced is:
+  - `createDevelopmentAuthSession()`
+  - `POST /api/auth/sign-in`
+  - `POST /api/auth/sign-out`
+  - the development-login action in `features/site/components/site-hero-header.tsx`
+- This keeps the `user_id` ownership runtime stable while narrowing real-auth implementation work to sign-in, sign-out, and authenticated session lifecycle.
+- The current no-key groundwork already follows that boundary split: session reads stay on `/api/auth/session`, while sign-in/sign-out are isolated so a real provider can replace only the issuance path later.
+- The current provider-backed Google route layer now does the first real replacement step:
+  - `GET /api/auth/sign-in` creates the Google OAuth redirect URL
+  - `GET /api/auth/callback/google` validates state and materializes a local authenticated session
+  - `POST /api/auth/sign-out` removes that local authenticated session
+- That provider-backed route layer is now verified through a real local Google login round-trip, and the resulting session can read/write favorites, daily state, and teams through the existing `user_id` ownership paths.
 
 ## Cache Strategy Review Scope (Added: 2026-03-25)
 

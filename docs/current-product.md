@@ -59,21 +59,36 @@
 - Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
 ## Current Constraints
-- Real provider-backed authentication is not implemented.
-- Minimal auth schema groundwork exists, and a development-only login/logout flow is available for local verification.
-- The current header auth panel is development-only and is not a real provider-backed sign-in experience.
-- Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams, but only through the current development-only auth flow.
-- The preferred next step is minimal auth with a separate server-managed authenticated session layered on top of the current anonymous-session fallback.
+- Real provider-backed authentication is now available locally through Google OAuth, though production hardening is still not complete.
+- Minimal auth schema groundwork exists, and the header auth panel now acts as the real Google sign-in entry in provider mode.
+- Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams, but the product direction is now to require login for those persisted features instead of keeping anonymous persistence as a long-term fallback.
+- The preferred next step is to finish real provider-backed auth and then cut persistence features over to authenticated `user_id` ownership only.
+- That cutover policy is now fixed: browse routes stay public, but persisted state routes should move to auth-required behavior and stop exposing anonymous saved state as a product feature.
+- The preferred replacement path is to keep the current session-read and `user_id` ownership boundaries, and replace only the development-only sign-in/sign-out flow with a real provider-backed auth flow.
+- The current auth routes now already reflect that split:
+  - `GET /api/auth/session` for current-session reads
+  - `GET /api/auth/sign-in` for provider redirect entry, with `POST` fallback for development auth
+  - `POST /api/auth/sign-out` for sign-out
+- Google provider-backed auth routing is now implemented for local verification:
+  - `/api/auth/sign-in` can start the Google OAuth redirect flow
+  - `/api/auth/callback/google` can materialize a local authenticated session after callback
+  - a browser-driven Google login round-trip is verified for session creation and user-owned favorites / daily / teams state
 - Automated tests are not present.
 - Catalog data operations are still split across snapshot generation and DB import workflows.
-- Anonymous daily persistence and anonymous team persistence exist, and account-linked persistence now exists for favorites, daily/my-pokemon, and teams.
+- Anonymous daily persistence and anonymous team persistence still exist in the current implementation, but they are now considered transitional rather than part of the desired steady state.
+- The next runtime change should convert that transitional anonymous persistence into explicit auth-required UX for favorites, daily/my-pokemon, and teams.
+- That cutover has now started with favorites:
+  - favorites read/write is now login-required
+  - `/favorites` renders a login CTA instead of anonymous saved state
+  - favorite toggles from browsing/detail routes now redirect into Google sign-in when auth is absent
+  - navigation now exposes favorites as an independent top-level menu instead of grouping it under the daily submenu
 - Daily and team persistence require the new DB tables to be migrated before the API routes can work.
 - After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
 
 ## Current Risks
 - Anonymous session identity is browser-scoped and is not durable across devices or account changes.
-- Anonymous ownership still exists as a fallback path, but authenticated favorites, collection state, and teams now resolve through `user_id`.
-- Auth is still development-only, so any future cross-device or real account-linked persistence depends on replacing the temporary auth flow with a durable provider-backed session boundary.
+- Anonymous ownership still exists as a runtime fallback path, and the next cutover should remove it from persisted product features so favorites, collection state, and teams become clearly account-bound.
+- The current auth flow is now provider-backed locally, but it still needs product-level tightening around login-required persistence and broader runtime hardening.
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources

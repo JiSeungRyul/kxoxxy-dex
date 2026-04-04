@@ -635,11 +635,33 @@ function SpecialEvolutionSection({
 export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, nextPokemon }: PokemonDetailPageProps) {
   const [favoriteDexNumbers, setFavoriteDexNumbers] = useState<number[]>([]);
   const [isToggling, setIsToggling] = useState(false);
+  const [isFavoriteAuthRequired, setIsFavoriteAuthRequired] = useState(false);
 
   useEffect(() => {
     fetch("/api/favorites/state")
-      .then((res) => res.json())
-      .then((data) => setFavoriteDexNumbers(data.favoriteDexNumbers ?? []))
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            setFavoriteDexNumbers([]);
+            setIsFavoriteAuthRequired(true);
+            return null;
+          }
+
+          throw new Error(data.error ?? "Failed to load favorites.");
+        }
+
+        return data;
+      })
+      .then((data) => {
+        if (!data) {
+          return;
+        }
+
+        setFavoriteDexNumbers(data.favoriteDexNumbers ?? []);
+        setIsFavoriteAuthRequired(false);
+      })
       .catch(() => {});
   }, []);
 
@@ -647,6 +669,12 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
 
   const handleToggleFavorite = async () => {
     if (isToggling) return;
+
+    if (isFavoriteAuthRequired) {
+      window.location.assign("/api/auth/sign-in");
+      return;
+    }
+
     setIsToggling(true);
     try {
       const res = await fetch("/api/favorites/state", {
@@ -655,8 +683,21 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
         body: JSON.stringify({ nationalDexNumber: pokemon.nationalDexNumber }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setFavoriteDexNumbers([]);
+          setIsFavoriteAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
+        throw new Error(data.error ?? "Failed to toggle favorite.");
+      }
+
       if (data.favoriteDexNumbers) {
         setFavoriteDexNumbers(data.favoriteDexNumbers);
+        setIsFavoriteAuthRequired(false);
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -743,7 +784,8 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
                         ? "border-red-200 bg-red-50 text-red-500 shadow-sm"
                         : "border-border bg-background text-muted-foreground hover:border-red-200 hover:bg-red-50/50 hover:text-red-400"
                     }`}
-                    aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                    aria-label={isFavoriteAuthRequired ? "Google 로그인" : isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                    title={isFavoriteAuthRequired ? "즐겨찾기를 저장하려면 로그인하세요." : undefined}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

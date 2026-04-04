@@ -124,8 +124,8 @@ Result:
 
 ## Ownership Transition Direction
 - The long-term target owner for user-state tables is `user_id`, not `anonymous_session_id`.
-- Until auth exists, anonymous-session-backed state remains acceptable for local and MVP flows.
-- Once auth is introduced, prefer writing new ownership-bound state directly to `user_id`-based records instead of designing around permanent dual ownership.
+- Anonymous-session-backed state was acceptable as an MVP bridge, but it is no longer the preferred product direction for persisted features.
+- Once real auth is verified, prefer making persistence features authenticated-only rather than designing around permanent dual ownership.
 - Because the app is not currently operating with production user data, legacy anonymous-session records do not need a complex merge or migration plan.
 - For the current planning scope, treat old anonymous-session records as disposable development-era data unless a later product requirement explicitly says otherwise.
 
@@ -142,21 +142,23 @@ Result:
 ## Target Ownership Model
 - After auth work begins, the intended durable owner for user state is `users.id`.
 - Daily capture progress, daily encounter state, and saved teams should be treated as user-owned data once a user is authenticated.
-- Anonymous ownership should remain only as a pre-login or no-auth fallback, not as the final primary ownership model.
+- Anonymous ownership should remain only as a temporary transition aid during implementation, not as the final primary ownership model.
 - The desired steady state is:
   - authenticated writes -> `user_id`
-  - anonymous fallback writes -> temporary anonymous owner only when auth is absent
+  - unauthenticated user -> no persisted write path for favorites, daily, or teams
+- `29-8` now also fixes the matching read-path rule:
+  - unauthenticated user -> no persisted read path for favorites, daily/my-pokemon, or teams/my-teams
+  - authenticated user -> persisted reads/writes resolve only through `user_id`
 
 ## Transition Decision
 - The preferred transition is simple replacement for new authenticated flows, not complex historical merge logic.
-- Once auth exists, new daily/team state for authenticated users should be written directly under `user_id`.
+- Once real provider-backed auth exists, favorites, daily/my-pokemon, and team state should be treated as auth-required persisted features written directly under `user_id`.
 - Existing anonymous-session records do not need automatic migration just to unlock the auth design.
 - If a future product requirement wants account-linking for anonymous pre-login progress, that should be treated as a separate feature rather than assumed by default.
 - The preferred auth implementation shape is:
-  - keep `kxoxxy-anonymous-session` as the pre-login fallback
   - add a separate server-managed authenticated session
   - resolve `users.id` from the authenticated session
-  - move new authenticated writes to `user_id` without requiring legacy anonymous merge
+  - move persisted user-state reads/writes to `user_id` without requiring legacy anonymous merge
 
 ## Preferred Write Transition Order
 - The first authenticated `user_id` write target should be `favorite_pokemon`.
@@ -177,9 +179,9 @@ Result:
 ## Ownership Transition Rules
 - Do not block auth or ownership design on preserving old anonymous-session rows.
 - Do not assume daily captures, encounters, or saved teams must be merged from anonymous state into user state.
-- Prefer a clean `user_id` ownership model for new writes over a long-lived mixed ownership model.
+- Prefer a clean `user_id` ownership model for persisted product features over a long-lived mixed ownership model.
 - If a temporary bridge is ever needed, keep it explicit and short-lived rather than making `anonymous_session_id` and `user_id` co-equal permanent owners.
-- Keep the transition plan focused on future authenticated writes, not on historical anonymous backfill.
+- Keep the transition plan focused on authenticated-only persistence, not on historical anonymous backfill.
 
 ## Likely DB Follow-Up Shape
 - The exact migration can stay minimal if legacy anonymous-session data is allowed to be dropped.
@@ -199,8 +201,23 @@ Result:
 
 ## Out Of Scope Right Now
 - completed user/auth schema implementation
-- real provider-backed auth
 - legacy anonymous-session data migration or merge design
 
 ## Near-Term TODO
 - Add follow-up checks for migration application and local server restart behavior during DB-related development.
+- Keep the current auth replacement work narrow:
+  - preserve `users`, `auth_accounts`, and `sessions`
+  - preserve the current-session read helper and `user_id` ownership resolver
+  - replace only the development-only session issuance path with a real provider-backed sign-in/sign-out flow
+- After provider-backed auth is verified, begin removing anonymous persistence from user-facing product features in this order:
+  - favorites
+  - daily / my-pokemon
+  - teams / my-teams
+- The first cutover is now live:
+  - `favorite_pokemon` still has legacy anonymous columns in schema, but runtime favorites reads/writes now require authenticated `user_id`
+  - the remaining anonymous favorites path should now be treated as cleanup work rather than active product behavior
+  - keep provider env vars optional until real auth credentials are available so local development can continue using the current fallback
+- The first provider-backed target is now Google:
+  - sign-in redirect starts at `/api/auth/sign-in`
+  - callback lands at `/api/auth/callback/google`
+  - successful callback should continue materializing local `sessions` rows so the existing ownership resolver keeps working unchanged

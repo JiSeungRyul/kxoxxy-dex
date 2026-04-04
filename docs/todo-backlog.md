@@ -189,8 +189,84 @@
 - `x27-8-2). 쿠키 기반 favorites API/runtime smoke check 복구 및 재검증`
 - `x27-8-3). /favorites의 daily-state 결합 유지 여부 판단 및 필요 시 최소 분리`
 - `x27-8-4). favorites 후속 안정화 결과를 docs/task log에 최종 반영`
-- `28). 하이브리드 이후 추가 DB 통합`
 - `29). 계정 기반 ownership 전환`
-- `30). 더 깊은 catalog 정규화 재검토`
+- `x29-1). 개발용 auth session과 실제 계정 기반 auth session의 차이/교체 범위 고정`
+- `x29-2). real provider-backed auth의 최소 목표 경계 정의 (sign-in / sign-out / current session)`
+- `x29-3). 현재 development-only auth route와 header auth panel을 실제 auth 흐름으로 교체할 최소 설계 정리`
+- `x29-4). authenticated session 발급/검증/만료 정책을 실제 계정 기준으로 정리`
+- `x29-5). current user helper와 ownership resolver가 실제 auth provider/session 경계를 읽도록 전환`
+- `x29-6). favorites / daily / teams가 development-only auth 없이도 같은 user_id ownership을 유지하는지 smoke check`
+- `x29-7). docs/session-guide / architecture / current-product / database-plan 반영`
+- `x29-8). persistence 기능을 로그인 필수 범위로 전환할 제품/런타임 경계 고정`
+- `x29-9). favorites read/write를 auth-required로 전환`
+- `29-10). daily / my-pokemon state read/write를 auth-required로 전환`
+- `29-11). teams / my-teams state read/write를 auth-required로 전환`
+- `29-12). anonymous persistence fallback 제거 범위 정리 및 smoke check`
 
-이유: 전부 범위가 크고 제품 단계상 아직 후순위입니다.
+`29` 설계 메모:
+- 현재 `resolveAuthenticatedUserSession()`와 ownership resolver는 유지하고, 세션 발급 주체만 development-only route에서 real provider-backed auth 경계로 교체하는 방향이 기본입니다.
+- `/api/auth/session`은 current session read 경계로 유지하고, 실제 sign-in / sign-out은 별도 route 또는 provider handler로 분리하는 쪽이 더 자연스럽습니다.
+- header auth panel은 삭제보다 교체가 맞습니다. 즉 현재 UI 위치와 세션 상태 표시는 유지하되, `개발용 로그인` 버튼만 실제 sign-in entry로 바꾸는 방향을 우선합니다.
+- 첫 real auth 단계는 복잡한 멀티 provider보다 하나의 최소 provider + durable authenticated session 경계만 있으면 충분합니다.
+- 현재 구현 상태:
+  - `GET /api/auth/session`은 current-session read로 유지
+  - `GET /api/auth/sign-in`은 Google OAuth redirect를 시작
+  - `GET /api/auth/callback/google`은 state/code를 검증하고 local `users` / `auth_accounts` / `sessions`에 연결
+  - `POST /api/auth/sign-out`은 local auth session을 정리
+  - 다음 제품 방향은 persistence 기능을 anonymous fallback과 병행하지 않고 로그인 필수로 좁히는 쪽입니다.
+  - 즉 browse-only route(`/`, `/pokedex`, `/pokemon/[slug]`)는 계속 열어두되, favorites / daily / my-pokemon / teams / my-teams의 persisted state는 authenticated `user_id` 경계만 사용하도록 정리하는 방향입니다.
+  - `29-8` 기준 정책은 아래처럼 고정합니다:
+    - 비로그인 사용자는 browse-only route만 정상 사용
+    - persisted state API(`/api/favorites/state`, `/api/daily/state`, `/api/teams/state`)는 unauthenticated request에 더 이상 anonymous owner를 발급하지 않음
+    - unauthenticated request는 auth-required 응답을 돌리고, 클라이언트는 저장 UI 대신 로그인 CTA를 표시
+    - 기존 anonymous persistence와 legacy local-storage/session handoff 제거는 `29-9` ~ `29-12`에서 순차 수행
+- `28). 하이브리드 이후 추가 DB 통합`
+- `30). 더 깊은 catalog 정규화 재검토`
+- `31). 마이 페이지 / 계정 허브`
+- `31-1). 현재 로그인 사용자 프로필 카드 (이름 / 이메일 / provider) 노출`
+- `31-2). 내 활동 요약 (즐겨찾기 수 / 포획 수 / 저장 팀 수) 집계`
+- `31-3). 마이 페이지에서 favorites / my-pokemon / my-teams로 이동하는 계정 허브 구성`
+- `31-4). 로그인 필요 기능과 계정 상태를 한곳에서 설명하는 안내 섹션 정리`
+- `31-5). 현재 독립 top-level인 favorites 메뉴를 마이 페이지 또는 계정 허브 하위로 재배치할지 결정`
+- `31-6). 마이 페이지/계정 허브 도입 시 favorites 진입 동선을 현재 독립 메뉴에서 새 계정 정보구조로 이동`
+- `32). 계정 기반 즐겨찾기 UX 확장`
+- `32-1). 마이 페이지 또는 별도 favorites 화면에서 정렬/필터/검색 추가`
+- `32-2). 목록 / 상세 / favorites 화면 사이의 즐겨찾기 상태 반영 UX 정리`
+- `32-3). 즐겨찾기 비어 있음 상태를 로그인 사용자 기준 copy로 재정리`
+- `33). 계정 기반 컬렉션 UX 확장`
+- `33-1). my-pokemon에 로그인 사용자 기준 통계/요약 추가`
+- `33-2). 포획 시각 / 반짝 여부 / 세대 / 타입 기준 정렬/필터 후보 검토`
+- `33-3). daily와 my-pokemon 사이의 계정 기준 진행 상태 설명 강화`
+- `34). 계정 기반 팀 관리 UX 확장`
+- `34-1). my-teams에 최근 수정일 / 포맷 / 모드 기준 정렬 추가`
+- `34-2). 팀 복제 / 이름 변경 / 빠른 편집 진입 같은 계정 기반 관리 작업 검토`
+- `34-3). 팀이 많아졌을 때를 대비한 검색/필터 UX 검토`
+- `35). 계정 설정 및 운영성 후속`
+- `35-1). 로그아웃 후 UX와 로그인 유도 copy 정리`
+- `35-2). 향후 계정 삭제 또는 사용자 데이터 초기화 정책 초안 정리`
+- `35-3). 로그인 실패 / provider callback 실패 / 세션 만료 시 에러 UX 정리`
+- `35-4). 마이 페이지 및 계정 기능에 대한 최소 smoke-check 시나리오 문서화`
+- `36). 인증 방식 확장 (추후)`
+- `36-1). Google 외 추가 OAuth provider 확장 여부 정리`
+- `36-2). Kakao login 추가를 위한 provider schema / callback / account-link 설계`
+- `36-3). header / login CTA / provider 선택 UX를 다중 provider 대응으로 확장`
+- `36-4). 동일 이메일 또는 provider account 충돌 시 계정 연결 정책 정리`
+- `36-5). Google + Kakao 다중 provider smoke-check 시나리오 문서화`
+- `37). 자체 로그인 검토 (추후 / 별도 큰 범위)`
+- `37-1). 자체 로그인 필요성 재평가 (외부 provider만으로 충분한지 먼저 판단)`
+- `37-2). email/password 도입 시 필요한 schema, hash, reset, verification 범위 정리`
+- `37-3). 자체 로그인 보안 요구사항 (비밀번호 정책 / 재설정 / 계정 복구) 초안 정리`
+- `37-4). 외부 provider 계정과 자체 로그인 계정의 연결 정책 정리`
+- `37-5). 자체 로그인은 provider 확장보다 뒤에 두는 원칙 유지`
+
+`31` 이후 추후 작업 메모:
+- Google 로그인 경계가 생기면서 persisted state가 계정 중심으로 정리될 수 있으므로, 이후 사용자 기능은 "저장된 계정 데이터의 탐색과 관리" 관점으로 확장하는 게 자연스럽습니다.
+- 우선순위는 보통 `31` 마이 페이지 허브 -> `32` favorites UX -> `33` collection UX -> `34` team management -> `35` settings/운영성 순서가 적절합니다.
+- 이 묶음은 `29`의 auth-required persistence 전환이 끝난 뒤 본격 착수하는 것이 안전합니다.
+- 현재 `favorites`는 계정 기능 성격이 커져서 임시로 독립 top-level 메뉴에 두지만, `31` 작업이 시작되면 마이 페이지/계정 허브 하위로 이동시키는 것이 더 자연스러운 방향입니다.
+- 인증 확장 우선순위는 `Google 안정화 -> Kakao 같은 추가 provider -> 필요 시 자체 로그인 검토`가 더 자연스럽습니다.
+- 자체 로그인은 provider 추가보다 훨씬 큰 보안/운영 범위를 여므로, 별도 큰 작업으로 분리해 다루는 편이 안전합니다.
+
+이유:
+- 다음 큰 실작업은 이미 들어간 `user_id` persistence를 실제 계정 기반 auth 경계에 연결하는 `29`가 더 자연스럽습니다.
+- `28`과 `30`은 여전히 범위가 크고, 현재 제품 단계에서는 `29` 이후가 더 적절합니다.
