@@ -1,225 +1,98 @@
 # Verification Guide
 
 ## Purpose
-- Provide a lightweight manual verification flow for the DB-backed daily, collection, and team routes.
-- Keep the checks aligned with the current hybrid runtime where first render payloads are reduced and detail loads happen on demand.
+- Provide a reliable manual verification flow for the DB-backed daily, collection, and team routes.
+- Standardize failure triage and command sequences after DB migrations or session logic changes.
+- Ensure the hybrid runtime (snapshot + PostgreSQL) remains stable across development environments.
 
 ## Scope
-- Routes:
-  - `/daily`
-  - `/my-pokemon`
-  - `/teams`
-- APIs:
-  - `/api/daily/state`
-  - `/api/teams/state`
-  - `/api/pokedex/catalog`
-  - `/api/pokedex/moves`
+- Routes: `/daily`, `/my-pokemon`, `/teams`, `/my-teams`
+- APIs: `/api/daily/state`, `/api/teams/state`, `/api/pokedex/catalog`, `/api/pokedex/moves`
 
-## Preconditions
-- Local PostgreSQL is running and seeded:
-  1. `docker compose up -d`
-  2. `npm run db:migrate`
-  3. `npm run db:seed:pokedex`
-- The app is running locally:
-  - `npm run dev`
-  - or `npm run start`
-- If daily or team DB changes were applied on Windows, restart the local Next.js server before smoke checks.
+---
 
-## Session Keys Used By The Current Client
-- Daily and My Pokemon share `localStorage["kxoxxy-daily-anonymous-session"]`.
-- Daily and My Pokemon still mirror collection fallback data into `localStorage["kxoxxy-pokedex-collection"]`.
-- Teams and My Teams share `localStorage["kxoxxy-anonymous-session"]`.
+## 1. Mandatory Command Sequence (24-2)
 
-## Recommended Baseline Check
-- Run `npm run typecheck` before manual smoke checks when the task changed route, API, or repository code.
-- Run `npm run build` when the task changed data delivery, caching, or route-server behavior.
+When changing the DB schema, seed data, or session-related server logic, follow this exact order to avoid stale state or lock issues.
 
+### A. Full Reset (Fresh Environment or Major Schema Change)
+1. `docker compose down -v` (Optional: only if you need a completely clean DB volume)
+2. `docker compose up -d`
+3. `npm run db:migrate`
+4. `npm run db:seed:pokedex`
+5. `npm run db:seed:items`
+6. `npm run db:seed:moves`
+7. **Windows Only:** Stop any running Next.js processes (check Task Manager for `node.exe`).
+8. `npm run dev` (or `npm run build && npm run start` for performance checks)
 
-## Post-Migration Daily And Team Smoke Flow
-- Use this flow immediately after DB schema changes that affect daily, collection, or team persistence.
-- Run the steps in order:
-  1. `docker compose up -d`
-  2. `npm run db:migrate`
-  3. `npm run db:seed:pokedex` when the local catalog may be empty or stale
-  4. Restart the local Next.js server before route checks on Windows
-  5. Run the route and API checks below with fresh session ids
-- Minimum route checks after migration:
-  - Open `/daily`
-  - Open `/teams`
-  - Open `/my-teams`
-- Minimum API checks after migration:
-  - `GET /api/daily/state?sessionId=...`
-  - `POST /api/daily/state` with `action: "reroll"`
-  - `GET /api/teams/state?sessionId=...`
-  - `POST /api/teams/state` with `action: "save"`
-  - `POST /api/teams/state` with `action: "delete"`
-- Minimum success signals after migration:
-  - `/daily` renders and returns a state payload with at least one encounter date for a fresh session
-  - `/teams` renders, allows a team save, and keeps the saved team on refresh
-  - `/my-teams` renders the saved team list for the same session
-  - deleting the saved team removes it from `/my-teams` and from `GET /api/teams/state`
+### B. Incremental Schema Change
+1. `npm run db:migrate`
+2. **Windows Only:** Restart the Next.js dev server.
+3. Check the affected route immediately.
 
-## Failure Triage After Migration
-- If `/daily` or `/teams` fails immediately after a migration:
-  - confirm `docker compose up -d` completed successfully
-  - rerun `npm run db:migrate`
-  - rerun `npm run db:seed:pokedex` if catalog-backed reads may be empty
-  - restart the local Next.js server before retrying on Windows
-- If `/api/daily/state` fails:
-  - confirm `anonymous_sessions`, `daily_encounters`, and `daily_captures` exist
-  - confirm `DATABASE_URL` points at the expected local PostgreSQL instance
-- If `/api/teams/state`, `/teams`, or `/my-teams` fails:
-  - confirm `teams` and `team_members` exist
-  - confirm the same anonymous session id is being reused across `/teams` and `/my-teams`
-- If route HTML loads but the UI does not behave correctly:
-  - check the matching state API first
-  - then check `/api/pokedex/catalog` for the follow-up detail payload
+### C. Seed/Catalog Data Update
+1. `npm run db:seed:pokedex` (or items/moves as needed)
+2. Clear any server-side cache if `unstable_cache` was used (or restart the server).
 
-## Route Smoke Flow
+### D. Upstream Dataset Refresh
+1. Run the matching `sync:*` command only for the domain you intend to refresh.
+2. Then run the matching `db:seed:*` import command.
+3. Restart the server if the affected route uses cached catalog helpers.
+4. Recheck the affected route/API immediately.
 
-### `/daily`
-- Open `/daily` in a clean browser session.
-- Confirm the page renders without a server error before any interaction.
-- Confirm the browser creates or reuses `kxoxxy-daily-anonymous-session`.
-- Confirm the client requests:
-  - `GET /api/daily/state?sessionId=...`
-  - `GET /api/pokedex/catalog?view=daily&dexNumbers=...`
-- Confirm the main encounter card appears after the state request completes.
-- Click capture and confirm:
-  - `POST /api/daily/state` with `action: "capture"` succeeds
-  - the encounter shows as captured
-  - the recent-capture list updates
-- Click reroll before capture on a fresh session and confirm:
-  - `POST /api/daily/state` with `action: "reroll"` succeeds
-  - the encounter changes
-- Click reset after capture and confirm:
-  - `POST /api/daily/state` with `action: "reset"` succeeds
-  - the captured state for today clears
+---
 
-### `/my-pokemon`
-- Use the same browser session used for `/daily`.
-- Open `/my-pokemon`.
-- Confirm the page renders without shipping a gallery catalog on first render.
-- Confirm the client requests:
-  - `GET /api/daily/state?sessionId=...`
-  - `GET /api/pokedex/catalog?view=my-pokemon&dexNumbers=...` only when captured dex numbers exist
-- Confirm captured cards render after the collection state loads.
-- Release one captured Pokemon and confirm:
-  - `POST /api/daily/state` with `action: "release"` succeeds
-  - the card disappears from the gallery
-  - the released dex number is removed from the mirrored collection state
+## 2. Failure Triage (24-1, 24-7)
 
-### `/teams`
-- Open `/teams` in a clean browser session.
-- Confirm the page renders without a server error.
-- Confirm the browser creates or reuses `kxoxxy-anonymous-session`.
-- Confirm the first render ships only the reduced team-builder option payload, not the full selected-detail catalog.
-  - The reduced payload now includes dex number, Korean name, generation, and Pokedex-name metadata for conservative format-based candidate narrowing.
-- Select one or more Pokemon and confirm the client requests:
-  - `GET /api/teams/state?sessionId=...`
-  - `GET /api/pokedex/catalog?view=teams&dexNumbers=...` after selection
-  - `GET /api/pokedex/moves?slots=...&dexNumbers=...&formKeys=...&format=...` after selection
-- Save a team and confirm:
-  - `POST /api/teams/state` with `action: "save"` succeeds
-  - the route updates to `/teams?teamId=...`
-  - refreshing the page keeps the saved team loaded
-- With the move selector enabled, also confirm:
-  - the move API returns move options for the selected Pokemon and current format
-  - saving a valid move set succeeds
-  - saving duplicate moves inside the same member slot fails with a validation error
-- With Rotom selected, also confirm:
-  - the `일반 폼` selector appears
-  - choosing `히트`, `워시`, `프로스트`, `스핀`, or `커트` updates the visible type badges and artwork
-  - the matching signature move becomes selectable only for the matching form
-  - saving and reloading the team preserves the selected Rotom form
-- With Giratina or Shaymin selected, also confirm:
-  - the `일반 폼 선택` selector appears
-  - choosing `오리진폼` or `스카이폼` updates the visible artwork, type badges, and ability list
-  - saving and reloading the team preserves the selected form
-- With Tauros selected, also confirm:
-  - the `일반 폼 선택` selector appears
-  - choosing `팔데아 컴뱃종`, `팔데아 블레이즈종`, or `팔데아 아쿠아종` updates the visible artwork, type badges, and ability list
-  - saving and reloading the team preserves the selected breed
-- Delete the saved team from `/my-teams` or through the API and confirm it disappears on reload.
+If a feature fails after a migration or update, use this checklist to identify the root cause.
 
-## API Smoke Flow
+| Symptom | Probable Cause | Diagnostic Step | Fix |
+| :--- | :--- | :--- | :--- |
+| **500 Internal Server Error** | Missing Table or Column | Check server logs for `Relation "..." does not exist` | Run `npm run db:migrate` |
+| **Empty Data / Broken Images** | Missing Catalog Seeds | Check `/api/pokedex/catalog` for empty arrays | Run `npm run db:seed:pokedex` |
+| **Old Data Still Appears** | Next.js / Windows Cache | Change a UI string; if it doesn't update, it's a lock issue | Stop node.exe and restart `npm run dev` |
+| **401 Authentication Required** | Missing Auth Session | Check `/api/auth/session` and confirm `authenticated: true` | Sign in again through Google and retry |
 
-### `/api/daily/state`
-- Missing session id should return `400` from `GET` and `POST`.
-- Valid `GET` should return a `PokedexCollectionState`-shaped payload:
-  - `capturedDexNumbers`
-  - `shinyCapturedDexNumbers`
-  - `encountersByDate`
-  - `shinyEncountersByDate`
-- Valid `POST` actions are:
-  - `capture`
-  - `reset`
-  - `reroll`
-  - `release`
-- `release` must include `nationalDexNumber` or return `400`.
+---
 
-### `/api/teams/state`
-- Missing session id should return `400` from `GET` and `POST`.
-- Valid `GET` should return `{ "teams": [...] }`.
-- Valid `POST` actions are:
-  - `save`
-  - `delete`
-- `save` must include a team name and member array or return `400`.
-- `delete` must include `teamId` or return `400`.
+## 3. Change-Specific Verification (24-3, 24-4)
 
-### `/api/pokedex/catalog`
-- Invalid `view` should return `400`.
-- Empty or invalid `dexNumbers` should return `{ "pokemon": [] }`.
-- Valid views are:
-  - `daily`
-  - `my-pokemon`
-  - `teams`
-- Expected payload shapes by view:
-  - `daily`: `PokemonCollectionCatalogEntry[]`
-  - `my-pokemon`: `PokemonCollectionPageEntry[]`
-  - `teams`: `PokemonTeamBuilderCatalogEntry[]`
+### A. DB Schema Change (e.g., New column in `team_members`)
+1. Run `npm run db:migrate`.
+2. Open `/teams` and save a new draft.
+3. Refresh the page and confirm the saved data still reflects the new schema.
+4. Check `/api/teams/state` to ensure the JSON payload includes the new field.
 
-### `/api/pokedex/moves`
-- Missing or invalid slot-member input should return `{ "pokemonMoves": [] }`.
-- Valid requests should return `{ "pokemonMoves": [...] }`.
-- The current request shape is parallel slot-member input:
-  - `slots`
-  - `dexNumbers`
-  - `formKeys`
-- The current `format` parameter is expected to be one of:
-  - `default`
-  - `gen6`
-  - `gen7`
-  - `gen8`
-  - `gen9`
-- The response should include slot-grouped move options for the selected Pokemon in the requested format.
-- Rotom appliance forms should include the matching form-specific signature move when the corresponding `formKey` is provided.
-- Duplicate move validation is enforced at save time through `/api/teams/state`.
+### B. Catalog Data Change (e.g., Updated Pokemon stats)
+1. Run `npm run db:seed:pokedex`.
+2. Open a detail page (e.g., `/pokemon/pikachu`).
+3. Verify the stats match the new source data.
+4. Verify the Pokedex list (`/pokedex`) still paginates correctly.
 
-## Example API Checks
-- Replace the session id placeholder before running the commands.
+### C. Session Logic Change (e.g., Cookie boundary hardening)
+1. Clear auth cookies or sign out.
+2. Open `/daily` and verify the page shows a login CTA instead of persisted progress.
+3. Confirm `GET /api/daily/state` returns `401` while signed out.
+4. Sign in through Google.
+5. Capture a Pokemon, open `/my-pokemon`, and verify the captured Pokemon appears under the same account.
 
-```powershell
-curl.exe "http://localhost:3000/api/daily/state?sessionId=replace-me"
-curl.exe "http://localhost:3000/api/pokedex/catalog?view=daily&dexNumbers=25,133"
-curl.exe "http://localhost:3000/api/teams/state?sessionId=replace-me"
-curl.exe "http://localhost:3000/api/pokedex/moves?slots=1&dexNumbers=479&formKeys=heat&format=gen9"
-```
+---
 
-```powershell
-curl.exe -X POST "http://localhost:3000/api/daily/state" -H "Content-Type: application/json" -d '{"sessionId":"replace-me","action":"reroll"}'
-curl.exe -X POST "http://localhost:3000/api/teams/state" -H "Content-Type: application/json" -d '{"sessionId":"replace-me","action":"delete","teamId":1}'
-```
+## 4. Route Smoke Flow (Baseline)
 
-## Payload-Split Regression Checks
-- `/daily` should still receive only daily candidate dex numbers on first render, then fetch encounter and recent-capture detail through `/api/pokedex/catalog`.
-- `/my-pokemon` should still ship no gallery catalog on first render, then fetch captured-card detail through `/api/pokedex/catalog`.
-- `/teams` should still receive only the reduced team-builder option payload on first render, then fetch selected detail through `/api/pokedex/catalog`.
-- `/teams` move requests should stay on-demand and slot-aware, with Rotom `formKey` included only when a Rotom appliance form is selected.
+### `/daily` & `/my-pokemon`
+- While signed out, open `/daily` and verify the login CTA renders.
+- After sign-in, `GET /api/daily/state` should return a valid JSON state.
+- Capture/Reroll/Reset should all work and return `200 OK` while authenticated.
+- Open `/my-pokemon`. Captured cards must load via `/api/pokedex/catalog` on demand.
 
-## When To Re-Run This Flow
-- After changing `features/pokedex/server/repository.ts`
-- After changing `/daily`, `/my-pokemon`, `/teams`, or their related APIs
-- After changing cache helpers tied to reduced first-load payloads
-- After applying DB migrations for daily, collection, or team tables
-- After restarting the local server to recover from Windows `.next/trace` lock issues
+### `/teams` & `/my-teams`
+- While signed out, open `/teams` and verify the login CTA renders.
+- After sign-in, open `/teams`. The first render must ship a reduced option payload (verify in Network tab).
+- Select a Pokemon. Verify `/api/pokedex/catalog?view=teams` is called.
+- Save a team. Verify the redirect to `/teams?teamId=...`.
+- Open `/my-teams`. The saved team must appear and load its members correctly.
+
+## 5. Environment Notes (24-6)
+- **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
+- **Auth Requirement:** Persisted routes now require a valid `kxoxxy-auth-session`; signed-out behavior should be a login CTA plus `401` from the matching state API.

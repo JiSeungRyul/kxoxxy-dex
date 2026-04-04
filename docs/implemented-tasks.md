@@ -62,6 +62,95 @@
 - Reworked `/my-pokemon` so the first render now ships no gallery catalog and fetches captured-card detail on demand through `app/api/pokedex/catalog/route.ts`
 - Verified the route payload restructuring with `npm run typecheck`, `npm run build`, and local smoke checks for `/daily`, `/my-pokemon`, `/teams`, `/api/daily/state`, `/api/teams/state`, and `/api/pokedex/catalog` on 2026-03-25
 
+## Favorites Follow-Up Stabilization (Added: 2026-04-03)
+- Replaced the broken repository migration for `favorite_pokemon` with an incremental migration that only adds the favorites table, its foreign keys, and its unique index.
+- Re-verified the cookie-based favorites runtime so `GET /api/favorites/state` and `POST /api/favorites/state` now complete successfully on the migrated local DB.
+- Removed the unnecessary `/favorites` dependency on the daily collection-state load path so the favorites view now waits on favorites state directly instead of first relying on `/api/daily/state`.
+- Re-ran `npm run typecheck`, `npm run build`, and local smoke checks for `/favorites`, `/api/favorites/state`, and `/api/daily/state` after the decoupling change.
+
+## Authentication Groundwork (Added: 2026-04-03)
+- Defined the preferred auth direction as minimal auth plus a separate server-managed authenticated session layered on top of the current anonymous-session fallback.
+- Added checked-in DB schema groundwork for `users`, `auth_accounts`, and `sessions` so later auth runtime work can resolve a durable `user_id`.
+- Added a minimal authenticated-session read boundary at `app/api/auth/session/route.ts` plus a shared server helper for resolving the current authenticated user from the future auth-session cookie.
+- Fixed the preferred authenticated write order as `favorites -> daily/my-pokemon -> teams` so the first account-linked rollout starts from the smallest persisted state.
+- Verified the new groundwork with `npm run typecheck`, `npm run build`, `npm run db:migrate`, unauthenticated `GET /api/auth/session`, and an authenticated local smoke check using a temporary `users`/`sessions` row plus `kxoxxy-auth-session` cookie.
+- Kept runtime auth, login/logout UI, and authenticated request handling explicitly out of this step.
+
+## Minimal Auth Session UI (Added: 2026-04-03)
+- Extended `app/api/auth/session/route.ts` so the current MVP auth boundary can create and clear a development-only auth session in addition to reading it.
+- Added a small auth panel to the shared site header so local sessions can be created and cleared without adding a dedicated auth page yet.
+- Verified the round-trip with local `POST /api/auth/session`, `GET /api/auth/session`, `DELETE /api/auth/session`, and final `GET /api/auth/session` checks using the issued `kxoxxy-auth-session` cookie.
+
+## Shared Ownership Resolver Groundwork (Added: 2026-04-03)
+- Added a shared server ownership resolver that prefers authenticated `userId` and falls back to anonymous `sessionId`.
+- Wired the favorites and teams state routes to that resolver so later `user_id` persistence work can start from one common owner-selection path.
+- Verified that anonymous requests still return the current anonymous-session-backed responses, while authenticated favorites and teams requests now return explicit pending-owner responses until their `user_id` persistence steps are implemented.
+
+## Authenticated Favorites Ownership (Added: 2026-04-03)
+- Extended `favorite_pokemon` so favorites can now belong to either `anonymous_session_id` or `user_id`.
+- Kept anonymous favorites intact while enabling authenticated favorites to read and write through the shared ownership resolver.
+- Verified both paths locally: anonymous favorites still toggle normally, and authenticated favorites now persist separately under `user_id`.
+
+## Authenticated Daily Ownership (Added: 2026-04-03)
+- Extended `daily_encounters` and `daily_captures` so daily/my-pokemon state can now belong to either `anonymous_session_id` or `user_id`.
+- Reused the shared ownership resolver in `app/api/daily/state/route.ts` so authenticated daily requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
+- Verified both paths locally with `npm run db:generate`, `npm run db:migrate`, `npm run build`, `npm run typecheck`, anonymous `GET/POST /api/daily/state`, authenticated `POST /api/auth/session`, authenticated `GET/POST /api/daily/state`, authenticated `release`, and a final anonymous `GET /api/daily/state` check confirming the two owners stay separated.
+
+## Authenticated Team Ownership (Added: 2026-04-03)
+- Extended `teams` so saved teams can now belong to either `anonymous_session_id` or `user_id` without changing the existing `team_members` shape.
+- Reused the shared ownership resolver in `app/api/teams/state/route.ts` so authenticated team requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
+- Verified both paths locally with `npm run db:generate`, `npm run db:migrate`, `npm run build`, `npm run typecheck`, anonymous `GET/POST /api/teams/state`, authenticated `POST /api/auth/session`, authenticated `GET/POST /api/teams/state`, authenticated delete, and a final anonymous `GET /api/teams/state` check confirming the two owners stay separated.
+
+## Ownership Priority Verification (Added: 2026-04-03)
+- Re-verified the authenticated-first / anonymous-fallback rule using one cookie jar that held both `kxoxxy-anonymous-session` and `kxoxxy-auth-session`.
+- Confirmed that anonymous favorites, daily capture state, and saved teams remain intact in the browser-scoped fallback state.
+- Confirmed that once the same browser receives an auth cookie, `favorites`, `/api/daily/state`, and `/api/teams/state` all switch to the authenticated `user_id` state instead of reading the existing anonymous state.
+- Confirmed that clearing the auth cookie restores visibility of the original anonymous favorites, daily capture state, and saved teams in the same browser session.
+
+## Auth Route Split Groundwork (Added: 2026-04-05)
+- Kept `GET /api/auth/session` as the current-session read boundary for the header and other client UI.
+- Added separate `POST /api/auth/sign-in` and `POST /api/auth/sign-out` routes so future provider-backed auth can replace session issuance without changing the ownership resolver or current-session read path.
+- Added optional auth environment placeholders to `.env.example` and kept the current development login fallback active while real provider credentials are not yet available.
+
+## Google Auth Route Groundwork (Added: 2026-04-05)
+- Added a Google OAuth callback route at `app/api/auth/callback/google/route.ts`.
+- Extended the auth-session server helper so Google sign-in can:
+  - build the provider redirect URL
+  - validate a short-lived auth-state cookie
+  - exchange the callback code for Google tokens
+  - upsert `users` and `auth_accounts`
+  - create the local `sessions` row consumed by the existing ownership resolver
+- Verified the route layer locally with `npm run build`, `npm run typecheck`, `GET /api/auth/session`, `GET /api/auth/sign-in`, and an invalid-state callback guard check for `/api/auth/callback/google`.
+
+## Google Auth Runtime Verification (Added: 2026-04-05)
+- Completed a real local Google login round-trip through `/api/auth/sign-in` and `/api/auth/callback/google`.
+- Confirmed Google callback upserts local `users` / `auth_accounts` and creates a local `sessions` row consumed by `resolveAuthenticatedUserSession()`.
+- Verified provider-backed authenticated state through:
+  - `GET /api/auth/session`
+  - favorites toggle round-trip
+  - daily capture / release round-trip
+  - teams save / delete round-trip
+- Cleaned up the verification favorite, capture, and saved team after the smoke check.
+
+## Favorites Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/favorites/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from favorites by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/favorites` to show a Google sign-in CTA instead of anonymous saved data.
+- Updated favorite toggles in the main Pokedex and Pokemon detail page so missing auth redirects into Google sign-in rather than silently creating anonymous state.
+- Moved favorites to an independent top-level navigation item so it no longer sits under the daily submenu while account-linked UX is becoming more prominent.
+
+## Daily Collection Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/daily/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from daily/my-pokemon by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/daily` and `/my-pokemon` to show Google sign-in CTA states instead of anonymous saved progress.
+- Updated capture, release, reset, and reroll flows so missing auth redirects into Google sign-in rather than silently creating anonymous state.
+
+## Team Persistence Auth-Required Cutover (Added: 2026-04-05)
+- Switched `app/api/teams/state/route.ts` to authenticated-session-only reads and writes.
+- Removed the runtime anonymous fallback from teams/my-teams by returning `401` plus `authRequired: true` when no authenticated session exists.
+- Updated `/teams` and `/my-teams` to show Google sign-in CTA states instead of anonymous saved teams.
+- Updated team save and delete flows so missing auth redirects into Google sign-in rather than silently creating anonymous team state.
+
 ## Database Groundwork
 - Added local PostgreSQL Docker Compose setup
 - Added environment template for database configuration
@@ -276,6 +365,23 @@
 - Extended the `/teams` general-form selector to include `팔데아 켄타로스` breed forms within the existing `formKey` model.
 - Added `팔데아 컴뱃종`, `팔데아 블레이즈종`, and `팔데아 아쿠아종` as selectable saved-team general forms so breed-specific artwork, types, stats, and abilities follow the selected breed in the existing team builder flow.
 - Kept `지가르데` and similar ambiguous multi-state form groups in follow-up backlog because the current snapshot and selector model do not yet cleanly separate passive form choice from battle-state transformation semantics.
+
+## Server-Managed Anonymous Session Boundary (Added: 2026-04-01)
+- Added a shared server-side anonymous-session helper for the daily and team state APIs so the server can issue or reuse a `kxoxxy-anonymous-session` `httpOnly` cookie.
+- Removed new client-side anonymous-session id generation and direct `sessionId` submission from the daily and team flows.
+- Kept a one-time legacy local-storage session handoff so older browsers can migrate onto the shared cookie boundary without immediately losing anonymous daily or team state.
+- Completed a local cookie-based smoke pass on 2026-04-01 covering `/daily`, `/my-pokemon`, `/teams`, `/my-teams`, `GET /api/daily/state`, `GET /api/teams/state`, and a team save/delete round-trip through `/api/teams/state`.
+
+## User Ownership Transition Definition (Added: 2026-04-01)
+- Defined the current anonymous ownership scope for daily and team state in `docs/database-plan.md`, including the current owner tables and affected APIs.
+- Defined the target long-term ownership model as `user_id`-based rather than `anonymous_session_id`-based once auth work begins.
+- Explicitly kept legacy anonymous-session data migration and merge logic out of scope because this repository is not currently operating with production user data.
+
+## Auth-Required Persistence Cleanup (Added: 2026-04-05)
+- Completed the auth-required cutover for favorites, daily/my-pokemon, and teams/my-teams so the persisted state APIs now return `401` instead of anonymous fallback data when signed out.
+- Removed the remaining anonymous-session runtime helper files and the old local-storage session handoff path from the active runtime.
+- Stopped mirroring persisted collection state into local storage now that those saved features are fully account-bound.
+- Followed that runtime cleanup with a DB cleanup migration that removes `anonymous_sessions` and the legacy `anonymous_session_id` columns from the persisted state tables.
 
 ## Move Catalog Groundwork (Added: 2026-03-30)
 - Added `scripts/sync-moves.mjs` to fetch the full PokeAPI move list and extract per-Pokemon learnset rows using the local `data/pokedex.json` species snapshot.

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { resolveAuthenticatedUserSession } from "@/features/pokedex/server/auth-session";
 import {
   captureDailyEncounter,
   getDailyCollectionState,
@@ -10,44 +11,42 @@ import {
 
 type DailyAction = "capture" | "reset" | "reroll" | "release";
 
-function isValidSessionId(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
+export async function GET(request: NextRequest) {
+  const session = await resolveAuthenticatedUserSession(request);
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("sessionId");
-
-  if (!isValidSessionId(sessionId)) {
-    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
   }
 
-  const state = await getDailyCollectionState(sessionId);
+  const state = await getDailyCollectionState({ ownerType: "user", userId: session.userId });
+
   return NextResponse.json(state);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
-    sessionId?: string;
     action?: DailyAction;
     nationalDexNumber?: number;
   };
+  const session = await resolveAuthenticatedUserSession(request);
 
-  if (!isValidSessionId(body.sessionId)) {
-    return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
   }
+
+  const dailyOwner = { ownerType: "user" as const, userId: session.userId };
 
   let state;
 
   switch (body.action) {
     case "capture":
-      state = await captureDailyEncounter(body.sessionId);
+      state = await captureDailyEncounter(dailyOwner);
       break;
     case "reset":
-      state = await resetDailyEncounterCapture(body.sessionId);
+      state = await resetDailyEncounterCapture(dailyOwner);
       break;
     case "reroll":
-      state = await rerollDailyEncounter(body.sessionId);
+      state = await rerollDailyEncounter(dailyOwner);
       break;
     case "release":
       if (!Number.isInteger(body.nationalDexNumber)) {
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
 
       {
         const nationalDexNumber = Number(body.nationalDexNumber);
-        state = await releaseCapturedPokemon(body.sessionId, nationalDexNumber);
+        state = await releaseCapturedPokemon(dailyOwner, nationalDexNumber);
       }
       break;
     default:
