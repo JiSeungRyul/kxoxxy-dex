@@ -447,3 +447,11 @@
 - Changed `/api/pokedex/moves` and the team-builder move-loading path to use slot-aware member input plus `formKey`, so duplicate dex numbers can still be handled safely and the correct Rotom appliance signature move can be exposed in the matching slot.
 - Added a small Rotom-only move override layer on top of the current national-dex move catalog so the selected appliance form now exposes `오버히트`, `하이드로펌프`, `리프스톰`, `눈보라`, or `에어슬래시` without broadening the whole form-specific learnset model yet.
 - Matched team save/load normalization and move validation to the new Rotom `formKey` path so saved teams keep the selected appliance form and invalid form-move combinations are rejected on save.
+# 2026-04-05
+- Added the first account-hub entry route at `/my`.
+- The new page now renders a dedicated profile card for the authenticated user with name, email, and provider.
+- The same page now also renders summary counts for favorites, captured Pokemon, and saved teams.
+- The same page now also links into favorites, my-pokemon, and my-teams as the first account hub.
+- The same page now also explains the current login-required persistence policy and account status in one place.
+- The header now uses `마이 페이지` as the top-level account entry, and favorites is no longer a separate top-level nav item.
+- The site header now links into that page when the user is signed in.

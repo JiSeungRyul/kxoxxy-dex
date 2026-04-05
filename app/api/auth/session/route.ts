@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         email: session.email,
         name: session.name,
         image: session.image,
+        provider: session.provider,
       },
       expiresAt: session.expiresAt,
       authMode: authMode.kind,

@@ -16,6 +16,7 @@ type AuthSessionRow = {
   email: string;
   name: string | null;
   image: string | null;
+  provider: string | null;
   expiresAt: string;
 };
 
@@ -24,6 +25,7 @@ export type AuthenticatedUserSession = {
   email: string;
   name: string | null;
   image: string | null;
+  provider: string | null;
   expiresAt: string;
 };
 
@@ -121,6 +123,13 @@ export async function resolveAuthenticatedUserSession(
 ): Promise<AuthenticatedUserSession | null> {
   const sessionToken = getSessionToken(request);
 
+  return resolveAuthenticatedUserSessionByToken(sessionToken);
+}
+
+export async function resolveAuthenticatedUserSessionByToken(
+  sessionToken: string | null,
+): Promise<AuthenticatedUserSession | null> {
+
   if (!sessionToken) {
     return null;
   }
@@ -132,9 +141,17 @@ export async function resolveAuthenticatedUserSession(
         users.email AS "email",
         users.name AS "name",
         users.image AS "image",
+        auth_accounts.provider AS "provider",
         sessions.expires_at AS "expiresAt"
       FROM sessions
       INNER JOIN users ON users.id = sessions.user_id
+      LEFT JOIN LATERAL (
+        SELECT provider
+        FROM auth_accounts
+        WHERE user_id = sessions.user_id
+        ORDER BY id ASC
+        LIMIT 1
+      ) auth_accounts ON true
       WHERE sessions.session_token = $1
       LIMIT 1
     `,

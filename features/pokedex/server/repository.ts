@@ -969,6 +969,12 @@ type UserOwnership = {
   userId: number;
 };
 
+export type AccountHubSummary = {
+  favoriteCount: number;
+  capturedCount: number;
+  savedTeamCount: number;
+};
+
 function getEmptyCollectionState(): PokedexCollectionState {
   return {
     capturedDexNumbers: [],
@@ -976,6 +982,41 @@ function getEmptyCollectionState(): PokedexCollectionState {
     capturedAtByDexNumber: {},
     encountersByDate: {},
     shinyEncountersByDate: {},
+  };
+}
+
+export async function getAccountHubSummary(userId: number): Promise<AccountHubSummary> {
+  const [favoriteRows, captureRows, teamRows] = await Promise.all([
+    postgresClient.unsafe<Array<{ count: number }>>(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM favorite_pokemon
+        WHERE user_id = $1
+      `,
+      [userId],
+    ),
+    postgresClient.unsafe<Array<{ count: number }>>(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM daily_captures
+        WHERE user_id = $1
+      `,
+      [userId],
+    ),
+    postgresClient.unsafe<Array<{ count: number }>>(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM teams
+        WHERE user_id = $1
+      `,
+      [userId],
+    ),
+  ]);
+
+  return {
+    favoriteCount: favoriteRows[0]?.count ?? 0,
+    capturedCount: captureRows[0]?.count ?? 0,
+    savedTeamCount: teamRows[0]?.count ?? 0,
   };
 }
 

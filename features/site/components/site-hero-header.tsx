@@ -32,6 +32,7 @@ type AuthSessionResponse = {
     email: string;
     name: string | null;
     image: string | null;
+    provider: string | null;
   } | null;
   error?: string;
 };
@@ -47,8 +48,8 @@ export function SiteHeroHeader() {
   const [isAuthMutating, setIsAuthMutating] = useState(false);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
-  const isFavoritesActive = pathname === "/favorites";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
+  const isMyActive = pathname === "/my" || pathname === "/favorites";
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setIsDailyMenuOpen(false);
@@ -201,6 +202,14 @@ export function SiteHeroHeader() {
                     ? "Google로 로그인"
                     : "개발용 로그인"}
             </button>
+            {authUser ? (
+              <Link
+                href="/my"
+                className="mt-2 inline-flex text-xs font-semibold text-foreground transition hover:opacity-70"
+              >
+                마이 페이지로 이동
+              </Link>
+            ) : null}
           </div>
           <ThemeToggle />
         </div>
@@ -253,14 +262,6 @@ export function SiteHeroHeader() {
           </div>
         </div>
 
-        <Link
-          href="/favorites"
-          aria-current={isFavoritesActive ? "page" : undefined}
-          className={getNavLinkClass(isFavoritesActive)}
-        >
-          즐겨찾기
-        </Link>
-
         <div
           className="relative"
           onMouseEnter={() => setIsTeamsMenuOpen(true)}
@@ -295,6 +296,10 @@ export function SiteHeroHeader() {
             </div>
           </div>
         </div>
+
+        <Link href="/my" aria-current={isMyActive ? "page" : undefined} className={getNavLinkClass(isMyActive)}>
+          마이 페이지
+        </Link>
       </nav>
     </section>
   );

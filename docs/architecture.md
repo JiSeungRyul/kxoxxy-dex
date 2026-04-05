@@ -10,6 +10,11 @@
 - Legacy anonymous-session ownership is no longer part of the active runtime or active schema path for persisted product features.
 - The current auth shape is minimal provider-backed Google sign-in plus a server-managed authenticated session that resolves `users.id`.
 - Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and the active runtime uses the provider-backed authenticated-session flow rather than the older development-only issuance path.
+- `/my` is now the first account-hub route and reads the authenticated session on the server before rendering a profile card.
+- The same `/my` route now also performs small server-side summary reads for `favorite_pokemon`, `daily_captures`, and `teams` before rendering the account hub.
+- The same page now also acts as a hub entry by linking into `/favorites`, `/my-pokemon`, and `/my-teams`.
+- The same page now also carries a small guide section that centralizes the current login-required persistence policy.
+- Header-level account navigation now points to `/my`, and favorites is no longer treated as an independent primary nav surface.
 
 ## High-Level Structure
 - `app/`

@@ -166,6 +166,11 @@ If the task depends on route or API performance measurement, read docs/performan
   - final `GET /api/auth/session` -> `authenticated: false`
 - Favorites, daily/my-pokemon, and teams/my-teams now all use authenticated `user_id` as the only active runtime owner.
 - Real provider-backed Google auth is now live for local runtime verification, and authenticated favorites, daily/my-pokemon, and teams ownership can now be exercised without the old development-only auth path.
+- `/my` now exists as the first account-hub route and renders the current user's name, email, and provider from the authenticated session.
+- `/my` now also aggregates favorites count, captured count, and saved-team count on the server for the first account-hub summary view.
+- `/my` now also acts as the first account-hub navigation surface for `/favorites`, `/my-pokemon`, and `/my-teams`.
+- `/my` now also centralizes the current account status and login-required persistence guidance in one place.
+- The main header now uses `/my` as the account entry point, and favorites navigation has moved under that account-hub flow.
 
 ## Ownership Transition Status (Added: 2026-04-03)
 - Backlog item `26` is now fully completed.

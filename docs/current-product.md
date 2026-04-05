@@ -35,6 +35,11 @@
 - Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
 - The site header now exposes Google sign-in/sign-out rather than the old development-only auth panel.
+- `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
+- `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
+- `/my` now links directly into `즐겨찾기`, `내 포켓몬`, `내 팀 보기` so it acts as the first account hub.
+- `/my` now also explains which features are login-required and how account-bound persistence currently works.
+- Header navigation now uses `마이 페이지` as the top-level account entry, and `즐겨찾기` is reached through that account-hub structure instead of its earlier independent top-level slot.
 - Favorites, daily, and team persistence now resolve only through authenticated `user_id`.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
 - Team builder now blocks saving duplicate species and duplicate held items in `대전 싱글` and `대전 더블`.
