@@ -171,6 +171,14 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/my` now also acts as the first account-hub navigation surface for `/favorites`, `/my-pokemon`, and `/my-teams`.
 - `/my` now also centralizes the current account status and login-required persistence guidance in one place.
 - The main header now uses `/my` as the account entry point, and favorites navigation has moved under that account-hub flow.
+- `/favorites` now reuses shared Pokedex filter options and richer catalog entries so saved favorites can be searched, filtered, sorted, and paginated without a separate favorites-only data model.
+- Favorites UI now also shares favorite-number updates between list, detail, and `/favorites` views via a small client-side sync event, and the favorites gallery now shows a dedicated filtered-empty message when active search/filter conditions hide every saved favorite.
+- `/my-pokemon` now also derives a small account-bound summary view directly from the authenticated collection state, so the page exposes captured count, shiny count, recent capture count, and latest capture time without adding a separate server summary endpoint.
+- `/my-pokemon` now also has a first management-controls pass: name search, type filter, shiny-only filter, and recent-capture sorting all run directly against the authenticated collection state, while generation filtering remains deferred until a richer read-model is needed.
+- `/daily` and `/my-pokemon` copy now explicitly call out that they share the same authenticated collection progress, so captures from the daily encounter flow and releases from the collection view are described as one account-bound loop.
+- `/my-teams` now has a first account-management control: the saved-team list can be reordered client-side by recent update, team name, format label, or mode label without changing the existing team-state API shape.
+- `/my-teams` now also adds two lightweight account-management actions on top of the existing edit entry: duplicate a saved team through the current save path, and rename a saved team through the same API without opening the full builder first.
+- `/my-teams` now also has a first list-management filter bar: saved teams can be narrowed by team name, format, and mode before the existing sort control is applied.
 
 ## Ownership Transition Status (Added: 2026-04-03)
 - Backlog item `26` is now fully completed.

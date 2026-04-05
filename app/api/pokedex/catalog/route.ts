@@ -40,7 +40,9 @@ export async function GET(request: Request) {
         ? await getPokemonCollectionEntriesByDexNumbers(dexNumbers)
         : view === "teams"
           ? await getPokemonTeamBuilderEntriesByDexNumbers(dexNumbers)
-          : await getPokemonMyPokemonEntriesByDexNumbers(dexNumbers); // favorites uses same structure as my-pokemon
+          : view === "favorites"
+            ? await getPokemonCollectionEntriesByDexNumbers(dexNumbers)
+            : await getPokemonMyPokemonEntriesByDexNumbers(dexNumbers);
 
     return NextResponse.json({ pokemon });
   } catch {

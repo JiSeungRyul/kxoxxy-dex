@@ -11,9 +11,18 @@ import {
   DEFAULT_SORT_KEY,
   POKEMON_PER_PAGE,
 } from "@/features/pokedex/constants";
+import {
+  MyPokemonControls,
+  type MyPokemonShinyFilter,
+  type MyPokemonSortKey,
+} from "@/features/pokedex/components/my-pokemon-controls";
 import { PokedexControls } from "@/features/pokedex/components/pokedex-controls";
 import { PokedexPagination } from "@/features/pokedex/components/pokedex-pagination";
 import { PokedexTable } from "@/features/pokedex/components/pokedex-table";
+import {
+  emitFavoriteDexNumbersUpdate,
+  subscribeToFavoriteDexNumbersUpdate,
+} from "@/features/pokedex/client/favorites-sync";
 import type {
   GenerationFilterValue,
   PokedexCollectionState,
@@ -88,10 +97,12 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [isCollectionReady, setIsCollectionReady] = useState(false);
   const [isCollectionAuthRequired, setIsCollectionAuthRequired] = useState(false);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
+  const [myPokemonShinyFilter, setMyPokemonShinyFilter] = useState<MyPokemonShinyFilter>("all");
+  const [myPokemonSortKey, setMyPokemonSortKey] = useState<MyPokemonSortKey>("capturedAt");
   const [dailyPokemonDetails, setDailyPokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
   const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
   const [myPokemonDetails, setMyPokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
-  const [favoritePokemonDetails, setFavoritePokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
+  const [favoritePokemonDetails, setFavoritePokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
   const usesServerCollectionState = view === "daily" || view === "my-pokemon";
 
   useEffect(() => {
@@ -102,6 +113,14 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     }
 
     let isMounted = true;
+    const unsubscribe = subscribeToFavoriteDexNumbersUpdate((nextFavoriteDexNumbers) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setFavoriteDexNumbers(nextFavoriteDexNumbers);
+      setIsFavoriteAuthRequired(false);
+    });
 
     void fetch("/api/favorites/state")
       .then(async (res) => {
@@ -137,6 +156,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
 
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, [view]);
 
@@ -163,6 +183,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
       if (data.favoriteDexNumbers) {
         setFavoriteDexNumbers(data.favoriteDexNumbers);
         setIsFavoriteAuthRequired(false);
+        emitFavoriteDexNumbersUpdate(data.favoriteDexNumbers);
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -177,7 +198,10 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const todayKey = getLocalDateKey();
   const pokedexPokemon = pokemon as PokemonCatalogListEntry[];
   const dailyCandidateDexNumbers = dailyDexNumbers ?? pokemon.map((entry) => entry.nationalDexNumber);
-  const sourcePokemon = view === "my-pokemon" ? myPokemonDetails : view === "favorites" ? favoritePokemonDetails : pokemon;
+  const visibleFavoritePokemonDetails = favoritePokemonDetails.filter((entry) =>
+    favoriteDexNumbers.includes(entry.nationalDexNumber),
+  );
+  const sourcePokemon = view === "my-pokemon" ? myPokemonDetails : view === "favorites" ? visibleFavoritePokemonDetails : pokemon;
   const isGalleryStateReady = view === "favorites" ? isFavoriteStateReady : isCollectionReady;
   const filteredPokemon = isServerDrivenPokedex
     ? pokemon
@@ -190,6 +214,62 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           sortKey,
           sortDirection,
         })
+      : view === "my-pokemon"
+        ? [...myPokemonDetails]
+            .filter((entry) => {
+              const normalizedSearchTerm = deferredSearchTerm.trim().toLowerCase();
+              const isShiny = collectionState.shinyCapturedDexNumbers.includes(entry.nationalDexNumber);
+
+              if (normalizedSearchTerm.length > 0 && !entry.name.toLowerCase().includes(normalizedSearchTerm)) {
+                return false;
+              }
+
+              if (selectedType !== ALL_TYPE_FILTER && !entry.types.some((type) => type.name === selectedType)) {
+                return false;
+              }
+
+              if (myPokemonShinyFilter === "shiny" && !isShiny) {
+                return false;
+              }
+
+              if (myPokemonShinyFilter === "normal" && isShiny) {
+                return false;
+              }
+
+              return true;
+            })
+            .sort((left, right) => {
+              if (myPokemonSortKey === "capturedAt") {
+                const leftTime = new Date(
+                  collectionState.capturedAtByDexNumber[String(left.nationalDexNumber)] ?? 0,
+                ).getTime();
+                const rightTime = new Date(
+                  collectionState.capturedAtByDexNumber[String(right.nationalDexNumber)] ?? 0,
+                ).getTime();
+
+                if (leftTime === rightTime) {
+                  return left.nationalDexNumber - right.nationalDexNumber;
+                }
+
+                return rightTime - leftTime;
+              }
+
+              if (myPokemonSortKey === "name") {
+                const comparison = left.name.localeCompare(right.name);
+                return comparison === 0 ? left.nationalDexNumber - right.nationalDexNumber : comparison;
+              }
+
+              return left.nationalDexNumber - right.nationalDexNumber;
+            })
+      : view === "favorites"
+        ? filterAndSortPokemon({
+            pokemon: visibleFavoritePokemonDetails,
+            searchTerm: deferredSearchTerm,
+            selectedType,
+            selectedGeneration,
+            sortKey,
+            sortDirection,
+          })
       : sourcePokemon;
   const totalPages = isServerDrivenPokedex
     ? (serverListState?.totalPages ?? 1)
@@ -237,6 +317,26 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     .reverse()
     .map((dexNumber) => dailyPokemonDetails.find((entry) => entry.nationalDexNumber === dexNumber))
     .filter((entry): entry is PokemonCollectionCatalogEntry => Boolean(entry));
+  const latestCapturedAtValue = Object.values(collectionState.capturedAtByDexNumber)
+    .filter(Boolean)
+    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0];
+  const latestCapturedAtLabel = latestCapturedAtValue
+    ? new Intl.DateTimeFormat("ko-KR", {
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(latestCapturedAtValue))
+    : null;
+  const myPokemonSummary =
+    view === "my-pokemon"
+      ? {
+          capturedCount: collectionState.capturedDexNumbers.length,
+          shinyCount: collectionState.shinyCapturedDexNumbers.length,
+          recentCaptureCount: Math.min(collectionState.capturedDexNumbers.length, 6),
+          latestCapturedAtLabel,
+        }
+      : null;
 
   function persistCollectionState(nextState: PokedexCollectionState) {
     setCollectionState(nextState);
@@ -377,11 +477,13 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           throw new Error("Failed to load catalog details.");
         }
 
-        const payload = (await response.json()) as PokemonCatalogResponse<PokemonCollectionPageEntry>;
+        const payload = (await response.json()) as PokemonCatalogResponse<PokemonCollectionPageEntry | PokemonCollectionCatalogEntry>;
         if (view === "my-pokemon") {
-          setMyPokemonDetails(Array.isArray(payload.pokemon) ? payload.pokemon : []);
+          setMyPokemonDetails(Array.isArray(payload.pokemon) ? (payload.pokemon as PokemonCollectionPageEntry[]) : []);
         } else {
-          setFavoritePokemonDetails(Array.isArray(payload.pokemon) ? payload.pokemon : []);
+          setFavoritePokemonDetails(
+            Array.isArray(payload.pokemon) ? (payload.pokemon as PokemonCollectionCatalogEntry[]) : [],
+          );
         }
       } catch {
         if (!controller.signal.aborted) {
@@ -543,6 +645,8 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     setSelectedGeneration(ALL_GENERATION_FILTER);
     setSortKey(DEFAULT_SORT_KEY);
     setSortDirection(DEFAULT_SORT_DIRECTION);
+    setMyPokemonShinyFilter("all");
+    setMyPokemonSortKey("capturedAt");
     setCurrentPage(1);
   }
 
@@ -761,15 +865,74 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             </button>
           </section>
         ) : view === "my-pokemon" || view === "favorites" ? (
-          <MyPokemonGallery
-            pokemon={sourcePokemon}
-            shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}
-            capturedAtByDexNumber={collectionState.capturedAtByDexNumber}
-            isReleasing={isSyncingDailyState}
-            onRelease={view === "my-pokemon" ? releaseCapturedPokemon : undefined}
-            favoriteDexNumbers={favoriteDexNumbers}
-            onToggleFavorite={toggleFavorite}
-          />
+          <>
+            {view === "my-pokemon" ? (
+              <MyPokemonControls
+                searchTerm={searchTerm}
+                selectedType={selectedType}
+                selectedShiny={myPokemonShinyFilter}
+                sortKey={myPokemonSortKey}
+                resultCount={filteredPokemon.length}
+                totalCount={sourcePokemon.length}
+                types={filterOptions?.types ?? []}
+                onSearchChange={setSearchTerm}
+                onTypeChange={setSelectedType}
+                onShinyChange={setMyPokemonShinyFilter}
+                onSortKeyChange={setMyPokemonSortKey}
+                onReset={resetFilters}
+              />
+            ) : null}
+            {view === "favorites" && filterOptions ? (
+              <PokedexControls
+                filterOptions={filterOptions}
+                searchTerm={searchTerm}
+                selectedType={selectedType}
+                selectedGeneration={selectedGeneration}
+                resultCount={filteredPokemon.length}
+                totalCount={sourcePokemon.length}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                helperText="이름 검색과 타입, 세대 필터를 사용해 즐겨찾기 목록을 좁히고 원하는 기준으로 정렬할 수 있습니다."
+                onSearchChange={(value) => {
+                  setSearchTerm(value);
+                  setCurrentPage(1);
+                }}
+                onTypeChange={(value) => {
+                  setSelectedType(value);
+                  setCurrentPage(1);
+                }}
+                onGenerationChange={(value) => {
+                  setSelectedGeneration(value);
+                  setCurrentPage(1);
+                }}
+                onSortKeyChange={setSortKey}
+                onSortDirectionChange={setSortDirection}
+                onReset={resetFilters}
+              />
+            ) : null}
+            <MyPokemonGallery
+              pokemon={view === "favorites" ? paginatedPokemon : view === "my-pokemon" ? filteredPokemon : sourcePokemon}
+              shinyCapturedDexNumbers={collectionState.shinyCapturedDexNumbers}
+              capturedAtByDexNumber={collectionState.capturedAtByDexNumber}
+              isReleasing={isSyncingDailyState}
+              isFilteredEmpty={view === "favorites" && sourcePokemon.length > 0 && filteredPokemon.length === 0}
+              summary={myPokemonSummary}
+              onRelease={view === "my-pokemon" ? releaseCapturedPokemon : undefined}
+              favoriteDexNumbers={favoriteDexNumbers}
+              onToggleFavorite={toggleFavorite}
+            />
+            {view === "favorites" ? (
+              <PokedexPagination
+                currentPage={normalizedCurrentPage}
+                totalPages={totalPages}
+                pageSize={POKEMON_PER_PAGE}
+                totalResults={filteredPokemon.length}
+                pageStart={pageStart}
+                pageEnd={pageEnd}
+                onPageChange={setCurrentPage}
+              />
+            ) : null}
+          </>
         ) : null}
 
         {view === "pokedex" ? (

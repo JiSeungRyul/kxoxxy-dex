@@ -5,7 +5,7 @@ import { deleteStoredTeam, getStoredTeams, saveTeam } from "@/features/pokedex/s
 import type { PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import { sanitizeTeamFormat, sanitizeTeamMode } from "@/features/pokedex/utils";
 
-type TeamAction = "save" | "delete";
+type TeamAction = "save" | "delete" | "duplicate" | "rename";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       action?: TeamAction;
       teamId?: number;
+      teamName?: string;
       team?: {
         id?: number | null;
         name?: string;
@@ -73,6 +74,57 @@ export async function POST(request: NextRequest) {
         const teams = await deleteStoredTeam(teamOwner, Number(body.teamId));
 
         return NextResponse.json({ teams });
+      }
+      case "duplicate": {
+        if (!Number.isInteger(body.teamId)) {
+          return NextResponse.json({ error: "teamId is required" }, { status: 400 });
+        }
+
+        const teams = await getStoredTeams(teamOwner);
+        const sourceTeam = teams.find((team) => team.id === Number(body.teamId));
+
+        if (!sourceTeam) {
+          return NextResponse.json({ error: "Team not found" }, { status: 404 });
+        }
+
+        const result = await saveTeam(teamOwner, {
+          name: `${sourceTeam.name} 복사본`,
+          format: sourceTeam.format,
+          mode: sourceTeam.mode,
+          members: sourceTeam.members,
+        });
+
+        if (!result.savedTeamId) {
+          return NextResponse.json({ error: result.error ?? "team could not be duplicated", teams: result.teams }, { status: 400 });
+        }
+
+        return NextResponse.json(result);
+      }
+      case "rename": {
+        if (!Number.isInteger(body.teamId) || typeof body.teamName !== "string") {
+          return NextResponse.json({ error: "teamId and teamName are required" }, { status: 400 });
+        }
+
+        const teams = await getStoredTeams(teamOwner);
+        const sourceTeam = teams.find((team) => team.id === Number(body.teamId));
+
+        if (!sourceTeam) {
+          return NextResponse.json({ error: "Team not found" }, { status: 404 });
+        }
+
+        const result = await saveTeam(teamOwner, {
+          id: sourceTeam.id,
+          name: body.teamName,
+          format: sourceTeam.format,
+          mode: sourceTeam.mode,
+          members: sourceTeam.members,
+        });
+
+        if (!result.savedTeamId) {
+          return NextResponse.json({ error: result.error ?? "team could not be renamed", teams: result.teams }, { status: 400 });
+        }
+
+        return NextResponse.json(result);
       }
       default:
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });

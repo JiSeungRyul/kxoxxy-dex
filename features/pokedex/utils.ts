@@ -17,6 +17,7 @@ import type {
   PokemonAbility,
   PokemonBaseStats,
   PokemonCatalogListEntry,
+  PokemonCollectionCatalogEntry,
   PokemonCollectionPageEntry,
   PokemonForm,
   PokemonGenerationId,
@@ -689,7 +690,7 @@ export function getDefensiveTypeMatchups(defendingTypes: PokemonTypeName[]) {
   ];
 }
 
-export function getSortValue(entry: PokemonCatalogListEntry, sortKey: PokemonSortKey) {
+export function getSortValue(entry: PokemonCollectionCatalogEntry, sortKey: PokemonSortKey) {
   if (sortKey === "nationalDexNumber") {
     return entry.nationalDexNumber;
   }
@@ -709,7 +710,7 @@ export function filterAndSortPokemon({
   sortKey = DEFAULT_SORT_KEY,
   sortDirection = DEFAULT_SORT_DIRECTION,
 }: {
-  pokemon: PokemonCatalogListEntry[];
+  pokemon: PokemonCollectionCatalogEntry[];
   searchTerm: string;
   selectedType: TypeFilterValue;
   selectedGeneration: GenerationFilterValue;

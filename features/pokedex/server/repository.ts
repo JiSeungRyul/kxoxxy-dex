@@ -803,7 +803,7 @@ export async function getAdjacentPokemonByDexNumber(nationalDexNumber: number) {
   };
 }
 
-function getPokedexFilterOptions(): PokedexFilterOptions {
+export function getPokedexFilterOptions(): PokedexFilterOptions {
   return {
     generations: Object.entries(GENERATION_LABELS).map(([id, label]) => ({
       id: Number(id) as keyof typeof GENERATION_LABELS,

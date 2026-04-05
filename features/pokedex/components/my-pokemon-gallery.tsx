@@ -31,13 +31,33 @@ type MyPokemonGalleryProps = {
   shinyCapturedDexNumbers: number[];
   capturedAtByDexNumber: Record<string, string>;
   isReleasing: boolean;
+  isFilteredEmpty?: boolean;
+  summary?: {
+    capturedCount: number;
+    shinyCount: number;
+    recentCaptureCount: number;
+    latestCapturedAtLabel: string | null;
+  } | null;
   onRelease?: (nationalDexNumber: number) => void;
   favoriteDexNumbers?: number[];
   onToggleFavorite?: (nationalDexNumber: number) => void;
 };
 
-function EmptyState({ view }: { view?: "my-pokemon" | "favorites" }) {
+function EmptyState({ view, isFilteredEmpty = false }: { view?: "my-pokemon" | "favorites"; isFilteredEmpty?: boolean }) {
   const isFavorites = view === "favorites";
+
+  if (isFavorites && isFilteredEmpty) {
+    return (
+      <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+          조건에 맞는 즐겨찾기가 없습니다
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          검색어나 타입, 세대, 정렬 조건을 다시 조정해 보세요.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
@@ -64,6 +84,8 @@ export function MyPokemonGallery({
   shinyCapturedDexNumbers,
   capturedAtByDexNumber,
   isReleasing,
+  isFilteredEmpty = false,
+  summary = null,
   onRelease,
   favoriteDexNumbers = [],
   onToggleFavorite,
@@ -73,7 +95,7 @@ export function MyPokemonGallery({
   const isFavoritesView = !onRelease;
 
   if (pokemon.length === 0) {
-    return <EmptyState view={isFavoritesView ? "favorites" : "my-pokemon"} />;
+    return <EmptyState view={isFavoritesView ? "favorites" : "my-pokemon"} isFilteredEmpty={isFilteredEmpty} />;
   }
 
   return (
@@ -88,8 +110,31 @@ export function MyPokemonGallery({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {isFavoritesView
             ? "즐겨찾기에 추가한 포켓몬들입니다. 하트 버튼을 눌러 목록에서 관리할 수 있습니다."
-            : "지금까지 포획한 포켓몬입니다. 놓아주기를 하면 컬렉션에서 빠지고, 나중에 다시 오늘의 포켓몬 후보로 돌아갑니다."}
+            : "지금까지 포획한 포켓몬입니다. 오늘의 포켓몬에서 잡은 결과가 같은 계정 기준으로 바로 반영되며, 놓아주기를 하면 컬렉션에서 빠지고 나중에 다시 오늘의 포켓몬 후보로 돌아갑니다."}
         </p>
+
+        {!isFavoritesView && summary ? (
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">포획 수</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.capturedCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">반짝 포획</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.shinyCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 포획 수</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.recentCaptureCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 포획</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-foreground">
+                {summary.latestCapturedAtLabel ?? "아직 기록 없음"}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto flex max-w-[82rem] flex-wrap justify-center gap-4 xl:gap-5">

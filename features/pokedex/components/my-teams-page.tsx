@@ -4,10 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import type { PokemonBaseStats, PokemonTeam } from "@/features/pokedex/types";
+import type { PokemonBaseStats, PokemonTeam, TeamFormatId, TeamModeId } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
   formatDexNumber,
+  formatTeamFormatLabel,
+  formatTeamModeLabel,
   formatTypeLabel,
   getTeamEvTotal,
   getTeamNatureEffect,
@@ -25,6 +27,36 @@ const STAT_LABELS = Object.fromEntries(STAT_FIELDS.map((field) => [field.key, fi
   keyof PokemonBaseStats,
   string
 >;
+
+type MyTeamsSortKey = "updatedAt" | "name" | "format" | "mode";
+type MyTeamsFormatFilter = "all" | TeamFormatId;
+type MyTeamsModeFilter = "all" | TeamModeId;
+
+function sortTeams(teams: PokemonTeam[], sortKey: MyTeamsSortKey) {
+  const nextTeams = [...teams];
+
+  nextTeams.sort((left, right) => {
+    switch (sortKey) {
+      case "name": {
+        const comparison = left.name.localeCompare(right.name, "ko");
+        return comparison === 0 ? new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() : comparison;
+      }
+      case "format": {
+        const comparison = formatTeamFormatLabel(left.format).localeCompare(formatTeamFormatLabel(right.format), "ko");
+        return comparison === 0 ? new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() : comparison;
+      }
+      case "mode": {
+        const comparison = formatTeamModeLabel(left.mode).localeCompare(formatTeamModeLabel(right.mode), "ko");
+        return comparison === 0 ? new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() : comparison;
+      }
+      case "updatedAt":
+      default:
+        return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+    }
+  });
+
+  return nextTeams;
+}
 
 function EmptyState() {
   return (
@@ -48,8 +80,14 @@ export function MyTeamsPage() {
   const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
+  const [duplicatingTeamId, setDuplicatingTeamId] = useState<number | null>(null);
+  const [renamingTeamId, setRenamingTeamId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAuthRequired, setIsAuthRequired] = useState(false);
+  const [sortKey, setSortKey] = useState<MyTeamsSortKey>("updatedAt");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [formatFilter, setFormatFilter] = useState<MyTeamsFormatFilter>("all");
+  const [modeFilter, setModeFilter] = useState<MyTeamsModeFilter>("all");
 
   async function loadTeams() {
     const response = await fetch("/api/teams/state");
@@ -123,6 +161,93 @@ export function MyTeamsPage() {
     }
   }
 
+  async function duplicateTeam(team: PokemonTeam) {
+    setDuplicatingTeamId(team.id);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/teams/state", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "duplicate",
+          teamId: team.id,
+        }),
+      });
+
+      const payload = (await response.json()) as { error?: string; teams?: PokemonTeam[]; savedTeamId?: number | null };
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
+        setError(payload.error ?? "팀 복제에 실패했습니다.");
+        return;
+      }
+
+      setIsAuthRequired(false);
+      const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
+      setTeams(nextTeams);
+      setExpandedTeamId(payload.savedTeamId ?? nextTeams[0]?.id ?? null);
+    } catch {
+      setError("팀 복제 중 오류가 발생했습니다.");
+    } finally {
+      setDuplicatingTeamId(null);
+    }
+  }
+
+  async function renameTeam(team: PokemonTeam) {
+    const nextName = window.prompt("새 팀 이름을 입력해 주세요.", team.name)?.trim();
+
+    if (!nextName || nextName === team.name) {
+      return;
+    }
+
+    setRenamingTeamId(team.id);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/teams/state", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "rename",
+          teamId: team.id,
+          teamName: nextName,
+        }),
+      });
+
+      const payload = (await response.json()) as { error?: string; teams?: PokemonTeam[] };
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthRequired(true);
+          window.location.assign("/api/auth/sign-in");
+          return;
+        }
+
+        setError(payload.error ?? "팀 이름 변경에 실패했습니다.");
+        return;
+      }
+
+      setIsAuthRequired(false);
+      const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
+      setTeams(nextTeams);
+      setExpandedTeamId(team.id);
+    } catch {
+      setError("팀 이름 변경 중 오류가 발생했습니다.");
+    } finally {
+      setRenamingTeamId(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <section className="rounded-[2rem] border border-border bg-card px-8 py-16 text-center shadow-card">
@@ -163,6 +288,25 @@ export function MyTeamsPage() {
     return <EmptyState />;
   }
 
+  const filteredTeams = teams.filter((team) => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+    if (normalizedSearchTerm.length > 0 && !team.name.toLowerCase().includes(normalizedSearchTerm)) {
+      return false;
+    }
+
+    if (formatFilter !== "all" && team.format !== formatFilter) {
+      return false;
+    }
+
+    if (modeFilter !== "all" && team.mode !== modeFilter) {
+      return false;
+    }
+
+    return true;
+  });
+  const sortedTeams = sortTeams(filteredTeams, sortKey);
+
   return (
     <section className="space-y-6">
       <div className="rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
@@ -181,11 +325,76 @@ export function MyTeamsPage() {
             새 팀 만들기
           </Link>
         </div>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">저장된 팀 {teams.length}개</p>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <label className="flex min-w-[240px] flex-1 items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground">
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">이름 검색</span>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="예: 챔피언 싱글"
+              className="min-w-0 flex-1 bg-transparent outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">포맷</span>
+            <select
+              value={formatFilter}
+              onChange={(event) => setFormatFilter(event.target.value as MyTeamsFormatFilter)}
+              className="min-w-[120px] bg-transparent outline-none"
+            >
+              <option value="all">전체 포맷</option>
+              <option value="default">{formatTeamFormatLabel("default")}</option>
+              <option value="gen6">{formatTeamFormatLabel("gen6")}</option>
+              <option value="gen7">{formatTeamFormatLabel("gen7")}</option>
+              <option value="gen8">{formatTeamFormatLabel("gen8")}</option>
+              <option value="gen9">{formatTeamFormatLabel("gen9")}</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">모드</span>
+            <select
+              value={modeFilter}
+              onChange={(event) => setModeFilter(event.target.value as MyTeamsModeFilter)}
+              className="min-w-[120px] bg-transparent outline-none"
+            >
+              <option value="all">전체 모드</option>
+              <option value="free">{formatTeamModeLabel("free")}</option>
+              <option value="story">{formatTeamModeLabel("story")}</option>
+              <option value="battle-singles">{formatTeamModeLabel("battle-singles")}</option>
+              <option value="battle-doubles">{formatTeamModeLabel("battle-doubles")}</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">정렬</span>
+            <select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as MyTeamsSortKey)}
+              className="min-w-[160px] bg-transparent outline-none"
+            >
+              <option value="updatedAt">최근 수정순</option>
+              <option value="name">이름순</option>
+              <option value="format">포맷순</option>
+              <option value="mode">모드순</option>
+            </select>
+          </label>
+        </div>
         {error ? <p className="mt-4 text-sm font-medium text-red-500">{error}</p> : null}
       </div>
 
+      {sortedTeams.length === 0 ? (
+        <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+          <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">조건에 맞는 팀이 없습니다</p>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            팀 이름 검색어나 포맷, 모드 필터를 다시 조정해 보세요.
+          </p>
+        </section>
+      ) : null}
+
       <div className="space-y-5">
-        {teams.map((team) => {
+        {sortedTeams.map((team) => {
           const isExpanded = expandedTeamId === team.id;
           const selectedMembers = team.members.filter((member) => member.pokemon);
 
@@ -197,7 +406,13 @@ export function MyTeamsPage() {
                     {new Date(team.updatedAt).toLocaleString("ko-KR")}
                   </p>
                   <h3 className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">{team.name}</h3>
-                  <p className="mt-3 text-sm text-muted-foreground">포켓몬 {selectedMembers.length} / 6</p>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    포켓몬 {selectedMembers.length} / 6
+                    <span className="mx-2 text-border">|</span>
+                    {formatTeamFormatLabel(team.format)}
+                    <span className="mx-2 text-border">|</span>
+                    {formatTeamModeLabel(team.mode)}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -242,6 +457,22 @@ export function MyTeamsPage() {
                 >
                   수정하기
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => void duplicateTeam(team)}
+                  disabled={duplicatingTeamId === team.id}
+                  className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {duplicatingTeamId === team.id ? "복제 중..." : "복제"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void renameTeam(team)}
+                  disabled={renamingTeamId === team.id}
+                  className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {renamingTeamId === team.id ? "변경 중..." : "이름 변경"}
+                </button>
                 <button
                   type="button"
                   onClick={() => void deleteTeam(team.id)}

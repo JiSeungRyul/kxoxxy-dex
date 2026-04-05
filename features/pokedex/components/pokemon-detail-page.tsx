@@ -5,6 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PokemonArtworkToggle } from "@/features/pokedex/components/pokemon-artwork-toggle";
+import {
+  emitFavoriteDexNumbersUpdate,
+  subscribeToFavoriteDexNumbersUpdate,
+} from "@/features/pokedex/client/favorites-sync";
 import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import { getAbilityDescriptionKo } from "@/features/pokedex/data/ability-description-ko";
 import type { PokemonSummary } from "@/features/pokedex/types";
@@ -638,6 +642,11 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
   const [isFavoriteAuthRequired, setIsFavoriteAuthRequired] = useState(false);
 
   useEffect(() => {
+    const unsubscribe = subscribeToFavoriteDexNumbersUpdate((nextFavoriteDexNumbers) => {
+      setFavoriteDexNumbers(nextFavoriteDexNumbers);
+      setIsFavoriteAuthRequired(false);
+    });
+
     fetch("/api/favorites/state")
       .then(async (res) => {
         const data = await res.json();
@@ -663,6 +672,8 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
         setIsFavoriteAuthRequired(false);
       })
       .catch(() => {});
+
+    return unsubscribe;
   }, []);
 
   const isFavorite = favoriteDexNumbers.includes(pokemon.nationalDexNumber);
@@ -698,6 +709,7 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
       if (data.favoriteDexNumbers) {
         setFavoriteDexNumbers(data.favoriteDexNumbers);
         setIsFavoriteAuthRequired(false);
+        emitFavoriteDexNumbersUpdate(data.favoriteDexNumbers);
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);

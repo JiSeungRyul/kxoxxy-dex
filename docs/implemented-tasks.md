@@ -455,3 +455,14 @@
 - The same page now also explains the current login-required persistence policy and account status in one place.
 - The header now uses `마이 페이지` as the top-level account entry, and favorites is no longer a separate top-level nav item.
 - The site header now links into that page when the user is signed in.
+- `/favorites` now reuses shared Pokedex filter options and richer catalog entries so saved favorites can be searched, type/generation-filtered, sorted, and paginated.
+- Kept the implementation minimal by extending the existing catalog route and `PokedexControls` / `PokedexPagination` flow instead of adding a separate favorites-only data path.
+- Added a tiny shared client sync helper so favorite toggles now propagate between list, detail, and `/favorites` views without waiting for a full remount.
+- Updated the favorites gallery empty-state UX so filtered searches no longer pretend the account has no favorites at all.
+- Added account-bound summary cards to `/my-pokemon` for captured count, shiny count, recent capture count, and latest capture time using the existing authenticated collection state.
+- Added a first `/my-pokemon` management-controls pass with name search, type filter, shiny-only filter, and recent-capture sorting.
+- Deferred generation filtering and broader sort expansion instead of widening the collection payload immediately.
+- Tightened the copy between `/daily` and `/my-pokemon` so both pages now explicitly describe the same shared account-bound collection progress.
+- Added a first `/my-teams` management control so saved teams can now be sorted by recent update, team name, format, or mode without changing the current server API.
+- Extended `/api/teams/state` and `/my-teams` so saved teams can now be duplicated and renamed while reusing the existing authenticated save path and keeping the existing builder edit link.
+- Added a first `/my-teams` list-management bar so larger saved-team lists can now be searched by team name and filtered by format/mode before sorting.

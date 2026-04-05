@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 
 import { PokedexPage } from "@/features/pokedex/components/pokedex-page";
+import { getPokedexFilterOptions } from "@/features/pokedex/server/repository";
 
 export const metadata: Metadata = {
   title: "내가 찜한 포켓몬 | KxoxxyDex",
@@ -10,5 +11,5 @@ export const metadata: Metadata = {
 export default function FavoritesPage() {
   // PokedexPage in "favorites" mode will fetch its own state client-side
   // via /api/favorites/state and then load catalog details via /api/pokedex/catalog.
-  return <PokedexPage pokemon={[]} view="favorites" />;
+  return <PokedexPage pokemon={[]} filterOptions={getPokedexFilterOptions()} view="favorites" />;
 }

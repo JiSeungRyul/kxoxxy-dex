@@ -78,15 +78,23 @@
   - favorites read/write is now login-required
   - `/favorites` renders a login CTA instead of anonymous saved state
   - favorite toggles from browsing/detail routes now redirect into Google sign-in when auth is absent
-  - navigation now exposes favorites as an independent top-level menu instead of grouping it under the daily submenu
+  - `/favorites` now supports search, type/generation filtering, sort selection, and pagination for saved favorites
+  - favorites navigation now flows through `/my` account hub instead of an independent top-level favorites menu
+  - favorite toggles are now synchronized across list, detail, and favorites views through a shared client-side sync event, and `/favorites` distinguishes between true empty state and filter-result empty state
 - The same cutover is now live for daily collection state:
   - `/api/daily/state` is login-required
   - `/daily` and `/my-pokemon` render login CTA states instead of anonymous saved progress
   - daily capture/release/reroll/reset actions now depend on authenticated session
+  - `/my-pokemon` now also shows account-bound summary cards for captured count, shiny count, recent capture count, and latest capture time
+  - `/my-pokemon` now also supports name search, type filtering, shiny-only filtering, and recent-capture sorting for the saved collection view
+  - `/daily` and `/my-pokemon` now both explain that capture and release progress is shared immediately through the same account-bound collection state
 - The same cutover is now live for team persistence:
   - `/api/teams/state` is login-required
   - `/teams` and `/my-teams` render login CTA states instead of anonymous saved teams
   - team save/delete actions now depend on authenticated session
+  - `/my-teams` now supports sorting the saved team list by recent update, name, format, and mode
+  - `/my-teams` now also supports team duplication and in-place team-name changes while keeping the existing builder edit entry
+  - `/my-teams` now also supports team-name search plus format/mode filtering for larger saved-team lists
 - Daily and team persistence require the new DB tables to be migrated before the API routes can work.
 - After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
 - Legacy anonymous-session runtime helpers and client-side session handoff are now removed from the active product path.
