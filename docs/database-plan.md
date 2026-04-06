@@ -98,105 +98,15 @@ Result:
 - Automatic DB population during `docker compose up` is possible, but it is not the current default.
 - The simplest and most predictable workflow in this repo is still:
   - start DB with Compose
-  - run migrations
-  - run seed/import
-- If automation is added later, prefer a dedicated init step that runs after PostgreSQL becomes healthy rather than relying on manual SQL drift.
+  - check schema with `db:migrate`
+  - verify catalog data with `db:seed:*`
 
-## Current Catalog Strategy
-- PostgreSQL currently stores:
-  - snapshot-level metadata and payload
-  - one catalog row per Pokemon
-  - one catalog row per item
-  - one catalog row per move
-  - per-Pokemon move learnset rows
-  - selected lookup columns plus full JSON payload
-- This is a transitional catalog model, not a fully normalized long-term schema.
-- `30-1` reclassifies the main normalization pressure points inside that transitional model:
-  - duplicated lookup columns versus full payload storage in `pokemon_catalog`, `item_catalog`, and `move_catalog`
-  - denormalized move/version/method metadata repeated inside `pokemon_move_catalog`
-  - form-specific legality remaining outside the imported catalog schema
-- `30-2` now narrows the first duplicated-field candidates:
-  - Pokemon: slug/name/generation/type lookup columns versus the same concepts inside `PokemonSummary`
-  - Item: slug/name/category/pocket lookup columns versus the same concepts inside `PokedexItem`
-  - Move: slug/name/generation/type/damage-class/target lookup columns versus the same concepts inside `PokedexMove`
-- `30-3` keeps reference-table extraction as a low-priority follow-up:
-  - item category/pocket and move type/damage-class/target do not yet show enough independent lifecycle or reuse pressure to justify immediate table splits
-  - if normalization continues later, duplicated learnset/form modeling is a higher-value target than these label-reference tables
-- `30-4` keeps full form-aware learnset normalization out of the immediate plan:
-  - the current national-dex-based `pokemon_move_catalog` is still acceptable for the present bounded form scope
-  - broader schema work should wait until the supported form set and legality requirements exceed what the current override layer can safely carry
-- `30-5` adds the current long-term direction draft:
-  - team-member `formKey` is the current persistence hook, but longer-term normalization should promote it toward a stronger form identity model
-  - any broader learnset legality redesign should key off that same form identity boundary rather than layering more per-dex overrides
-- `30-6` adds a guardrail for future schema work:
-  - list/detail/team/item/move runtime projections are now the minimum read-model contract
-  - future normalization should preserve those server-side projections rather than pushing relational complexity into client code
-- `30-7` adds the layer-separation rule:
-  - import scripts own upstream snapshot-to-storage translation
-  - runtime repository helpers own storage-to-read-model projection
-  - client contracts should remain stable unless a read-model change is intentionally chosen
-- `30-8` closes the current review with explicit non-goals and prerequisites:
-  - non-goals: immediate broad rewrite, client-contract-first rewrite, full form-aware learnset rollout, wholesale reference-table split
-  - prerequisites: fixed form/legality scope, fixed read-model contract, import/backfill plan, and migration/rollback order
+## Schema Definitions
+- Source of truth for schema: `db/schema/`
+- All active tables are defined in `db/schema/pokemon-catalog.ts`.
+- Migrations are generated into `drizzle/`.
 
-## Current Domain Split
-- Pokedex catalog:
-  - runtime reads use `pokemon_catalog`
-  - import lineage still uses `pokedex_snapshots`
-  - upstream generation still starts from `data/pokedex.json`
-- Item catalog:
-  - runtime reads use `item_catalog`
-  - import lineage still uses `item_snapshots`
-  - upstream generation still starts from `data/item-catalog.json`
-- Move catalog:
-  - runtime reads use `move_catalog` and `pokemon_move_catalog`
-  - import lineage still uses `move_snapshots`
-  - upstream generation still starts from `data/move-catalog.json`
-  - move snapshot generation still depends on `data/pokedex.json` to derive per-Pokemon move rows before import
-- This means all three catalog domains are DB-first at runtime, but all three are still snapshot-first at generation/import time.
-- `28-5` also clarifies the current sufficiency boundary:
-  - the existing catalog tables are sufficient for current MVP item selection, move selection, saved `formKey`, and the current bounded form-specific move override layer
-  - they are not yet a full solution for broader form-normalized learnset correctness across wider multi-form groups
-- `28-6` leaves the current catalog indexes unchanged for now:
-  - current slug keys and existing move-entry uniqueness are sufficient for the present runtime queries
-  - likely first follow-up candidates, if load grows, are Korean-name search indexing on `pokemon_catalog`, filtered-list composite indexing around `snapshot_id` + generation, and wider move access-pattern review on `pokemon_move_catalog`
-
-## Planned Domains
-
-### Auth And Identity
-- `users`
-- `auth_accounts`
-- `sessions`
-- preferred first step: one minimal auth path with a server-managed authenticated session that can resolve `users.id`
-
-### User-Owned Gameplay State
-- `captured_pokemon`
-- `favorite_pokemon`
-- anonymous-session daily encounter and capture state before login
-
-### Team Features
-- `teams`
-- `team_members`
-
-### Catalog Expansion
-- future normalized Pokemon catalog tables
-- later expansion tables for items or other encyclopedia domains if needed
-
-## Recommended Migration Order
-1. Add auth and user-owned tables first
-2. Expand the current anonymous daily persistence toward account-linked daily capture progress and favorites
-3. Add team persistence
-4. Revisit deeper catalog normalization only when runtime needs justify it
-
-## Ownership Transition Direction
-- The long-term target owner for user-state tables is `user_id`, not `anonymous_session_id`.
-- Anonymous-session-backed state was acceptable as an MVP bridge, but it is no longer the preferred product direction for persisted features.
-- Once real auth is verified, prefer making persistence features authenticated-only rather than designing around permanent dual ownership.
-- Because the app is not currently operating with production user data, legacy anonymous-session records do not need a complex merge or migration plan.
-- For the current planning scope, treat old anonymous-session records as disposable development-era data unless a later product requirement explicitly says otherwise.
-
-## Current Ownership Scope
-- Persisted runtime state now resolves through `user_id`.
+## Active Schema Tracking
 - The active user-state tables are:
   - `daily_encounters`
   - `daily_captures`
@@ -239,9 +149,15 @@ Result:
 ## Ownership Transition Rules
 - Do not block auth or ownership design on preserving old anonymous-session rows.
 - Do not assume daily captures, encounters, or saved teams must be merged from anonymous state into user state.
-- Prefer a clean `user_id` ownership model for persisted product features over a long-lived mixed ownership model.
+- Prefer a clean `user_id` ownership model for persisted product features over a longlived mixed ownership model.
 - If a temporary bridge is ever needed, keep it explicit and short-lived rather than making `anonymous_session_id` and `user_id` co-equal permanent owners.
 - Keep the transition plan focused on authenticated-only persistence, not on historical anonymous backfill.
+
+## Account Deletion Policy (Soft Delete)
+- **Status Management:** Account deletion is handled via "Soft Delete" using `users.is_active` and `users.deleted_at`.
+- **Inactivation:** When a user requests deletion, `is_active` is set to `false` and `deleted_at` is set to the current timestamp.
+- **Data Retention:** Related data (favorites, captures, teams) is kept intact during the inactive state to allow for potential account recovery within a grace period (e.g., 30 days).
+- **Final Cleanup:** Permanent data erasure (Hard Delete) and PII (Personally Identifiable Information) scrubbing are deferred tasks to be handled by an automated background process or manual operation according to legal retention requirements.
 
 ## Likely DB Follow-Up Shape
 - The anonymous-session bridge is no longer needed for the active schema.

@@ -267,11 +267,11 @@ export function MyTeamsPage() {
   if (isAuthRequired) {
     return (
       <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
-        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
-          저장된 팀을 보려면 로그인이 필요합니다
+        <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+          저장된 팀 목록을 확인하세요
         </p>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          로그인하면 계정에 저장된 팀을 불러오고, 여러 기기에서 같은 팀 목록을 이어서 관리할 수 있습니다.
+        <p className="mt-3 text-sm text-muted-foreground">
+          로그인하면 내가 만든 모든 포켓몬 팀을 한곳에서 관리하고 빠르게 편집할 수 있습니다.
         </p>
         <button
           type="button"
@@ -283,6 +283,7 @@ export function MyTeamsPage() {
       </section>
     );
   }
+
 
   if (teams.length === 0) {
     return <EmptyState />;

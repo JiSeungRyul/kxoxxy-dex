@@ -801,15 +801,15 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         {view === "daily" && isCollectionAuthRequired ? (
           <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
             <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
-              오늘의 포켓몬을 저장하려면 로그인이 필요합니다
+              나만의 포켓몬 수집 여행을 시작하세요
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
-              로그인하면 오늘 만난 포켓몬과 포획 기록이 계정 기준으로 저장되고, 내 포켓몬 컬렉션과도 연결됩니다.
+              로그인하면 오늘 만난 포켓몬과 포획 기록을 계정에 저장하고 나만의 도감을 완성할 수 있습니다.
             </p>
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
-              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+              className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
               Google로 로그인
             </button>
@@ -835,15 +835,15 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         {view === "favorites" && isFavoriteAuthRequired ? (
           <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
             <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
-              즐겨찾기를 보려면 로그인이 필요합니다
+              나만의 즐겨찾기를 만들어 보세요
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
-              로그인하면 계정에 저장된 즐겨찾기 포켓몬을 기기와 세션에 관계없이 불러올 수 있습니다.
+              로그인하면 언제 어디서든 내가 찜한 포켓몬 목록을 확인하고 관리할 수 있습니다.
             </p>
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
-              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+              className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
               Google로 로그인
             </button>
@@ -851,15 +851,15 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         ) : view === "my-pokemon" && isCollectionAuthRequired ? (
           <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
             <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
-              내 포켓몬을 보려면 로그인이 필요합니다
+              소중한 내 포켓몬 컬렉션
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
-              로그인하면 계정에 저장된 포획 포켓몬과 오늘의 포켓몬 진행 상태를 함께 불러올 수 있습니다.
+              로그인하면 포획한 포켓몬 데이터를 안전하게 보관하고 기기를 바꿔도 계속해서 확인할 수 있습니다.
             </p>
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
-              className="mt-6 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-85"
+              className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
               Google로 로그인
             </button>

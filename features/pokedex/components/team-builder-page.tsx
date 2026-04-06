@@ -880,11 +880,11 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   if (isAuthRequired) {
     return (
       <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
-        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
-          팀 저장 기능을 사용하려면 로그인이 필요합니다
+        <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+          나만의 포켓몬 팀을 저장하세요
         </p>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          로그인하면 계정에 저장된 팀을 불러오고, 팀 빌딩 결과를 기기와 세션에 관계없이 이어서 관리할 수 있습니다.
+        <p className="mt-3 text-sm text-muted-foreground">
+          로그인하면 공들여 만든 팀 구성을 안전하게 저장하고 나중에 다시 불러와서 수정할 수 있습니다.
         </p>
         <button
           type="button"

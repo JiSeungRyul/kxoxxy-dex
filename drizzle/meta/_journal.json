@@ -141,6 +141,13 @@
       "when": 1775324147092,
       "tag": "0019_giant_virginia_dare",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775465806573,
+      "tag": "0020_natural_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }
