@@ -44,6 +44,11 @@ If the task depends on route or API performance measurement, read docs/performan
 - `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through the same authenticated `user_id`-backed PostgreSQL APIs, including per-member level configuration.
 - Legacy anonymous-session handoff and local-storage session migration are no longer part of the active client runtime.
+- Soft-deleted inactive accounts are now rejected at the authenticated-session boundary: existing auth-session rows are treated as invalid, and protected routes fall back to login-required states until the account is active again.
+- `/my` now also includes a first account deletion request entry that posts to `app/api/account/delete` and soft-deletes the current account while clearing active sessions.
+- The same account flow now also allows grace-period recovery: a soft-deleted user who signs in again within the current recovery window is reactivated and lands on `/my` with a restore notice.
+- Once that recovery window expires, the planned cleanup path is an operations-driven hard delete of the `users` row so FK cascades remove favorites, daily state, and team state together.
+- Separate from deletion, the current docs now define a future gameplay-data reset scope that keeps `users` / `auth_accounts` / `sessions` intact while clearing favorites, daily collection state, and saved teams in a fixed order.
 - `/teams` now has a first-pass general form selector for Rotom appliance forms, a small regional-form shortlist including `나옹(알로라/가라르)`, a small legendary/mythical shortlist (`기라티나 오리진폼`, `쉐이미 스카이폼`), and `팔데아 켄타로스` breed forms, and the move API uses slot + `formKey` input so matching form-specific move overrides can be exposed where the current MVP supports them.
 - Team persistence assumes the `teams` and `team_members` tables have been migrated and the local dev server has been restarted when Windows reload issues occur.
 - Local `npm run start` measurement on 2026-03-26 showed first-response payload sizes of 478645 bytes for `/`, 25956 bytes for `/daily`, 21847 bytes for `/my-pokemon`, and 75230 bytes for `/teams`; see `docs/performance-guide.md` for the full dev/start table and method.
@@ -64,6 +69,7 @@ If the task depends on route or API performance measurement, read docs/performan
 - `app/my-pokemon/page.tsx`
 - `app/teams/page.tsx`
 - `app/my-teams/page.tsx`
+- `app/api/account/delete/route.ts`
 - `app/api/teams/state/route.ts`
 - `features/pokedex/server/repository.ts`
 - `features/pokedex/components/pokedex-page.tsx`
@@ -218,6 +224,8 @@ If the task depends on route or API performance measurement, read docs/performan
   - `GET /api/auth/session` -> `authMode: "provider"`
   - `GET /api/auth/sign-in` -> Google redirect URL plus `kxoxxy-auth-state`
   - invalid-state callback guard -> redirect with `authError=invalid-state`
+  - inactive account callback guard -> redirect with `authError=account-inactive`
+  - grace-period account recovery -> redirect to `/my?accountRestored=true`
 - Browser-driven Google login verification now also covers:
   - real Google callback -> local `users` / `auth_accounts` / `sessions` row creation
   - provider-backed `GET /api/auth/session` -> `authenticated: true`

@@ -3,9 +3,10 @@
 import type { FocusEventHandler } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AUTH_UI_COPY } from "@/features/pokedex/constants";
 import { ThemeToggle } from "@/features/theme/components/theme-toggle";
 
 function getNavLinkClass(isActive: boolean) {
@@ -27,6 +28,7 @@ type AuthSessionResponse = {
   authenticated?: boolean;
   authMode?: "development" | "provider";
   authProvider?: "google" | null;
+  accountInactive?: boolean;
   user?: {
     id: number;
     email: string;
@@ -37,8 +39,11 @@ type AuthSessionResponse = {
   error?: string;
 };
 
+const PROTECTED_ROUTES = ["/my", "/favorites", "/daily", "/my-pokemon", "/teams", "/my-teams"];
+
 export function SiteHeroHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(null);
@@ -46,6 +51,7 @@ export function SiteHeroHeader() {
   const [authProvider, setAuthProvider] = useState<AuthSessionResponse["authProvider"]>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
@@ -74,12 +80,14 @@ export function SiteHeroHeader() {
         setAuthUser(payload.authenticated ? (payload.user ?? null) : null);
         setAuthMode(payload.authMode ?? "development");
         setAuthProvider(payload.authProvider ?? null);
+        setAuthErrorMessage(null);
       })
       .catch(() => {
         if (isMounted) {
           setAuthUser(null);
           setAuthMode("development");
           setAuthProvider(null);
+          setAuthErrorMessage(null);
         }
       })
       .finally(() => {
@@ -100,6 +108,7 @@ export function SiteHeroHeader() {
     }
 
     setIsAuthMutating(true);
+    setAuthErrorMessage(null);
 
     try {
       const response = await fetch("/api/auth/sign-in", {
@@ -118,9 +127,19 @@ export function SiteHeroHeader() {
 
       if (!response.ok) {
         setAuthUser(null);
+        setAuthErrorMessage(
+          payload.accountInactive
+            ? AUTH_UI_COPY.inactiveAccountStartFailed
+            : AUTH_UI_COPY.signInStartFailed,
+        );
         return;
       }
+
       setAuthUser(payload.user ?? null);
+      setAuthErrorMessage(null);
+    } catch {
+      setAuthUser(null);
+      setAuthErrorMessage(AUTH_UI_COPY.signInStartFailed);
     } finally {
       setIsAuthLoading(false);
       setIsAuthMutating(false);
@@ -129,15 +148,24 @@ export function SiteHeroHeader() {
 
   async function handleLogout() {
     setIsAuthMutating(true);
+    setAuthErrorMessage(null);
 
     try {
       const response = await fetch("/api/auth/sign-out", {
         method: "POST",
       });
       const payload = (await response.json()) as AuthSessionResponse;
-      setAuthMode(payload.authMode ?? authMode ?? "development");
-      setAuthProvider(payload.authProvider ?? authProvider ?? null);
+      
       setAuthUser(null);
+      setAuthMode(payload.authMode ?? "development");
+      setAuthProvider(payload.authProvider ?? null);
+
+      // Protected routes should redirect to home after logout
+      if (PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(route))) {
+        router.push("/");
+      }
+    } catch (error) {
+      console.error("Failed to sign out:", error);
     } finally {
       setIsAuthLoading(false);
       setIsAuthMutating(false);
@@ -176,40 +204,43 @@ export function SiteHeroHeader() {
         <div className="flex flex-wrap items-start justify-end gap-3">
           <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-right shadow-card">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Auth
+              Account
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {isAuthLoading ? "세션 확인 중" : authUser ? (authUser.name ?? authUser.email) : "비로그인 상태"}
+              {isAuthLoading ? "확인 중..." : authUser ? (authUser.name ?? authUser.email) : "방문자"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {authUser
-                ? authUser.email
+                ? "로그인 상태입니다."
                 : authMode === "provider" && authProvider === "google"
-                  ? "Google 로그인 경계는 준비됐지만 실제 provider 연동은 아직 붙지 않았습니다."
-                  : "현재는 개발용 최소 로그인만 지원합니다."}
+                  ? "Google 계정으로 로그인하고 모든 기능을 사용해 보세요."
+                  : "현재는 개발용 로그인만 지원합니다."}
             </p>
-            <button
-              type="button"
-              onClick={authUser ? handleLogout : handleDevelopmentLogin}
-              disabled={isAuthMutating}
-              className="mt-3 inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isAuthMutating
-                ? "처리 중..."
-                : authUser
-                  ? "로그아웃"
-                  : authMode === "provider" && authProvider === "google"
-                    ? "Google로 로그인"
-                    : "개발용 로그인"}
-            </button>
-            {authUser ? (
-              <Link
-                href="/my"
-                className="mt-2 inline-flex text-xs font-semibold text-foreground transition hover:opacity-70"
+            {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={authUser ? handleLogout : handleDevelopmentLogin}
+                disabled={isAuthMutating}
+                className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
-                마이 페이지로 이동
-              </Link>
-            ) : null}
+                {isAuthMutating
+                  ? "처리 중..."
+                  : authUser
+                    ? "로그아웃"
+                    : authMode === "provider" && authProvider === "google"
+                      ? AUTH_UI_COPY.signInButton
+                      : "개발용 로그인"}
+              </button>
+              {authUser ? (
+                <Link
+                  href="/my"
+                  className="inline-flex rounded-[0.9rem] bg-foreground px-3 py-2 text-xs font-semibold text-background transition hover:opacity-85"
+                >
+                  마이 페이지
+                </Link>
+              ) : null}
+            </div>
           </div>
           <ThemeToggle />
         </div>

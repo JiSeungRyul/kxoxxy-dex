@@ -7,6 +7,27 @@ export const DEFAULT_SORT_KEY: PokemonSortKey = "nationalDexNumber";
 export const DEFAULT_SORT_DIRECTION: SortDirection = "asc";
 export const POKEMON_PER_PAGE = 50;
 
+export const AUTH_UI_COPY = {
+  signInButton: "Google로 로그인",
+  signInStartFailed: "로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  inactiveAccountStartFailed:
+    "비활성화된 계정입니다. 현재는 grace period 안에서 같은 계정으로만 복구할 수 있습니다.",
+  callbackTitle: "로그인을 완료하지 못했습니다.",
+  callbackError: {
+    invalidState: "로그인 확인 정보가 일치하지 않아 다시 로그인해야 합니다.",
+    missingCode: "로그인 응답 정보가 누락되어 로그인을 완료하지 못했습니다.",
+    callbackFailed: "Google 로그인 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    accountInactive: "비활성화된 계정입니다. grace period 안이라면 같은 계정으로 다시 로그인해 복구할 수 있습니다.",
+    providerNotConfigured: "현재 로그인 provider 설정이 준비되지 않았습니다.",
+  },
+  sessionExpired: {
+    favorites: "세션이 만료되었습니다. 다시 로그인하면 즐겨찾기 저장을 계속할 수 있습니다.",
+    collection: "세션이 만료되었습니다. 다시 로그인하면 저장된 진행 상태를 이어서 사용할 수 있습니다.",
+    teamBuilder: "세션이 만료되었습니다. 다시 로그인하면 저장된 팀을 계속 관리할 수 있습니다.",
+    myTeams: "세션이 만료되었습니다. 다시 로그인하면 저장된 팀 목록을 계속 관리할 수 있습니다.",
+  },
+} as const;
+
 export const TABLE_COLUMNS: Array<{
   key: "nationalDexNumber" | "name" | "types" | "hp" | "attack" | "defense" | "specialAttack" | "specialDefense" | "speed";
   label: string;

@@ -6,6 +6,7 @@ import {
   clearAuthStateCookie,
   createGoogleAuthSession,
   getAuthMode,
+  isInactiveAccountError,
   isValidAuthState,
 } from "@/features/pokedex/server/auth-session";
 
@@ -16,6 +17,12 @@ function getReturnUrl(request: NextRequest, searchParamError?: string | null) {
     returnUrl.searchParams.set("authError", searchParamError);
   }
 
+  return returnUrl;
+}
+
+function getRecoveredAccountReturnUrl(request: NextRequest) {
+  const returnUrl = new URL("/my", request.url);
+  returnUrl.searchParams.set("accountRestored", "true");
   return returnUrl;
 }
 
@@ -51,15 +58,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { sessionToken, expiresAt } = await createGoogleAuthSession(code);
-    const response = NextResponse.redirect(getReturnUrl(request));
+    const { sessionToken, expiresAt, wasRestored } = await createGoogleAuthSession(code);
+    const response = NextResponse.redirect(
+      wasRestored ? getRecoveredAccountReturnUrl(request) : getReturnUrl(request),
+    );
 
     applyAuthSessionCookie(response, sessionToken, expiresAt);
     clearAuthStateCookie(response);
 
     return response;
-  } catch {
-    const response = NextResponse.redirect(getReturnUrl(request, "callback-failed"));
+  } catch (error) {
+    const response = NextResponse.redirect(
+      getReturnUrl(request, isInactiveAccountError(error) ? "account-inactive" : "callback-failed"),
+    );
 
     clearAuthSessionCookie(response);
     clearAuthStateCookie(response);

@@ -5,7 +5,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import type { PokemonType, TypeFilterValue } from "@/features/pokedex/types";
 import { formatTypeLabel } from "@/features/pokedex/utils";
 
-export type MyPokemonSortKey = "capturedAt" | "nationalDexNumber" | "name";
+export type MyPokemonSortKey = "capturedAtRecent" | "capturedAtOldest" | "nationalDexNumber" | "name";
 export type MyPokemonShinyFilter = "all" | "shiny" | "normal";
 
 type MyPokemonControlsProps = {
@@ -65,7 +65,7 @@ export function MyPokemonControls({
         </div>
 
         <p className="max-w-xl text-right text-xs leading-5 text-muted-foreground">
-          이름 검색, 타입, 반짝 여부로 컬렉션을 좁히고 최근 포획 기준으로 빠르게 정렬할 수 있습니다.
+          이름 검색, 타입, 반짝 여부로 컬렉션을 좁히고 포획 시각 기준으로 빠르게 정렬할 수 있습니다.
         </p>
       </div>
 
@@ -112,7 +112,8 @@ export function MyPokemonControls({
             onChange={(event) => handleSelectChange(event, onSortKeyChange)}
             className={`w-full ${fieldClassName}`}
           >
-            <option value="capturedAt">최근 포획순</option>
+            <option value="capturedAtRecent">최근 포획순</option>
+            <option value="capturedAtOldest">오래된 포획순</option>
             <option value="nationalDexNumber">도감 번호순</option>
             <option value="name">이름순</option>
           </select>

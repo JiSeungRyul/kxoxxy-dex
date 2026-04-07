@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
-import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
+import { AUTH_UI_COPY, TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import type {
   PokedexItemOptionEntry,
   PokedexMoveOptionEntry,
@@ -154,6 +154,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isAuthRequired, setIsAuthRequired] = useState(false);
+  const [authRequiredMessage, setAuthRequiredMessage] = useState<string | null>(null);
   const selectedTeamId = Number(searchParams.get("teamId"));
   const selectedPokemonByDexNumber = new Map(
     selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
@@ -218,6 +219,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     if (!response.ok) {
       if (response.status === 401) {
         setIsAuthRequired(true);
+        setAuthRequiredMessage(null);
         setTeams([]);
         return [];
       }
@@ -227,6 +229,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
     setIsAuthRequired(false);
+    setAuthRequiredMessage(null);
     setTeams(Array.isArray(payload.teams) ? payload.teams : []);
 
     return Array.isArray(payload.teams) ? payload.teams : [];
@@ -850,7 +853,7 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
       if (!response.ok) {
         if (response.status === 401) {
           setIsAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setAuthRequiredMessage(AUTH_UI_COPY.sessionExpired.teamBuilder);
           return;
         }
 
@@ -880,18 +883,19 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   if (isAuthRequired) {
     return (
       <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
-        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
-          팀 저장 기능을 사용하려면 로그인이 필요합니다
+        <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+          나만의 포켓몬 팀을 저장하세요
         </p>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          로그인하면 계정에 저장된 팀을 불러오고, 팀 빌딩 결과를 기기와 세션에 관계없이 이어서 관리할 수 있습니다.
+        <p className="mt-3 text-sm text-muted-foreground">
+          로그인하면 공들여 만든 팀 구성을 안전하게 저장하고 나중에 다시 불러와서 수정할 수 있습니다.
         </p>
+        {authRequiredMessage ? <p className="mt-3 text-sm text-ember">{authRequiredMessage}</p> : null}
         <button
           type="button"
           onClick={() => window.location.assign("/api/auth/sign-in")}
           className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
         >
-          Google로 로그인
+          {AUTH_UI_COPY.signInButton}
         </button>
       </section>
     );

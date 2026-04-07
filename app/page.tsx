@@ -8,6 +8,9 @@ import {
 export default async function HomePage({ searchParams }: { searchParams: Promise<PokedexRouteSearchParams> }) {
   const resolvedSearchParams = await searchParams;
   const dataset = await getPokedexListPageFromSearchParams(resolvedSearchParams);
+  const authError = Array.isArray(resolvedSearchParams.authError)
+    ? resolvedSearchParams.authError[0]
+    : resolvedSearchParams.authError;
 
   return (
     <PokedexPage
@@ -15,6 +18,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       filterOptions={dataset.filterOptions}
       view="pokedex"
       serverListState={getPokedexServerListState(dataset)}
+      authError={typeof authError === "string" ? authError : undefined}
     />
   );
 }
