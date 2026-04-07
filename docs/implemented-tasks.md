@@ -130,3 +130,8 @@
 - Kept the `my-pokemon` management controls focused on high-value collection browsing signals rather than adding broader sort families.
 - Extended capture-time sorting with an `오래된 포획순` option in addition to the existing recent-first order.
 - Explicitly left generation, shiny-priority, and type-group sorting out of the current MVP scope.
+
+## Random Team Entry Point (Added: 2026-04-07)
+- Added `/teams/random` as a lightweight random-team experience under the team-building navigation.
+- The first version samples six unique Pokemon species and renders only artwork, dex number, name, and types.
+- Kept the feature separate from saved-team editing so it does not alter the existing team-builder persistence flow.

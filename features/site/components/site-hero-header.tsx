@@ -54,7 +54,7 @@ export function SiteHeroHeader() {
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
-  const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
+  const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
   const isMyActive = pathname === "/my" || pathname === "/favorites";
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -323,6 +323,13 @@ export function SiteHeroHeader() {
                 className={SUBMENU_LINK_CLASS}
               >
                 내 팀 보기
+              </Link>
+              <Link
+                href="/teams/random"
+                onClick={() => setIsTeamsMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                랜덤 팀 뽑기
               </Link>
             </div>
           </div>

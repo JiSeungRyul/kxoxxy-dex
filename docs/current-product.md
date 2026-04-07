@@ -33,6 +33,7 @@
 - Daily encounter now uses authenticated `user_id`-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
 - My Pokemon now reads the same authenticated server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- `/teams/random` now provides a lightweight random-team entry that samples six unique Pokemon species and renders image, dex number, name, and types only.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
 - The site header now exposes Google sign-in/sign-out rather than the old development-only auth panel.
 - Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
@@ -100,6 +101,7 @@
   - `/api/teams/state` is login-required
   - `/teams` and `/my-teams` render login CTA states instead of anonymous saved teams
   - team save/delete actions now depend on authenticated session
+  - `/teams/random` is browse-only and does not save or edit team data
   - `/my-teams` now supports sorting the saved team list by recent update, name, format, and mode
   - `/my-teams` now also supports team duplication and in-place team-name changes while keeping the existing builder edit entry
   - `/my-teams` now also supports team-name search plus format/mode filtering for larger saved-team lists
