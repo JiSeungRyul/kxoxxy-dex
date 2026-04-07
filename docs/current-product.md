@@ -35,10 +35,15 @@
 - Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
 - The site header now exposes Google sign-in/sign-out rather than the old development-only auth panel.
+- Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
 - `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
 - `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
 - `/my` now links directly into `즐겨찾기`, `내 포켓몬`, `내 팀 보기` so it acts as the first account hub.
 - `/my` now also explains which features are login-required and how account-bound persistence currently works.
+- `/my` now also exposes a first account deletion request entry that soft-deletes the current account, clears authenticated sessions, and returns the user to signed-out behavior.
+- `/my` now also shows a recovery notice when a soft-deleted account is restored within the grace period through a new login.
+- Soft-deleted account data is currently retained for 30 days and then becomes an operations-driven hard-delete target rather than being erased immediately from the request path.
+- User data reset is now defined separately from account deletion: a future reset flow should keep the account and provider login intact while clearing favorites, collection progress, and saved teams by explicit scope.
 - Header navigation now uses `마이 페이지` as the top-level account entry, and `즐겨찾기` is reached through that account-hub structure instead of its earlier independent top-level slot.
 - Favorites, daily, and team persistence now resolve only through authenticated `user_id`.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
@@ -67,9 +72,12 @@
   - `GET /api/auth/session` for current-session reads
   - `GET /api/auth/sign-in` for provider redirect entry
   - `POST /api/auth/sign-out` for sign-out
+  - `POST /api/account/delete` for authenticated soft-delete requests
 - Google provider-backed auth routing is now implemented for local verification:
   - `/api/auth/sign-in` can start the Google OAuth redirect flow
   - `/api/auth/callback/google` can materialize a local authenticated session after callback
+  - inactive soft-deleted users are blocked from creating a new authenticated session and fall back to signed-out behavior on protected reads
+  - soft-deleted users inside the grace period can be reactivated on sign-in and are redirected back through `/my?accountRestored=true`
   - a browser-driven Google login round-trip is verified for session creation and user-owned favorites / daily / teams state
 - Automated tests are not present.
 - Catalog data operations are still split across snapshot generation and DB import workflows.

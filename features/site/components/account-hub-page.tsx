@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AccountDeleteSection } from "@/features/site/components/account-delete-section";
 import { InfoPageShell } from "@/features/site/components/info-page-shell";
 
 type AccountHubPageProps = {
@@ -13,6 +14,7 @@ type AccountHubPageProps = {
         expiresAt: string;
       }
     | null;
+  accountRestored?: boolean;
   summary:
     | {
         favoriteCount: number;
@@ -30,7 +32,7 @@ function getProviderLabel(provider: string | null) {
   return "연결된 provider 없음";
 }
 
-export function AccountHubPage({ user, summary }: AccountHubPageProps) {
+export function AccountHubPage({ user, summary, accountRestored = false }: AccountHubPageProps) {
   return (
     <InfoPageShell
       eyebrow="My"
@@ -39,6 +41,15 @@ export function AccountHubPage({ user, summary }: AccountHubPageProps) {
     >
       {user ? (
         <div className="space-y-6">
+          {accountRestored ? (
+            <section className="rounded-[1.5rem] border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-card">
+              <p className="text-sm font-semibold text-foreground">계정이 복구되었습니다.</p>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                grace period 안에서 다시 로그인해 계정이 재활성화되었습니다. 기존 즐겨찾기, 내 포켓몬, 저장 팀 데이터를 다시 사용할 수 있습니다.
+              </p>
+            </section>
+          ) : null}
+
           <section className="rounded-[1.5rem] border border-border bg-background p-5 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile</p>
             <div className="mt-4 space-y-4">
@@ -124,6 +135,8 @@ export function AccountHubPage({ user, summary }: AccountHubPageProps) {
               </p>
             </div>
           </section>
+
+          <AccountDeleteSection />
         </div>
       ) : (
         <section className="rounded-[1.5rem] border border-border bg-background p-5 shadow-card">

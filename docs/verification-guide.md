@@ -6,8 +6,8 @@
 - Ensure the hybrid runtime (snapshot + PostgreSQL) remains stable across development environments.
 
 ## Scope
-- Routes: `/daily`, `/my-pokemon`, `/teams`, `/my-teams`
-- APIs: `/api/daily/state`, `/api/teams/state`, `/api/pokedex/catalog`, `/api/pokedex/moves`
+- Routes: `/daily`, `/my-pokemon`, `/teams`, `/my-teams`, `/my`
+- APIs: `/api/daily/state`, `/api/teams/state`, `/api/pokedex/catalog`, `/api/pokedex/moves`, `/api/account/delete`
 
 ---
 
@@ -52,6 +52,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 | **Empty Data / Broken Images** | Missing Catalog Seeds | Check `/api/pokedex/catalog` for empty arrays | Run `npm run db:seed:pokedex` |
 | **Old Data Still Appears** | Next.js / Windows Cache | Change a UI string; if it doesn't update, it's a lock issue | Stop node.exe and restart `npm run dev` |
 | **401 Authentication Required** | Missing Auth Session | Check `/api/auth/session` and confirm `authenticated: true` | Sign in again through Google and retry |
+| **Signed in but still treated as signed out** | Inactive soft-deleted account or invalidated session | Check `users.is_active`, `users.deleted_at`, and retry `GET /api/auth/session` | Reactivate the account or create a valid active-user session |
 
 ---
 
@@ -75,6 +76,11 @@ If a feature fails after a migration or update, use this checklist to identify t
 3. Confirm `GET /api/daily/state` returns `401` while signed out.
 4. Sign in through Google.
 5. Capture a Pokemon, open `/my-pokemon`, and verify the captured Pokemon appears under the same account.
+6. Mark the same user inactive in `users.is_active` or set `deleted_at`, then retry `GET /api/auth/session` and confirm it returns `authenticated: false`.
+7. Recheck `/daily` or `/my` and confirm the route now falls back to the login-required state instead of resolving the old session.
+8. While signed in on `/my`, trigger the account deletion request and confirm `POST /api/account/delete` returns success, the auth cookie is cleared, and `/my` falls back to the login-required state on the next visit.
+9. Sign in again with the same account while `deleted_at` is still inside the grace period and confirm the account is reactivated, a new session is issued, and `/my?accountRestored=true` shows the recovery notice.
+10. For purge verification, use a non-production local test account, set `deleted_at` older than 30 days, delete the matching `users` row in maintenance flow, and confirm related favorites, daily state, teams, and sessions are removed by cascade.
 
 ---
 

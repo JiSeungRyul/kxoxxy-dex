@@ -95,3 +95,28 @@
 - Refined the shared site header's account section with clearer session status messages and an improved "My Page" navigation button.
 - Conducted a code audit and improved maintainability by extracting hardcoded protected routes to a shared constant (`PROTECTED_ROUTES`) and adding proper logout error handling.
 - Defined the Account Deletion Policy (Soft Delete) and extended the `users` schema with `is_active` and `deleted_at` columns to support grace periods and future data erasure.
+
+## Soft Delete Session Guard (Added: 2026-04-07)
+- Hardened the shared authenticated-session boundary so inactive soft-deleted users no longer resolve as authenticated, and stale `sessions` rows are invalidated when that boundary is hit.
+- Blocked new authenticated session issuance for inactive users in both the development fallback sign-in path and the Google OAuth callback path.
+- Kept protected routes on the existing auth-required fallback behavior so `/my`, favorites, daily/my-pokemon, and teams/my-teams now behave like signed-out views when the account is inactive.
+
+## Account Delete Request Entry (Added: 2026-04-07)
+- Added `POST /api/account/delete` as the first authenticated account-deletion request boundary for the current MVP.
+- Added a warning section and delete-request entry to `/my` so the account hub now exposes a direct soft-delete action without introducing a broader settings page yet.
+- The current delete request only inactivates the user and clears active sessions; related favorites, captures, and saved teams remain retained for later recovery-policy follow-up work.
+
+## Grace-Period Account Recovery (Added: 2026-04-07)
+- Added a first recovery rule for soft-deleted accounts: the same account can be reactivated by signing in again while `deleted_at` remains inside the grace period.
+- Wired the provider callback to redirect restored users to `/my?accountRestored=true` so the account hub can show a small recovery notice after reactivation.
+- Kept expired or otherwise inactive accounts outside that window blocked from new authenticated session issuance.
+
+## Post-Grace Purge Policy (Added: 2026-04-07)
+- Defined the post-grace purge policy for account-owned persisted data: once `deleted_at` is older than 30 days, the account becomes an operations-side hard-delete target.
+- Fixed the preferred cleanup method as deleting the `users` row and relying on existing FK cascades to remove `auth_accounts`, `sessions`, favorites, daily state, teams, and team members together.
+- Kept that purge out of the live user request path so the current MVP still exposes soft delete plus recovery, while final deletion remains a maintenance operation.
+
+## User Data Reset Scope (Added: 2026-04-07)
+- Defined user data reset as a separate future feature from account deletion: it should preserve `users`, `auth_accounts`, and `sessions` while clearing persisted gameplay data only.
+- Fixed the reset target scope as favorites, collection progress (`daily_encounters`, `daily_captures`), and saved teams (`teams`, `team_members`).
+- Fixed the preferred full-reset execution order as `team_members -> teams -> daily_encounters -> daily_captures -> favorite_pokemon`.

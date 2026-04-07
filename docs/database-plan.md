@@ -156,8 +156,40 @@ Result:
 ## Account Deletion Policy (Soft Delete)
 - **Status Management:** Account deletion is handled via "Soft Delete" using `users.is_active` and `users.deleted_at`.
 - **Inactivation:** When a user requests deletion, `is_active` is set to `false` and `deleted_at` is set to the current timestamp.
+- **Session Blocking:** Inactive users must no longer resolve through the authenticated-session boundary. Existing `sessions` rows should be treated as invalid, and new authenticated sessions should not be issued while the account stays inactive.
+- **Current Request Boundary:** The current MVP delete entry is `POST /api/account/delete`, which soft-deletes the authenticated user and clears active local sessions without purging related product data yet.
+- **Grace-Period Recovery:** The current MVP recovery path is limited to re-login during the grace period. When `deleted_at` is still inside the recovery window, the same account can be reactivated and receive a new session instead of staying blocked.
 - **Data Retention:** Related data (favorites, captures, teams) is kept intact during the inactive state to allow for potential account recovery within a grace period (e.g., 30 days).
-- **Final Cleanup:** Permanent data erasure (Hard Delete) and PII (Personally Identifiable Information) scrubbing are deferred tasks to be handled by an automated background process or manual operation according to legal retention requirements.
+- **Final Cleanup Trigger:** Once `deleted_at` is older than the grace period, the account becomes a purge candidate.
+- **Purge Execution Shape:** The preferred purge action is deleting the `users` row in a background job or manual maintenance step, relying on existing `ON DELETE CASCADE` relationships to remove `auth_accounts`, `sessions`, `favorite_pokemon`, `daily_encounters`, `daily_captures`, `teams`, and downstream `team_members`.
+- **Operational Order:** 1. Select inactive users whose `deleted_at` is older than 30 days. 2. Delete the matching `users` rows. 3. Record the maintenance outcome in ops notes or logs. 4. Recheck that the user can no longer authenticate and that persisted product rows are gone.
+- **Current Product Scope:** This purge remains an operations task for now, not a user-facing immediate hard-delete button.
+
+## User Data Reset Scope
+- **Purpose:** User data reset is a separate account-management concept from account deletion. It keeps the authenticated account itself (`users`, `auth_accounts`, `sessions`) intact while clearing persisted gameplay data.
+- **Reset Targets:** The current persisted gameplay scope is:
+  - `favorite_pokemon`
+  - `daily_encounters`
+  - `daily_captures`
+  - `teams`
+  - `team_members`
+- **Not Included In Reset:** Account identity, provider linkage, and login session records are not part of gameplay reset:
+  - `users`
+  - `auth_accounts`
+  - `sessions`
+- **Reset Modes:** The preferred future shape is four explicit reset scopes rather than one ambiguous destructive action:
+  - favorites only
+  - collection only (`daily_encounters` + `daily_captures`)
+  - teams only (`teams` + `team_members`)
+  - full gameplay reset (all three scopes together)
+- **Execution Order:** The preferred deletion order is:
+  1. `team_members`
+  2. `teams`
+  3. `daily_encounters`
+  4. `daily_captures`
+  5. `favorite_pokemon`
+- **Why This Order:** Team rows have their own dependent rows, collection reset should clear both current encounter and captured history together, and favorites are fully independent so they can safely run last or alone.
+- **Current Product Scope:** This reset remains policy/documentation only for now. A dedicated reset route or UI should be added only after the scope and confirmation UX are revisited.
 
 ## Likely DB Follow-Up Shape
 - The anonymous-session bridge is no longer needed for the active schema.

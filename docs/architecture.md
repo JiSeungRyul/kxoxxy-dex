@@ -14,6 +14,9 @@
 - The same `/my` route now also performs small server-side summary reads for `favorite_pokemon`, `daily_captures`, and `teams` before rendering the account hub.
 - The same page now also acts as a hub entry by linking into `/favorites`, `/my-pokemon`, and `/my-teams`.
 - The same page now also carries a small guide section that centralizes the current login-required persistence policy.
+- The same page now also exposes a first soft-delete request entry that posts to a dedicated account API and then clears the user's authenticated sessions.
+- The same account hub now also acts as the first recovery landing surface by showing a restored-account notice when the user returns within the grace period.
+- Final hard-delete purge is still outside the live request path; once the grace period expires, the preferred cleanup path is deleting the `users` row in an operations job so the existing FK cascades clear persisted account data.
 - Header-level account navigation now points to `/my`, and favorites is no longer treated as an independent primary nav surface.
 
 ## High-Level Structure
@@ -213,6 +216,9 @@
 - The current reusable auth boundary is:
   - `features/pokedex/server/auth-session.ts#resolveAuthenticatedUserSession()`
   - `app/api/auth/session/route.ts` GET handler
+- The current account-management lifecycle boundary now also includes:
+  - `app/api/account/delete/route.ts` POST handler for soft-delete requests
+  - grace-period reactivation inside `createGoogleAuthSession()` before a new session is issued
 - The current development-only boundary that should be replaced is:
   - `createDevelopmentAuthSession()`
   - `POST /api/auth/sign-in`

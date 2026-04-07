@@ -10,6 +10,8 @@ const AUTH_URL = process.env.AUTH_URL?.trim() ?? "";
 const AUTH_SECRET = process.env.AUTH_SECRET?.trim() ?? "";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+const ACCOUNT_RECOVERY_GRACE_PERIOD_DAYS = 30;
+const INACTIVE_ACCOUNT_ERROR_MESSAGE = "Inactive users cannot create authenticated sessions.";
 
 type AuthSessionRow = {
   userId: number;
@@ -17,6 +19,8 @@ type AuthSessionRow = {
   name: string | null;
   image: string | null;
   provider: string | null;
+  isActive: boolean;
+  deletedAt: string | null;
   expiresAt: string;
 };
 
@@ -46,6 +50,8 @@ type UserRow = {
   email: string;
   name: string | null;
   image: string | null;
+  isActive: boolean;
+  deletedAt: string | null;
 };
 
 type GoogleTokenResponse = {
@@ -118,6 +124,121 @@ async function createAuthenticatedSessionForUser(userId: number) {
   };
 }
 
+async function deleteAuthenticatedUserSessionByToken(sessionToken: string) {
+  await postgresClient.unsafe(
+    `
+      DELETE FROM sessions
+      WHERE session_token = $1
+    `,
+    [sessionToken],
+  );
+}
+
+async function deleteAuthenticatedUserSessionsByUserId(userId: number) {
+  await postgresClient.unsafe(
+    `
+      DELETE FROM sessions
+      WHERE user_id = $1
+    `,
+    [userId],
+  );
+}
+
+function isInactiveUser(user: Pick<UserRow, "isActive" | "deletedAt">) {
+  return !user.isActive || user.deletedAt !== null;
+}
+
+function isWithinRecoveryGracePeriod(deletedAt: string | null) {
+  if (!deletedAt) {
+    return false;
+  }
+
+  const deletedAtMs = new Date(deletedAt).getTime();
+
+  if (Number.isNaN(deletedAtMs)) {
+    return false;
+  }
+
+  return Date.now() - deletedAtMs <= ACCOUNT_RECOVERY_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+}
+
+async function reactivateUser(userId: number) {
+  const rows = await postgresClient.unsafe<UserRow[]>(
+    `
+      UPDATE users
+      SET
+        is_active = true,
+        deleted_at = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, email, name, image, is_active AS "isActive", deleted_at AS "deletedAt"
+    `,
+    [userId],
+  );
+
+  return rows[0] ?? null;
+}
+
+async function getUserByEmail(email: string) {
+  const rows = await postgresClient.unsafe<UserRow[]>(
+    `
+      SELECT
+        id,
+        email,
+        name,
+        image,
+        is_active AS "isActive",
+        deleted_at AS "deletedAt"
+      FROM users
+      WHERE email = $1
+      LIMIT 1
+    `,
+    [email],
+  );
+
+  return rows[0] ?? null;
+}
+
+async function assertUserCanStartAuthenticatedSession(email: string) {
+  const existingUser = await getUserByEmail(email);
+
+  if (!existingUser) {
+    return;
+  }
+
+  if (isInactiveUser(existingUser) && !isWithinRecoveryGracePeriod(existingUser.deletedAt)) {
+    throw new Error(INACTIVE_ACCOUNT_ERROR_MESSAGE);
+  }
+}
+
+async function restoreUserIfRecoverable(user: UserRow) {
+  if (!isInactiveUser(user)) {
+    return {
+      user,
+      wasRestored: false,
+    };
+  }
+
+  if (!isWithinRecoveryGracePeriod(user.deletedAt)) {
+    throw new Error(INACTIVE_ACCOUNT_ERROR_MESSAGE);
+  }
+
+  const restoredUser = await reactivateUser(user.id);
+
+  if (!restoredUser) {
+    throw new Error(INACTIVE_ACCOUNT_ERROR_MESSAGE);
+  }
+
+  return {
+    user: restoredUser,
+    wasRestored: true,
+  };
+}
+
+export function isInactiveAccountError(error: unknown) {
+  return error instanceof Error && error.message === INACTIVE_ACCOUNT_ERROR_MESSAGE;
+}
+
 export async function resolveAuthenticatedUserSession(
   request: NextRequest,
 ): Promise<AuthenticatedUserSession | null> {
@@ -142,6 +263,8 @@ export async function resolveAuthenticatedUserSessionByToken(
         users.name AS "name",
         users.image AS "image",
         auth_accounts.provider AS "provider",
+        users.is_active AS "isActive",
+        users.deleted_at AS "deletedAt",
         sessions.expires_at AS "expiresAt"
       FROM sessions
       INNER JOIN users ON users.id = sessions.user_id
@@ -165,6 +288,12 @@ export async function resolveAuthenticatedUserSessionByToken(
   }
 
   if (new Date(session.expiresAt).getTime() <= Date.now()) {
+    await deleteAuthenticatedUserSessionByToken(sessionToken);
+    return null;
+  }
+
+  if (isInactiveUser(session)) {
+    await deleteAuthenticatedUserSessionByToken(sessionToken);
     return null;
   }
 
@@ -179,27 +308,32 @@ export async function createDevelopmentAuthSession(input?: {
   const email = typeof input?.email === "string" && input.email.trim().length > 0 ? input.email.trim() : "dev@kxoxxydex.local";
   const name = typeof input?.name === "string" && input.name.trim().length > 0 ? input.name.trim() : "개발 테스트 사용자";
   const image = typeof input?.image === "string" && input.image.trim().length > 0 ? input.image.trim() : null;
+
+  await assertUserCanStartAuthenticatedSession(email);
+
   const users = await postgresClient.unsafe<UserRow[]>(
     `
-      INSERT INTO users (email, name, image)
-      VALUES ($1, $2, $3)
+      INSERT INTO users (email, name, image, is_active, deleted_at)
+      VALUES ($1, $2, $3, DEFAULT, DEFAULT)
       ON CONFLICT (email)
       DO UPDATE SET
         name = EXCLUDED.name,
         image = EXCLUDED.image,
         updated_at = now()
-      RETURNING id, email, name, image
+      RETURNING id, email, name, image, is_active AS "isActive", deleted_at AS "deletedAt"
     `,
     [email, name, image],
   );
 
-  const user = users[0];
+  const { user, wasRestored } = await restoreUserIfRecoverable(users[0]);
+
   const { sessionToken, expiresAt } = await createAuthenticatedSessionForUser(user.id);
 
   return {
     user,
     sessionToken,
     expiresAt,
+    wasRestored,
   };
 }
 
@@ -279,6 +413,8 @@ export async function createGoogleAuthSession(code: string) {
   const normalizedName = userInfo.name?.trim() || null;
   const normalizedImage = userInfo.picture?.trim() || null;
 
+  await assertUserCanStartAuthenticatedSession(normalizedEmail);
+
   const userRows = await postgresClient.unsafe<UserRow[]>(
     `
       INSERT INTO users (email, name, image, email_verified_at)
@@ -289,12 +425,12 @@ export async function createGoogleAuthSession(code: string) {
         image = EXCLUDED.image,
         email_verified_at = CASE WHEN $4 THEN NOW() ELSE users.email_verified_at END,
         updated_at = NOW()
-      RETURNING id, email, name, image
+      RETURNING id, email, name, image, is_active AS "isActive", deleted_at AS "deletedAt"
     `,
     [normalizedEmail, normalizedName, normalizedImage, Boolean(userInfo.email_verified)],
   );
 
-  const user = userRows[0];
+  const { user, wasRestored } = await restoreUserIfRecoverable(userRows[0]);
 
   await postgresClient.unsafe(
     `
@@ -342,6 +478,7 @@ export async function createGoogleAuthSession(code: string) {
     user,
     sessionToken,
     expiresAt,
+    wasRestored,
   };
 }
 
@@ -352,13 +489,23 @@ export async function deleteAuthenticatedUserSession(request: NextRequest) {
     return;
   }
 
+  await deleteAuthenticatedUserSessionByToken(sessionToken);
+}
+
+export async function softDeleteAuthenticatedUser(userId: number) {
   await postgresClient.unsafe(
     `
-      DELETE FROM sessions
-      WHERE session_token = $1
+      UPDATE users
+      SET
+        is_active = false,
+        deleted_at = COALESCE(deleted_at, NOW()),
+        updated_at = NOW()
+      WHERE id = $1
     `,
-    [sessionToken],
+    [userId],
   );
+
+  await deleteAuthenticatedUserSessionsByUserId(userId);
 }
 
 export function applyAuthSessionCookie(response: NextResponse, sessionToken: string, expiresAt: Date) {

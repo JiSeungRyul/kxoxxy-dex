@@ -5,6 +5,7 @@ import {
   applyAuthStateCookie,
   createDevelopmentAuthSession,
   getAuthMode,
+  isInactiveAccountError,
   startGoogleSignIn,
 } from "@/features/pokedex/server/auth-session";
 
@@ -71,7 +72,18 @@ export async function POST(request: NextRequest) {
     applyAuthSessionCookie(response, sessionToken, expiresAt);
 
     return response;
-  } catch {
+  } catch (error) {
+    if (isInactiveAccountError(error)) {
+      return NextResponse.json(
+        {
+          error: "Inactive account",
+          authRequired: true,
+          accountInactive: true,
+        },
+        { status: 403 },
+      );
+    }
+
     return NextResponse.json({ error: "Failed to start sign-in flow" }, { status: 500 });
   }
 }
