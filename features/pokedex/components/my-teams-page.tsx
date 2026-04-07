@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { AUTH_UI_COPY } from "@/features/pokedex/constants";
 import type { PokemonBaseStats, PokemonTeam, TeamFormatId, TeamModeId } from "@/features/pokedex/types";
 import {
   calculatePokemonBattleStats,
@@ -84,6 +85,7 @@ export function MyTeamsPage() {
   const [renamingTeamId, setRenamingTeamId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAuthRequired, setIsAuthRequired] = useState(false);
+  const [authRequiredMessage, setAuthRequiredMessage] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<MyTeamsSortKey>("updatedAt");
   const [searchTerm, setSearchTerm] = useState("");
   const [formatFilter, setFormatFilter] = useState<MyTeamsFormatFilter>("all");
@@ -95,6 +97,7 @@ export function MyTeamsPage() {
     if (!response.ok) {
       if (response.status === 401) {
         setIsAuthRequired(true);
+        setAuthRequiredMessage(null);
         setTeams([]);
         return;
       }
@@ -105,6 +108,7 @@ export function MyTeamsPage() {
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
     const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
     setIsAuthRequired(false);
+    setAuthRequiredMessage(null);
     setTeams(nextTeams);
     setExpandedTeamId((currentTeamId) => currentTeamId ?? nextTeams[0]?.id ?? null);
   }
@@ -142,7 +146,7 @@ export function MyTeamsPage() {
       if (!response.ok) {
         if (response.status === 401) {
           setIsAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setAuthRequiredMessage(AUTH_UI_COPY.sessionExpired.myTeams);
           return;
         }
 
@@ -182,7 +186,7 @@ export function MyTeamsPage() {
       if (!response.ok) {
         if (response.status === 401) {
           setIsAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setAuthRequiredMessage(AUTH_UI_COPY.sessionExpired.myTeams);
           return;
         }
 
@@ -229,7 +233,7 @@ export function MyTeamsPage() {
       if (!response.ok) {
         if (response.status === 401) {
           setIsAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setAuthRequiredMessage(AUTH_UI_COPY.sessionExpired.myTeams);
           return;
         }
 
@@ -273,12 +277,13 @@ export function MyTeamsPage() {
         <p className="mt-3 text-sm text-muted-foreground">
           로그인하면 내가 만든 모든 포켓몬 팀을 한곳에서 관리하고 빠르게 편집할 수 있습니다.
         </p>
+        {authRequiredMessage ? <p className="mt-3 text-sm text-ember">{authRequiredMessage}</p> : null}
         <button
           type="button"
           onClick={() => window.location.assign("/api/auth/sign-in")}
           className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
         >
-          Google로 로그인
+          {AUTH_UI_COPY.signInButton}
         </button>
       </section>
     );

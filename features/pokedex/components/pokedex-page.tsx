@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import {
+  AUTH_UI_COPY,
   ALL_GENERATION_FILTER,
   ALL_TYPE_FILTER,
   DEFAULT_SORT_DIRECTION,
@@ -60,6 +61,7 @@ type PokedexPageProps = {
   pokemon: PokemonCollectionPageEntry[];
   dailyDexNumbers?: number[];
   filterOptions?: PokedexFilterOptions;
+  authError?: string;
   view?: "daily" | "pokedex" | "my-pokemon" | "favorites";
   serverListState?: {
     query: PokedexListQuery;
@@ -75,7 +77,31 @@ type PokemonCatalogResponse<T> = {
   pokemon?: T[];
 };
 
-export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "pokedex", serverListState }: PokedexPageProps) {
+function getAuthErrorMessage(authError: string | undefined) {
+  switch (authError) {
+    case "invalid-state":
+      return AUTH_UI_COPY.callbackError.invalidState;
+    case "missing-code":
+      return AUTH_UI_COPY.callbackError.missingCode;
+    case "callback-failed":
+      return AUTH_UI_COPY.callbackError.callbackFailed;
+    case "account-inactive":
+      return AUTH_UI_COPY.callbackError.accountInactive;
+    case "provider-not-configured":
+      return AUTH_UI_COPY.callbackError.providerNotConfigured;
+    default:
+      return null;
+  }
+}
+
+export function PokedexPage({
+  pokemon,
+  dailyDexNumbers,
+  filterOptions,
+  authError,
+  view = "pokedex",
+  serverListState,
+}: PokedexPageProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -93,12 +119,14 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   const [favoriteDexNumbers, setFavoriteDexNumbers] = useState<number[]>([]);
   const [isFavoriteStateReady, setIsFavoriteStateReady] = useState(view !== "favorites");
   const [isFavoriteAuthRequired, setIsFavoriteAuthRequired] = useState(false);
+  const [favoriteAuthMessage, setFavoriteAuthMessage] = useState<string | null>(null);
   const [collectionState, setCollectionState] = useState<PokedexCollectionState>(getInitialCollectionState);
   const [isCollectionReady, setIsCollectionReady] = useState(false);
   const [isCollectionAuthRequired, setIsCollectionAuthRequired] = useState(false);
+  const [collectionAuthMessage, setCollectionAuthMessage] = useState<string | null>(null);
   const [isSyncingDailyState, setIsSyncingDailyState] = useState(false);
   const [myPokemonShinyFilter, setMyPokemonShinyFilter] = useState<MyPokemonShinyFilter>("all");
-  const [myPokemonSortKey, setMyPokemonSortKey] = useState<MyPokemonSortKey>("capturedAt");
+  const [myPokemonSortKey, setMyPokemonSortKey] = useState<MyPokemonSortKey>("capturedAtRecent");
   const [dailyPokemonDetails, setDailyPokemonDetails] = useState<PokemonCollectionCatalogEntry[]>([]);
   const [lastResolvedDailyEncounter, setLastResolvedDailyEncounter] = useState<PokemonCollectionCatalogEntry | null>(null);
   const [myPokemonDetails, setMyPokemonDetails] = useState<PokemonCollectionPageEntry[]>([]);
@@ -109,6 +137,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     if (view !== "favorites") {
       setIsFavoriteStateReady(true);
       setIsFavoriteAuthRequired(false);
+      setFavoriteAuthMessage(null);
       return;
     }
 
@@ -120,6 +149,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
 
       setFavoriteDexNumbers(nextFavoriteDexNumbers);
       setIsFavoriteAuthRequired(false);
+      setFavoriteAuthMessage(null);
     });
 
     void fetch("/api/favorites/state")
@@ -130,6 +160,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           if (res.status === 401 && isMounted) {
             setFavoriteDexNumbers([]);
             setIsFavoriteAuthRequired(true);
+            setFavoriteAuthMessage(null);
           }
 
           throw new Error(data.error ?? "Failed to load favorites.");
@@ -141,6 +172,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         if (isMounted) {
           setFavoriteDexNumbers(data.favoriteDexNumbers ?? []);
           setIsFavoriteAuthRequired(false);
+          setFavoriteAuthMessage(null);
         }
       })
       .catch(() => {
@@ -173,7 +205,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         if (res.status === 401) {
           setFavoriteDexNumbers([]);
           setIsFavoriteAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setFavoriteAuthMessage(AUTH_UI_COPY.sessionExpired.favorites);
           return;
         }
 
@@ -239,7 +271,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
               return true;
             })
             .sort((left, right) => {
-              if (myPokemonSortKey === "capturedAt") {
+              if (myPokemonSortKey === "capturedAtRecent" || myPokemonSortKey === "capturedAtOldest") {
                 const leftTime = new Date(
                   collectionState.capturedAtByDexNumber[String(left.nationalDexNumber)] ?? 0,
                 ).getTime();
@@ -251,7 +283,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
                   return left.nationalDexNumber - right.nationalDexNumber;
                 }
 
-                return rightTime - leftTime;
+                return myPokemonSortKey === "capturedAtRecent" ? rightTime - leftTime : leftTime - rightTime;
               }
 
               if (myPokemonSortKey === "name") {
@@ -337,6 +369,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           latestCapturedAtLabel,
         }
       : null;
+  const authErrorMessage = view === "pokedex" ? getAuthErrorMessage(authError) : null;
 
   function persistCollectionState(nextState: PokedexCollectionState) {
     setCollectionState(nextState);
@@ -351,17 +384,19 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
           const response = await fetch("/api/daily/state", { signal: controller.signal });
 
           if (!response.ok) {
-            if (response.status === 401) {
-              setCollectionState(getInitialCollectionState());
-              setIsCollectionAuthRequired(true);
-              return;
-            }
+          if (response.status === 401) {
+            setCollectionState(getInitialCollectionState());
+            setIsCollectionAuthRequired(true);
+            setCollectionAuthMessage(null);
+            return;
+          }
 
             throw new Error("Failed to load daily collection state.");
           }
 
           const nextState = sanitizeCollectionState(await response.json());
           setIsCollectionAuthRequired(false);
+          setCollectionAuthMessage(null);
           persistCollectionState(nextState);
         } catch {
           persistCollectionState(getInitialCollectionState());
@@ -376,6 +411,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     }
 
     setIsCollectionAuthRequired(false);
+    setCollectionAuthMessage(null);
     setCollectionState(getInitialCollectionState());
     setIsCollectionReady(true);
   }, [usesServerCollectionState]);
@@ -646,7 +682,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
     setSortKey(DEFAULT_SORT_KEY);
     setSortDirection(DEFAULT_SORT_DIRECTION);
     setMyPokemonShinyFilter("all");
-    setMyPokemonSortKey("capturedAt");
+    setMyPokemonSortKey("capturedAtRecent");
     setCurrentPage(1);
   }
 
@@ -673,7 +709,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
         if (response.status === 401) {
           setCollectionState(getInitialCollectionState());
           setIsCollectionAuthRequired(true);
-          window.location.assign("/api/auth/sign-in");
+          setCollectionAuthMessage(AUTH_UI_COPY.sessionExpired.collection);
         }
 
         return;
@@ -681,6 +717,7 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
 
       const nextState = sanitizeCollectionState(await response.json());
       setIsCollectionAuthRequired(false);
+      setCollectionAuthMessage(null);
       persistCollectionState(nextState);
     } finally {
       setIsSyncingDailyState(false);
@@ -798,6 +835,13 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
   return (
     <main className="min-h-full w-full">
       <div className="space-y-6">
+        {authErrorMessage ? (
+          <section className="rounded-[1.5rem] border border-ember/30 bg-ember/10 px-5 py-4 shadow-card">
+            <p className="text-sm font-semibold text-foreground">{AUTH_UI_COPY.callbackTitle}</p>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">{authErrorMessage}</p>
+          </section>
+        ) : null}
+
         {view === "daily" && isCollectionAuthRequired ? (
           <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
             <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
@@ -806,12 +850,13 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             <p className="mt-3 text-sm text-muted-foreground">
               로그인하면 오늘 만난 포켓몬과 포획 기록을 계정에 저장하고 나만의 도감을 완성할 수 있습니다.
             </p>
+            {collectionAuthMessage ? <p className="mt-3 text-sm text-ember">{collectionAuthMessage}</p> : null}
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
               className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
-              Google로 로그인
+              {AUTH_UI_COPY.signInButton}
             </button>
           </section>
         ) : view === "daily" ? (
@@ -840,12 +885,13 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             <p className="mt-3 text-sm text-muted-foreground">
               로그인하면 언제 어디서든 내가 찜한 포켓몬 목록을 확인하고 관리할 수 있습니다.
             </p>
+            {favoriteAuthMessage ? <p className="mt-3 text-sm text-ember">{favoriteAuthMessage}</p> : null}
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
               className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
-              Google로 로그인
+              {AUTH_UI_COPY.signInButton}
             </button>
           </section>
         ) : view === "my-pokemon" && isCollectionAuthRequired ? (
@@ -856,12 +902,13 @@ export function PokedexPage({ pokemon, dailyDexNumbers, filterOptions, view = "p
             <p className="mt-3 text-sm text-muted-foreground">
               로그인하면 포획한 포켓몬 데이터를 안전하게 보관하고 기기를 바꿔도 계속해서 확인할 수 있습니다.
             </p>
+            {collectionAuthMessage ? <p className="mt-3 text-sm text-ember">{collectionAuthMessage}</p> : null}
             <button
               type="button"
               onClick={() => window.location.assign("/api/auth/sign-in")}
               className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
             >
-              Google로 로그인
+              {AUTH_UI_COPY.signInButton}
             </button>
           </section>
         ) : view === "my-pokemon" || view === "favorites" ? (

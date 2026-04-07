@@ -120,3 +120,13 @@
 - Defined user data reset as a separate future feature from account deletion: it should preserve `users`, `auth_accounts`, and `sessions` while clearing persisted gameplay data only.
 - Fixed the reset target scope as favorites, collection progress (`daily_encounters`, `daily_captures`), and saved teams (`teams`, `team_members`).
 - Fixed the preferred full-reset execution order as `team_members -> teams -> daily_encounters -> daily_captures -> favorite_pokemon`.
+
+## Auth Failure UX And Account Smoke Documentation (Added: 2026-04-07)
+- Added a first standardized auth-failure UX layer for sign-in start failures, provider callback failures, and protected-view session-expiry cases.
+- Centralized the current auth UI copy so the header, home banner, and protected-route login fallbacks use the same user-facing wording.
+- Extended `docs/verification-guide.md` with minimum smoke-check coverage for `/my`, account deletion, grace-period recovery, and restored-data confirmation.
+
+## My Pokemon Sort Follow-Up (Added: 2026-04-07)
+- Kept the `my-pokemon` management controls focused on high-value collection browsing signals rather than adding broader sort families.
+- Extended capture-time sorting with an `오래된 포획순` option in addition to the existing recent-first order.
+- Explicitly left generation, shiny-priority, and type-group sorting out of the current MVP scope.

@@ -82,6 +82,20 @@ If a feature fails after a migration or update, use this checklist to identify t
 9. Sign in again with the same account while `deleted_at` is still inside the grace period and confirm the account is reactivated, a new session is issued, and `/my?accountRestored=true` shows the recovery notice.
 10. For purge verification, use a non-production local test account, set `deleted_at` older than 30 days, delete the matching `users` row in maintenance flow, and confirm related favorites, daily state, teams, and sessions are removed by cascade.
 
+### D. Auth Failure UX
+1. Trigger `GET /api/auth/callback/google?state=wrong&code=test` and confirm the home route shows the login-failure banner with the invalid-state message.
+2. Trigger `GET /api/auth/callback/google?state=wrong` or the matching missing-code case and confirm the home route shows the missing-code or retry guidance instead of failing silently.
+3. Force a sign-in start failure in the current environment and confirm the header account panel shows the inline start-failed message.
+4. Use an inactive account outside the grace period and confirm the login start or callback path surfaces the inactive-account guidance instead of silently looping.
+5. While authenticated on `/favorites`, `/daily`, `/my-pokemon`, `/teams`, or `/my-teams`, invalidate the session and retry a saved-state action; confirm the route falls back to its login CTA and shows the session-expired message before the user chooses to sign in again.
+
+### E. Account Hub Smoke Check
+1. While signed out, open `/my` and confirm the page shows the login-required state instead of account details.
+2. Sign in through Google, open `/my`, and confirm the account hub renders the current profile, activity summary, and navigation links without a hydration or loading mismatch.
+3. From `/my`, trigger the delete request and confirm `POST /api/account/delete` succeeds, the auth cookie is cleared, and the next `/my` visit falls back to the signed-out state.
+4. Sign in again with the same account while `deleted_at` is still inside the 30-day grace period and confirm `/my?accountRestored=true` shows the recovery notice after the new session is issued.
+5. After recovery, re-open `/favorites`, `/daily`, and `/my-teams` and confirm previously retained persisted data is still available under the restored account.
+
 ---
 
 ## 4. Route Smoke Flow (Baseline)
@@ -98,6 +112,11 @@ If a feature fails after a migration or update, use this checklist to identify t
 - Select a Pokemon. Verify `/api/pokedex/catalog?view=teams` is called.
 - Save a team. Verify the redirect to `/teams?teamId=...`.
 - Open `/my-teams`. The saved team must appear and load its members correctly.
+
+### `/my`
+- While signed out, open `/my` and verify the account hub stays in its auth-required fallback state.
+- After sign-in, open `/my` and verify the account summary, personal navigation, and account-delete entry render together.
+- Trigger account deletion only with a local test account and confirm the next `/my` load does not reuse the invalidated session.
 
 ## 5. Environment Notes (24-6)
 - **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
