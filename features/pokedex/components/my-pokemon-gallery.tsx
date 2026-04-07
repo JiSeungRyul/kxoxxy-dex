@@ -31,21 +31,49 @@ type MyPokemonGalleryProps = {
   shinyCapturedDexNumbers: number[];
   capturedAtByDexNumber: Record<string, string>;
   isReleasing: boolean;
-  onRelease: (nationalDexNumber: number) => void;
+  isFilteredEmpty?: boolean;
+  summary?: {
+    capturedCount: number;
+    shinyCount: number;
+    recentCaptureCount: number;
+    latestCapturedAtLabel: string | null;
+  } | null;
+  onRelease?: (nationalDexNumber: number) => void;
+  favoriteDexNumbers?: number[];
+  onToggleFavorite?: (nationalDexNumber: number) => void;
 };
 
-function EmptyState() {
+function EmptyState({ view, isFilteredEmpty = false }: { view?: "my-pokemon" | "favorites"; isFilteredEmpty?: boolean }) {
+  const isFavorites = view === "favorites";
+
+  if (isFavorites && isFilteredEmpty) {
+    return (
+      <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+        <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+          조건에 맞는 즐겨찾기가 없습니다
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          검색어나 타입, 세대, 정렬 조건을 다시 조정해 보세요.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
-      <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">아직 포획한 포켓몬이 없습니다</p>
+      <p className="font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+        {isFavorites ? "즐겨찾기한 포켓몬이 없습니다" : "아직 포획한 포켓몬이 없습니다"}
+      </p>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        오늘의 포켓몬에서 야생 포켓몬을 포획하면 내 포켓몬 컬렉션에 추가됩니다.
+        {isFavorites
+          ? "도감이나 상세 페이지에서 하트 아이콘을 눌러 포켓몬을 즐겨찾기에 추가해 보세요."
+          : "오늘의 포켓몬에서 야생 포켓몬을 포획하면 내 포켓몬 컬렉션에 추가됩니다."}
       </p>
       <Link
-        href="/daily"
+        href={isFavorites ? "/pokedex" : "/daily"}
         className="mt-6 inline-flex rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition hover:opacity-90"
       >
-        잡으러 가기
+        {isFavorites ? "도감 보러 가기" : "잡으러 가기"}
       </Link>
     </section>
   );
@@ -56,27 +84,63 @@ export function MyPokemonGallery({
   shinyCapturedDexNumbers,
   capturedAtByDexNumber,
   isReleasing,
+  isFilteredEmpty = false,
+  summary = null,
   onRelease,
+  favoriteDexNumbers = [],
+  onToggleFavorite,
 }: MyPokemonGalleryProps) {
   const shinyCapturedDexNumberSet = new Set(shinyCapturedDexNumbers);
+  const favoriteDexNumberSet = new Set(favoriteDexNumbers);
+  const isFavoritesView = !onRelease;
 
   if (pokemon.length === 0) {
-    return <EmptyState />;
+    return <EmptyState view={isFavoritesView ? "favorites" : "my-pokemon"} isFilteredEmpty={isFilteredEmpty} />;
   }
 
   return (
     <section className="space-y-6">
       <div className="mx-auto w-full max-w-[82rem] rounded-[2rem] border border-border bg-card px-6 py-6 shadow-card sm:px-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">My Pokemon</p>
-        <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-foreground">내 포켓몬 컬렉션</h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          지금까지 포획한 포켓몬입니다. 놓아주기를 하면 컬렉션에서 빠지고, 나중에 다시 오늘의 포켓몬 후보로 돌아갑니다.
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          {isFavoritesView ? "Favorites" : "My Pokemon"}
         </p>
+        <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.05em] text-foreground">
+          {isFavoritesView ? "내가 찜한 포켓몬" : "내 포켓몬 컬렉션"}
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {isFavoritesView
+            ? "즐겨찾기에 추가한 포켓몬들입니다. 하트 버튼을 눌러 목록에서 관리할 수 있습니다."
+            : "지금까지 포획한 포켓몬입니다. 오늘의 포켓몬에서 잡은 결과가 같은 계정 기준으로 바로 반영되며, 놓아주기를 하면 컬렉션에서 빠지고 나중에 다시 오늘의 포켓몬 후보로 돌아갑니다."}
+        </p>
+
+        {!isFavoritesView && summary ? (
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">포획 수</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.capturedCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">반짝 포획</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.shinyCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 포획 수</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{summary.recentCaptureCount}</p>
+            </div>
+            <div className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">최근 포획</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-foreground">
+                {summary.latestCapturedAtLabel ?? "아직 기록 없음"}
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto flex max-w-[82rem] flex-wrap justify-center gap-4 xl:gap-5">
         {pokemon.map((entry) => {
           const isShiny = shinyCapturedDexNumberSet.has(entry.nationalDexNumber);
+          const isFavorite = favoriteDexNumberSet.has(entry.nationalDexNumber);
           const displayImageUrl = isShiny
             ? entry.defaultShinyArtworkImageUrl ?? entry.artworkImageUrl
             : entry.imageUrl;
@@ -85,8 +149,36 @@ export function MyPokemonGallery({
           return (
             <div
               key={entry.nationalDexNumber}
-              className="group w-full max-w-sm rounded-[2rem] border border-border bg-card p-4 shadow-card transition hover:-translate-y-1 hover:border-foreground/20 sm:w-[15rem] sm:max-w-none"
+              className="group relative w-full max-w-sm rounded-[2rem] border border-border bg-card p-4 shadow-card transition hover:-translate-y-1 hover:border-foreground/20 sm:w-[15rem] sm:max-w-none"
             >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleFavorite?.(entry.nationalDexNumber);
+                }}
+                className={`absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-200 ${
+                  isFavorite
+                    ? "border-red-200 bg-red-50 text-red-500 shadow-sm"
+                    : "border-border bg-background text-muted-foreground hover:border-red-200 hover:bg-red-50/50 hover:text-red-400"
+                }`}
+                aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill={isFavorite ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 transition-transform active:scale-90"
+                >
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                </svg>
+              </button>
+
               <Link href={`/pokemon/${entry.slug}`} className="flex flex-col items-center text-center">
                 <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-border bg-background shadow-inner sm:h-36 sm:w-36">
                   {isShiny ? (
@@ -116,17 +208,26 @@ export function MyPokemonGallery({
               </Link>
 
               <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
-                {capturedAtLabel ?? "포획 일시 확인 중"}
+                {capturedAtLabel ?? (isFavoritesView ? "정보 로드 중" : "포획 일시 확인 중")}
               </p>
 
-              <button
-                type="button"
-                onClick={() => onRelease(entry.nationalDexNumber)}
-                disabled={isReleasing}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-foreground/10 bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                놓아주기
-              </button>
+              {onRelease ? (
+                <button
+                  type="button"
+                  onClick={() => onRelease(entry.nationalDexNumber)}
+                  disabled={isReleasing}
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-foreground/10 bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  놓아주기
+                </button>
+              ) : (
+                <Link
+                  href={`/pokemon/${entry.slug}`}
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-foreground/10 bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-foreground hover:text-background"
+                >
+                  상세 보기
+                </Link>
+              )}
             </div>
           );
         })}

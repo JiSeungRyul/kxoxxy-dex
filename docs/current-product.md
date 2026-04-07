@@ -22,17 +22,30 @@
   - evolution displays
   - defensive matchup reference
   - cry audio and footprint display
-- Daily encounter flow with anonymous-session-backed capture progress and shiny chance
-- My Pokemon gallery based on captured Pokemon stored for the current anonymous session
-- Team builder for saving up to six Pokemon with team-level default-or-Gen 6-9 format selection plus per-member level, nature, item, ability, moves, IVs, EVs, and level-based battle stat display
+- Daily encounter flow with login-required capture progress and shiny chance
+- My Pokemon gallery based on captured Pokemon stored on the logged-in account
+- Team builder for saving up to six Pokemon with account-bound persistence plus team-level default-or-Gen 6-9 format selection and per-member level, nature, item, ability, moves, IVs, EVs, and level-based battle stat display
 - Theme toggle
 - Contact, terms, and privacy pages
 
 ## Current Product Behavior
 - The main browsing experience is server-driven for list queries and detail lookup.
-- Daily encounter now uses anonymous-session-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
-- My Pokemon now reads the same anonymous-session-backed server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
-- Team builder and My Teams now store team data per anonymous session in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- Daily encounter now uses authenticated `user_id`-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
+- My Pokemon now reads the same authenticated server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
+- Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
+- The site header now exposes Google sign-in/sign-out rather than the old development-only auth panel.
+- Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
+- `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
+- `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
+- `/my` now links directly into `즐겨찾기`, `내 포켓몬`, `내 팀 보기` so it acts as the first account hub.
+- `/my` now also explains which features are login-required and how account-bound persistence currently works.
+- `/my` now also exposes a first account deletion request entry that soft-deletes the current account, clears authenticated sessions, and returns the user to signed-out behavior.
+- `/my` now also shows a recovery notice when a soft-deleted account is restored within the grace period through a new login.
+- Soft-deleted account data is currently retained for 30 days and then becomes an operations-driven hard-delete target rather than being erased immediately from the request path.
+- User data reset is now defined separately from account deletion: a future reset flow should keep the account and provider login intact while clearing favorites, collection progress, and saved teams by explicit scope.
+- Header navigation now uses `마이 페이지` as the top-level account entry, and `즐겨찾기` is reached through that account-hub structure instead of its earlier independent top-level slot.
+- Favorites, daily, and team persistence now resolve only through authenticated `user_id`.
 - Team builder now supports a team-level default-or-Gen 6-9 format selection with a safe default fallback for older saved teams, plus per-member level input preserved in saved teams.
 - Team builder now blocks saving duplicate species and duplicate held items in `대전 싱글` and `대전 더블`.
 - Team builder now starts new members at level `50` in every mode, allows manual level adjustment up to `100` in `자유` and `스토리`, and caps manual level adjustment at `50` in `대전 싱글` and `대전 더블`.
@@ -44,24 +57,59 @@
 - Team builder move options now use that Rotom `formKey` to expose appliance signature moves such as `오버히트`, `하이드로펌프`, `리프스톰`, `눈보라`, and `에어슬래시` in the matching slot.
 - Team builder move options now also add a small regional-form override set where a clear learnset gap was identified: `알로라 라이츄 -> 사이코키네시스`, `알로라 식스테일 -> 프리즈드라이`, `알로라 나인테일 -> 오로라베일/문포스`, `히스이 윈디 -> 양날박치기`, `히스이 조로아크 -> Bitter Malice`.
 - General non-Mega form support still remains intentionally limited in this MVP step; broader regional, legendary, and other multi-form groups plus form-specific learnset exceptions such as `버드렉스 rider` and more ambiguous cases such as `지가르데` stay in the follow-up backlog.
+- `28-5` review confirms that this current item/move/form scope is still adequately served by the existing DB catalog plus bounded query-time overrides; broader form-normalized learnset work is deferred.
 - Daily encounter state stores whether the current encounter is shiny.
 - My Pokemon supports releasing captured Pokemon so they can enter the daily candidate pool again later.
-- Captured Pokemon progress and saved teams still do not sync across devices or accounts.
+- Captured Pokemon progress, favorites, and saved teams are now account-bound through login.
 - The app currently presents one Korean-first experience and does not support runtime locale switching.
-- Collection state is mirrored back into local browser storage as a fallback during the current hybrid phase.
 
 ## Current Constraints
-- Authentication is not implemented.
-- Server-backed user persistence is not implemented.
+- Real provider-backed authentication is now available locally through Google OAuth, though production hardening is still not complete.
+- Minimal auth schema groundwork exists, and the header auth panel now acts as the real Google sign-in entry in provider mode.
+- Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams.
+- The current product policy is now fixed: browse routes stay public, but persisted state routes are login-required and no longer expose anonymous saved state as a product feature.
+- The current auth routes now already reflect that split:
+  - `GET /api/auth/session` for current-session reads
+  - `GET /api/auth/sign-in` for provider redirect entry
+  - `POST /api/auth/sign-out` for sign-out
+  - `POST /api/account/delete` for authenticated soft-delete requests
+- Google provider-backed auth routing is now implemented for local verification:
+  - `/api/auth/sign-in` can start the Google OAuth redirect flow
+  - `/api/auth/callback/google` can materialize a local authenticated session after callback
+  - inactive soft-deleted users are blocked from creating a new authenticated session and fall back to signed-out behavior on protected reads
+  - soft-deleted users inside the grace period can be reactivated on sign-in and are redirected back through `/my?accountRestored=true`
+  - a browser-driven Google login round-trip is verified for session creation and user-owned favorites / daily / teams state
 - Automated tests are not present.
 - Catalog data operations are still split across snapshot generation and DB import workflows.
-- Anonymous daily persistence and anonymous team persistence exist, but account-linked user persistence does not.
+- Route/runtime reads are already PostgreSQL-backed; the remaining hybrid split is now mainly in generation/import workflow rather than direct page rendering.
+- That cutover is now live for favorites:
+  - favorites read/write is now login-required
+  - `/favorites` renders a login CTA instead of anonymous saved state
+  - favorite toggles from browsing/detail routes now redirect into Google sign-in when auth is absent
+  - `/favorites` now supports search, type/generation filtering, sort selection, and pagination for saved favorites
+  - favorites navigation now flows through `/my` account hub instead of an independent top-level favorites menu
+  - favorite toggles are now synchronized across list, detail, and favorites views through a shared client-side sync event, and `/favorites` distinguishes between true empty state and filter-result empty state
+- The same cutover is now live for daily collection state:
+  - `/api/daily/state` is login-required
+  - `/daily` and `/my-pokemon` render login CTA states instead of anonymous saved progress
+  - daily capture/release/reroll/reset actions now depend on authenticated session
+  - `/my-pokemon` now also shows account-bound summary cards for captured count, shiny count, recent capture count, and latest capture time
+  - `/my-pokemon` now also supports name search, type filtering, shiny-only filtering, and recent-capture sorting for the saved collection view
+  - `/daily` and `/my-pokemon` now both explain that capture and release progress is shared immediately through the same account-bound collection state
+- The same cutover is now live for team persistence:
+  - `/api/teams/state` is login-required
+  - `/teams` and `/my-teams` render login CTA states instead of anonymous saved teams
+  - team save/delete actions now depend on authenticated session
+  - `/my-teams` now supports sorting the saved team list by recent update, name, format, and mode
+  - `/my-teams` now also supports team duplication and in-place team-name changes while keeping the existing builder edit entry
+  - `/my-teams` now also supports team-name search plus format/mode filtering for larger saved-team lists
 - Daily and team persistence require the new DB tables to be migrated before the API routes can work.
 - After DB schema changes, the local Next.js dev server may need a restart on Windows before the daily and team routes behave correctly.
+- Legacy anonymous-session runtime helpers and client-side session handoff are now removed from the active product path.
+- The follow-up schema cleanup also removes the old anonymous-session owner columns and table from active persisted-state storage.
 
 ## Current Risks
-- Anonymous session identity is browser-scoped and is not durable across devices or account changes.
-- Collection ownership is still anonymous-session-based rather than account-linked.
+- The current auth flow is now provider-backed locally, but it still needs product-level tightening around login-required persistence and broader runtime hardening.
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources

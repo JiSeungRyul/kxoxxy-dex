@@ -458,7 +458,7 @@ export function DailyEncounter({
               </h2>
               <p className={`max-w-2xl text-sm leading-6 ${sceneStyle.text}`}>
                 풀숲에 하루 한 번 포켓몬이 출현합니다. 화면을 클릭하면 포켓볼이 날아가고, 포획에 성공하면 내 도감에
-                등록됩니다.
+                등록됩니다. 오늘 여기서 잡은 포켓몬은 같은 계정의 내 포켓몬 컬렉션에도 바로 반영됩니다.
               </p>
             </div>
           </div>
@@ -588,8 +588,8 @@ export function DailyEncounter({
                 </div>
                 <p className="text-sm text-emerald-950/75 dark:text-emerald-50/75">
                   {isCaptured
-                    ? "오늘의 포켓몬이 내 도감에 등록되었습니다."
-                    : "조우 화면 아무 곳이나 눌러도 포켓볼을 던질 수 있습니다."}
+                    ? "오늘의 포켓몬이 내 도감에 등록되었고, 내 포켓몬 컬렉션에서도 바로 확인할 수 있습니다."
+                    : "조우 화면 아무 곳이나 눌러도 포켓볼을 던질 수 있으며, 포획 기록은 같은 계정 컬렉션에 저장됩니다."}
                 </p>
               </div>
             </div>

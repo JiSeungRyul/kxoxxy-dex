@@ -1,37 +1,35 @@
-﻿import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
+import { resolveAuthenticatedUserSession } from "@/features/pokedex/server/auth-session";
 import { deleteStoredTeam, getStoredTeams, saveTeam } from "@/features/pokedex/server/repository";
 import type { PokemonTeamMemberDraft } from "@/features/pokedex/types";
 import { sanitizeTeamFormat, sanitizeTeamMode } from "@/features/pokedex/utils";
 
-type TeamAction = "save" | "delete";
+type TeamAction = "save" | "delete" | "duplicate" | "rename";
 
-function isValidSessionId(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get("sessionId");
+    const session = await resolveAuthenticatedUserSession(request);
 
-    if (!isValidSessionId(sessionId)) {
-      return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
     }
 
-    const teams = await getStoredTeams(sessionId);
+    const teamOwner = { ownerType: "user" as const, userId: session.userId };
+    const teams = await getStoredTeams(teamOwner);
+
     return NextResponse.json({ teams });
   } catch {
     return NextResponse.json({ error: "Failed to load teams" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
-      sessionId?: string;
       action?: TeamAction;
       teamId?: number;
+      teamName?: string;
       team?: {
         id?: number | null;
         name?: string;
@@ -40,10 +38,13 @@ export async function POST(request: Request) {
         members?: PokemonTeamMemberDraft[];
       };
     };
+    const session = await resolveAuthenticatedUserSession(request);
 
-    if (!isValidSessionId(body.sessionId)) {
-      return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required", authRequired: true }, { status: 401 });
     }
+
+    const teamOwner = { ownerType: "user" as const, userId: session.userId };
 
     switch (body.action) {
       case "save": {
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "team payload is required" }, { status: 400 });
         }
 
-        const result = await saveTeam(body.sessionId, {
+        const result = await saveTeam(teamOwner, {
           id: Number.isInteger(body.team.id) ? Number(body.team.id) : null,
           name: body.team.name,
           format: sanitizeTeamFormat(body.team.format),
@@ -70,11 +71,63 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "teamId is required" }, { status: 400 });
         }
 
-        const teams = await deleteStoredTeam(body.sessionId, Number(body.teamId));
+        const teams = await deleteStoredTeam(teamOwner, Number(body.teamId));
+
         return NextResponse.json({ teams });
       }
+      case "duplicate": {
+        if (!Number.isInteger(body.teamId)) {
+          return NextResponse.json({ error: "teamId is required" }, { status: 400 });
+        }
+
+        const teams = await getStoredTeams(teamOwner);
+        const sourceTeam = teams.find((team) => team.id === Number(body.teamId));
+
+        if (!sourceTeam) {
+          return NextResponse.json({ error: "Team not found" }, { status: 404 });
+        }
+
+        const result = await saveTeam(teamOwner, {
+          name: `${sourceTeam.name} 복사본`,
+          format: sourceTeam.format,
+          mode: sourceTeam.mode,
+          members: sourceTeam.members,
+        });
+
+        if (!result.savedTeamId) {
+          return NextResponse.json({ error: result.error ?? "team could not be duplicated", teams: result.teams }, { status: 400 });
+        }
+
+        return NextResponse.json(result);
+      }
+      case "rename": {
+        if (!Number.isInteger(body.teamId) || typeof body.teamName !== "string") {
+          return NextResponse.json({ error: "teamId and teamName are required" }, { status: 400 });
+        }
+
+        const teams = await getStoredTeams(teamOwner);
+        const sourceTeam = teams.find((team) => team.id === Number(body.teamId));
+
+        if (!sourceTeam) {
+          return NextResponse.json({ error: "Team not found" }, { status: 404 });
+        }
+
+        const result = await saveTeam(teamOwner, {
+          id: sourceTeam.id,
+          name: body.teamName,
+          format: sourceTeam.format,
+          mode: sourceTeam.mode,
+          members: sourceTeam.members,
+        });
+
+        if (!result.savedTeamId) {
+          return NextResponse.json({ error: result.error ?? "team could not be renamed", teams: result.teams }, { status: 400 });
+        }
+
+        return NextResponse.json(result);
+      }
       default:
-        return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+      return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
     }
   } catch {
     return NextResponse.json({ error: "Failed to save team state" }, { status: 500 });

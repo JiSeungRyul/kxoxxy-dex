@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
-import { TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
-import { getOrCreateAnonymousSessionId } from "@/features/pokedex/client/session";
+import { AUTH_UI_COPY, TYPE_BADGE_STYLES } from "@/features/pokedex/constants";
 import type {
   PokedexItemOptionEntry,
   PokedexMoveOptionEntry,
@@ -132,7 +131,6 @@ function getMoveFieldClasses(option: PokedexMoveOptionEntry | null) {
 export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [teams, setTeams] = useState<PokemonTeam[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -155,6 +153,8 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isAuthRequired, setIsAuthRequired] = useState(false);
+  const [authRequiredMessage, setAuthRequiredMessage] = useState<string | null>(null);
   const selectedTeamId = Number(searchParams.get("teamId"));
   const selectedPokemonByDexNumber = new Map(
     selectedPokemonCatalog.map((entry) => [entry.nationalDexNumber, entry]),
@@ -213,14 +213,23 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     return warnings;
   }, [isBattleMode, members, selectedPokemonByDexNumber]);
 
-  async function loadTeams(nextSessionId: string) {
-    const response = await fetch(`/api/teams/state?sessionId=${encodeURIComponent(nextSessionId)}`);
+  async function loadTeams() {
+    const response = await fetch("/api/teams/state");
 
     if (!response.ok) {
+      if (response.status === 401) {
+        setIsAuthRequired(true);
+        setAuthRequiredMessage(null);
+        setTeams([]);
+        return [];
+      }
+
       throw new Error("팀 목록을 불러오지 못했습니다.");
     }
 
     const payload = (await response.json()) as { teams?: PokemonTeam[] };
+    setIsAuthRequired(false);
+    setAuthRequiredMessage(null);
     setTeams(Array.isArray(payload.teams) ? payload.teams : []);
 
     return Array.isArray(payload.teams) ? payload.teams : [];
@@ -261,12 +270,9 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }
 
   useEffect(() => {
-    const nextSessionId = getOrCreateAnonymousSessionId();
-    setSessionId(nextSessionId);
-
     void (async () => {
       try {
-        const nextTeams = await loadTeams(nextSessionId);
+        const nextTeams = await loadTeams();
         const matchedTeam = Number.isInteger(selectedTeamId)
           ? nextTeams.find((entry) => entry.id === selectedTeamId) ?? null
           : null;
@@ -769,10 +775,6 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
   }
 
   async function handleSave() {
-    if (!sessionId) {
-      return;
-    }
-
     const normalizedTeamName = teamName.trim();
 
     if (normalizedTeamName.length === 0) {
@@ -831,7 +833,6 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionId,
           action: "save",
           team: {
             id: teamId,
@@ -850,10 +851,17 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
       };
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setIsAuthRequired(true);
+          setAuthRequiredMessage(AUTH_UI_COPY.sessionExpired.teamBuilder);
+          return;
+        }
+
         setError(payload.error ?? "팀 저장에 실패했습니다.");
         return;
       }
 
+      setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
       setNotice(teamId ? "변경사항을 저장했습니다." : "팀을 저장했습니다.");
@@ -870,6 +878,27 @@ export function TeamBuilderPage({ pokemonOptions, itemOptions }: TeamBuilderPage
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (isAuthRequired) {
+    return (
+      <section className="rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center shadow-card">
+        <p className="font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+          나만의 포켓몬 팀을 저장하세요
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          로그인하면 공들여 만든 팀 구성을 안전하게 저장하고 나중에 다시 불러와서 수정할 수 있습니다.
+        </p>
+        {authRequiredMessage ? <p className="mt-3 text-sm text-ember">{authRequiredMessage}</p> : null}
+        <button
+          type="button"
+          onClick={() => window.location.assign("/api/auth/sign-in")}
+          className="mt-6 inline-flex rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+        >
+          {AUTH_UI_COPY.signInButton}
+        </button>
+      </section>
+    );
   }
 
   return (

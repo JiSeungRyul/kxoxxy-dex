@@ -4,6 +4,8 @@ import type { ChangeEvent, ReactNode } from "react";
 import type {
   GenerationFilterValue,
   PokedexFilterOptions,
+  PokemonSortKey,
+  SortDirection,
   TypeFilterValue,
 } from "@/features/pokedex/types";
 import { formatGenerationLabel, formatTypeLabel } from "@/features/pokedex/utils";
@@ -15,11 +17,27 @@ type PokedexControlsProps = {
   selectedGeneration: GenerationFilterValue;
   resultCount: number;
   totalCount: number;
+  sortKey?: PokemonSortKey;
+  sortDirection?: SortDirection;
+  helperText?: string;
   onSearchChange: (value: string) => void;
   onTypeChange: (value: TypeFilterValue) => void;
   onGenerationChange: (value: GenerationFilterValue) => void;
+  onSortKeyChange?: (value: PokemonSortKey) => void;
+  onSortDirectionChange?: (value: SortDirection) => void;
   onReset: () => void;
 };
+
+const SORT_KEY_OPTIONS: Array<{ value: PokemonSortKey; label: string }> = [
+  { value: "nationalDexNumber", label: "도감 번호" },
+  { value: "name", label: "이름" },
+  { value: "hp", label: "HP" },
+  { value: "attack", label: "공격" },
+  { value: "defense", label: "방어" },
+  { value: "specialAttack", label: "특수공격" },
+  { value: "specialDefense", label: "특수방어" },
+  { value: "speed", label: "스피드" },
+];
 
 const fieldClassName =
   "h-12 min-w-0 rounded-2xl border border-border bg-input px-4 text-sm text-foreground outline-none transition focus:border-foreground focus:ring-2 focus:ring-foreground/10";
@@ -49,9 +67,14 @@ export function PokedexControls({
   selectedGeneration,
   resultCount,
   totalCount,
+  sortKey,
+  sortDirection,
+  helperText = "이름 검색과 타입, 세대 필터를 사용하고, 테이블 헤더를 눌러 원하는 기준으로 정렬할 수 있습니다.",
   onSearchChange,
   onTypeChange,
   onGenerationChange,
+  onSortKeyChange,
+  onSortDirectionChange,
   onReset,
 }: PokedexControlsProps) {
   return (
@@ -64,7 +87,7 @@ export function PokedexControls({
         </div>
 
         <p className="max-w-xl text-right text-xs leading-5 text-muted-foreground">
-          이름 검색과 타입, 세대 필터를 사용하고, 테이블 헤더를 눌러 원하는 기준으로 정렬할 수 있습니다.
+          {helperText}
         </p>
       </div>
 
@@ -107,6 +130,35 @@ export function PokedexControls({
             ))}
           </select>
         </ControlRow>
+
+        {sortKey && onSortKeyChange ? (
+          <ControlRow label="정렬 기준" className="flex-1">
+            <select
+              value={sortKey}
+              onChange={(event) => handleSelectChange(event, onSortKeyChange)}
+              className={`w-full ${fieldClassName}`}
+            >
+              {SORT_KEY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </ControlRow>
+        ) : null}
+
+        {sortDirection && onSortDirectionChange ? (
+          <ControlRow label="정렬 방향" className="flex-1">
+            <select
+              value={sortDirection}
+              onChange={(event) => handleSelectChange(event, onSortDirectionChange)}
+              className={`w-full ${fieldClassName}`}
+            >
+              <option value="asc">오름차순</option>
+              <option value="desc">내림차순</option>
+            </select>
+          </ControlRow>
+        ) : null}
 
         <button
           type="button"
