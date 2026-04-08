@@ -1,8 +1,5 @@
 import "server-only";
 
-import { access, readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { unstable_cache } from "next/cache";
 
 import {
@@ -27,7 +24,6 @@ import type {
   PokemonTeamBuilderMoveOptionGroup,
   PokedexListPage,
   PokedexListQuery,
-  PokedexSnapshot,
   PokemonSortKey,
   PokemonSummary,
   PokemonTeam,
@@ -60,8 +56,6 @@ import {
   selectDailyEncounterDexNumber,
   selectRandomDailyEncounterDexNumber,
 } from "@/features/pokedex/utils";
-
-const SNAPSHOT_PATH = path.join(process.cwd(), "data", "pokedex.json");
 const VALID_SORT_KEYS = new Set<PokemonSortKey>([
   "nationalDexNumber",
   "name",
@@ -81,31 +75,6 @@ const VALID_GENERATION_FILTERS = new Set<GenerationFilterValue>([
   ALL_GENERATION_FILTER,
   ...Object.keys(GENERATION_LABELS),
 ] as GenerationFilterValue[]);
-
-async function readPokedexSnapshot(): Promise<PokedexSnapshot> {
-  await access(SNAPSHOT_PATH);
-  const snapshotText = await readFile(SNAPSHOT_PATH, "utf8");
-
-  return JSON.parse(snapshotText) as PokedexSnapshot;
-}
-
-const getCachedPokedexSnapshot = unstable_cache(readPokedexSnapshot, ["pokedex-snapshot"], {
-  revalidate: 60 * 60 * 24,
-});
-
-export function getPokedexSnapshot() {
-  if (process.env.NODE_ENV !== "production") {
-    return readPokedexSnapshot();
-  }
-
-  return getCachedPokedexSnapshot();
-}
-
-export async function getPokemonBySlug(slug: string) {
-  const snapshot = await getPokedexSnapshot();
-
-  return snapshot.pokemon.find((entry) => entry.slug === slug) ?? null;
-}
 
 type LatestSnapshotRecord = {
   id: number;

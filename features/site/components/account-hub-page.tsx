@@ -148,7 +148,7 @@ export function AccountHubPage({ user, summary, accountRestored = false }: Accou
             href="/api/auth/sign-in"
             className="mt-4 inline-flex rounded-[1rem] border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
           >
-            Google로 로그인
+            로그인하기
           </Link>
         </section>
       )}

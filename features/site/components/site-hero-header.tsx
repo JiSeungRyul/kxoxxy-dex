@@ -101,7 +101,7 @@ export function SiteHeroHeader() {
     };
   }, []);
 
-  async function handleDevelopmentLogin() {
+  async function handleSignIn() {
     if (authMode === "provider" && authProvider === "google") {
       window.location.assign("/api/auth/sign-in");
       return;
@@ -213,14 +213,14 @@ export function SiteHeroHeader() {
               {authUser
                 ? "로그인 상태입니다."
                 : authMode === "provider" && authProvider === "google"
-                  ? "Google 계정으로 로그인하고 모든 기능을 사용해 보세요."
-                  : "현재는 개발용 로그인만 지원합니다."}
+                  ? "로그인하고 모든 기능을 사용해 보세요."
+                  : "provider 설정이 없어 개발용 로그인 경로를 사용 중입니다."}
             </p>
             {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={authUser ? handleLogout : handleDevelopmentLogin}
+                onClick={authUser ? handleLogout : handleSignIn}
                 disabled={isAuthMutating}
                 className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               >

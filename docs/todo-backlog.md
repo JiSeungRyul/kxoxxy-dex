@@ -2,6 +2,8 @@
 
 `x`가 숫자 앞에 붙은 항목은 완료된 작업이다.
 
+이 문서는 작업 히스토리와 계획 메모를 함께 보존한다. 완료된 항목의 세부 메모는 당시 중간 설계를 설명할 수 있으므로, 현재 런타임 truth는 `docs/current-product.md`, `docs/architecture.md`, `docs/session-guide.md`를 우선한다.
+
 ## 1. 성능/구조 안정화
 - `x1). /daily, /my-pokemon, /teams의 초기 payload 추가 축소`
 - `x2). daily / collection / team-builder가 첫 로드에서 broad catalog 데이터를 넘기지 않도록 route별 payload 재구성`
@@ -220,6 +222,7 @@
 - `x29-12). anonymous persistence fallback 제거 범위 정리 및 smoke check`
 
 `29` 설계 메모:
+이 메모는 당시 설계 결정을 보존하는 historical design note다. 현재 활성 auth/runtime truth는 `docs/current-product.md`, `docs/architecture.md`, `docs/session-guide.md`를 우선한다.
 - 현재 `resolveAuthenticatedUserSession()`와 ownership resolver는 유지하고, 세션 발급 주체만 development-only route에서 real provider-backed auth 경계로 교체하는 방향이 기본입니다.
 - `/api/auth/session`은 current session read 경계로 유지하고, 실제 sign-in / sign-out은 별도 route 또는 provider handler로 분리하는 쪽이 더 자연스럽습니다.
 - header auth panel은 삭제보다 교체가 맞습니다. 즉 현재 UI 위치와 세션 상태 표시는 유지하되, `개발용 로그인` 버튼만 실제 sign-in entry로 바꾸는 방향을 우선합니다.

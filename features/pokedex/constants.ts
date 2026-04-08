@@ -8,7 +8,7 @@ export const DEFAULT_SORT_DIRECTION: SortDirection = "asc";
 export const POKEMON_PER_PAGE = 50;
 
 export const AUTH_UI_COPY = {
-  signInButton: "Google로 로그인",
+  signInButton: "로그인하기",
   signInStartFailed: "로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   inactiveAccountStartFailed:
     "비활성화된 계정입니다. 현재는 grace period 안에서 같은 계정으로만 복구할 수 있습니다.",
