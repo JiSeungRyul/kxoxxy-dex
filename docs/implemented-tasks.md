@@ -138,5 +138,8 @@ The sections below record intermediate migration steps that are no longer the ac
 
 ## Random Team Entry Point (Added: 2026-04-07)
 - Added `/teams/random` as a lightweight random-team experience under the team-building navigation.
-- The first version samples six unique Pokemon species and renders only artwork, dex number, name, and types.
-- Kept the feature separate from saved-team editing so it does not alter the existing team-builder persistence flow.
+- The first version intentionally randomizes Pokemon species only and leaves item, ability, nature, moves, battle stats, and tera settings out of scope.
+- The first version samples six unique Pokemon species and renders only artwork, dex number, name, and types in a lightweight result card grid.
+- Kept the feature as a separate entry under the team-building navigation so it does not alter the existing team-builder save/edit flow.
+- Followed up on the presentation so the explanation, action button, and result area now read as one connected block, while the result heading copy is simplified to `랜덤 팀` / `Random Team`.
+- Added a short rolling state with lightweight motion and a brief delay so the random draw feels intentional without stretching into a long wait.
