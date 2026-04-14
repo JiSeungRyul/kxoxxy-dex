@@ -143,6 +143,9 @@ The sections below record intermediate migration steps that are no longer the ac
 - Kept the feature as a separate entry under the team-building navigation so it does not alter the existing team-builder save/edit flow.
 - Followed up on the presentation so the explanation, action button, and result area now read as one connected block, while the result heading copy is simplified to `랜덤 팀` / `Random Team`.
 - Added a short rolling state with lightweight motion and a brief delay so the random draw feels intentional without stretching into a long wait.
+- Added a first-load placeholder grid for `/teams/random` so the result area keeps its six-card structure visible before the user triggers the first draw.
+- Added a first-pass filter bar for `/teams/random` with generation selection and `전설 · 환상 제외`.
+- Kept the existing no-duplicate-species behavior implicit in the current random sampling logic, so no separate dex-duplication toggle was added.
 
 ## Account Hub Navigation Split (Added: 2026-04-14)
 - Reworked `/my` so the account-hub links are no longer shown as one flat card row.
