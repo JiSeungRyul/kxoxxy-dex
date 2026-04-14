@@ -32,6 +32,47 @@ function getProviderLabel(provider: string | null) {
   return "연결된 provider 없음";
 }
 
+const ACCOUNT_HUB_SECTIONS = [
+  {
+    title: "컬렉션",
+    description: "계정에 저장된 포켓몬 수집 진행 상태를 확인하는 영역입니다.",
+    links: [
+      {
+        href: "/favorites",
+        title: "즐겨찾기",
+        description: "찜한 포켓몬 목록을 바로 확인합니다.",
+      },
+      {
+        href: "/my-pokemon",
+        title: "내 포켓몬",
+        description: "포획한 포켓몬과 컬렉션 진행 상태를 확인합니다.",
+      },
+    ],
+  },
+  {
+    title: "팀",
+    description: "저장한 팀을 모아 보고 이어서 관리하는 영역입니다.",
+    links: [
+      {
+        href: "/my-teams",
+        title: "내 팀 보기",
+        description: "저장한 팀을 모아서 보고 이어서 수정합니다.",
+      },
+    ],
+  },
+  {
+    title: "계정 관리",
+    description: "계정 상태와 저장 기능 정책을 확인하는 영역입니다.",
+    links: [
+      {
+        href: "/my",
+        title: "계정 요약",
+        description: "현재 계정 정보, 활동 요약, 로그인 정책을 다시 확인합니다.",
+      },
+    ],
+  },
+] as const;
+
 export function AccountHubPage({ user, summary, accountRestored = false }: AccountHubPageProps) {
   return (
     <InfoPageShell
@@ -95,29 +136,26 @@ export function AccountHubPage({ user, summary, accountRestored = false }: Accou
           </section>
 
           <section className="rounded-[1.5rem] border border-border bg-background p-5 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Hub</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Link
-                href="/favorites"
-                className="rounded-[1.25rem] border border-border bg-card px-4 py-4 transition hover:bg-muted"
-              >
-                <p className="text-sm font-semibold text-foreground">즐겨찾기</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">찜한 포켓몬 목록을 바로 확인합니다.</p>
-              </Link>
-              <Link
-                href="/my-pokemon"
-                className="rounded-[1.25rem] border border-border bg-card px-4 py-4 transition hover:bg-muted"
-              >
-                <p className="text-sm font-semibold text-foreground">내 포켓몬</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">포획한 포켓몬과 컬렉션 진행 상태를 확인합니다.</p>
-              </Link>
-              <Link
-                href="/my-teams"
-                className="rounded-[1.25rem] border border-border bg-card px-4 py-4 transition hover:bg-muted"
-              >
-                <p className="text-sm font-semibold text-foreground">내 팀 보기</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">저장한 팀을 모아서 보고 이어서 수정합니다.</p>
-              </Link>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Navigation</p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              {ACCOUNT_HUB_SECTIONS.map((section) => (
+                <div key={section.title} className="rounded-[1.25rem] border border-border bg-card px-4 py-4">
+                  <p className="text-sm font-semibold text-foreground">{section.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{section.description}</p>
+                  <div className="mt-4 space-y-3">
+                    {section.links.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="block rounded-[1rem] border border-border bg-background px-4 py-3 transition hover:bg-muted"
+                      >
+                        <p className="text-sm font-semibold text-foreground">{link.title}</p>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">{link.description}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 
@@ -148,7 +186,7 @@ export function AccountHubPage({ user, summary, accountRestored = false }: Accou
             href="/api/auth/sign-in"
             className="mt-4 inline-flex rounded-[1rem] border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
           >
-            Google로 로그인
+            로그인하기
           </Link>
         </section>
       )}

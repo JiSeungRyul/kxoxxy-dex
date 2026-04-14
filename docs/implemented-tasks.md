@@ -3,6 +3,7 @@
 ## Purpose
 - Keep a historical record of completed work.
 - Record what has been built without redefining the full current architecture.
+- Older entries may describe intermediate runtime states that were later replaced; use `docs/current-product.md`, `docs/architecture.md`, and `docs/session-guide.md` as the current runtime source of truth.
 
 ## Core Pokedex Browsing
 - Implemented the main Pokedex browsing route at `/pokedex`
@@ -49,7 +50,11 @@
 - Removed the unnecessary `/favorites` dependency on the daily collection-state load path so the favorites view now waits on favorites state directly instead of first relying on `/api/daily/state`.
 - Re-ran `npm run typecheck`, `npm run build`, and local smoke checks for `/favorites`, `/api/favorites/state`, and `/api/daily/state` after the decoupling change.
 
-## Authentication Groundwork (Added: 2026-04-03)
+## Historical Auth And Ownership Migration Notes
+
+The sections below record intermediate migration steps that are no longer the active runtime model. Read them as implementation history, not as current behavior.
+
+## Authentication Groundwork (Historical, Added: 2026-04-03)
 - Defined the preferred auth direction as minimal auth plus a separate server-managed authenticated session layered on top of the current anonymous-session fallback.
 - Added checked-in DB schema groundwork for `users`, `auth_accounts`, and `sessions` so later auth runtime work can resolve a durable `user_id`.
 - Added a minimal authenticated-session read boundary at `app/api/auth/session/route.ts` plus a shared server helper for resolving the current authenticated user from the future auth-session cookie.
@@ -57,27 +62,27 @@
 - Verified the new groundwork with `npm run typecheck`, `npm run build`, `npm run db:migrate`, unauthenticated `GET /api/auth/session`, and an authenticated local smoke check using a temporary `users`/`sessions` row plus `kxoxxy-auth-session` cookie.
 - Kept runtime auth, login/logout UI, and authenticated request handling explicitly out of this step.
 
-## Minimal Auth Session UI (Added: 2026-04-03)
+## Minimal Auth Session UI (Historical, Added: 2026-04-03)
 - Extended `app/api/auth/session/route.ts` so the current MVP auth boundary can create and clear a development-only auth session in addition to reading it.
 - Added a small auth panel to the shared site header so local sessions can be created and cleared without adding a dedicated auth page yet.
 - Verified the round-trip with local `POST /api/auth/session`, `GET /api/auth/session`, `DELETE /api/auth/session`, and final `GET /api/auth/session` checks using the issued `kxoxxy-auth-session` cookie.
 
-## Shared Ownership Resolver Groundwork (Added: 2026-04-03)
+## Shared Ownership Resolver Groundwork (Historical, Added: 2026-04-03)
 - Added a shared server ownership resolver that prefers authenticated `userId` and falls back to anonymous `sessionId`.
 - Wired the favorites and teams state routes to that resolver so later `user_id` persistence work can start from one common owner-selection path.
 - Verified that anonymous requests still return the current anonymous-session-backed responses, while authenticated favorites and teams requests now return explicit pending-owner responses until their `user_id` persistence steps are implemented.
 
-## Authenticated Favorites Ownership (Added: 2026-04-03)
+## Authenticated Favorites Ownership (Historical, Added: 2026-04-03)
 - Extended `favorite_pokemon` so favorites can now belong to either `anonymous_session_id` or `user_id`.
 - Kept anonymous favorites intact while enabling authenticated favorites to read and write through the shared ownership resolver.
 - Verified both paths locally: anonymous favorites still toggle normally, and authenticated favorites now persist separately under `user_id`.
 
-## Authenticated Daily Ownership (Added: 2026-04-03)
+## Authenticated Daily Ownership (Historical, Added: 2026-04-03)
 - Extended `daily_encounters` and `daily_captures` so daily/my-pokemon state can now belong to either `anonymous_session_id` or `user_id`.
 - Reused the shared ownership resolver in `app/api/daily/state/route.ts` so authenticated daily requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
 - Verified both paths locally with `npm run db:generate`, `npm run db:migrate`, `npm run build`, `npm run typecheck`, anonymous `GET/POST /api/daily/state`, authenticated `POST /api/auth/session`, authenticated `GET/POST /api/daily/state`, authenticated `release`, and a final anonymous `GET /api/daily/state` check confirming the two owners stay separated.
 
-## Authenticated Team Ownership (Added: 2026-04-03)
+## Authenticated Team Ownership (Historical, Added: 2026-04-03)
 - Extended `teams` so saved teams can now belong to either `anonymous_session_id` or `user_id` without changing the existing `team_members` shape.
 - Reused the shared ownership resolver in `app/api/teams/state/route.ts` so authenticated team requests resolve `user_id` first while anonymous requests keep the current cookie-backed session flow.
 - Verified both paths locally: anonymous teams still save and load normally, and authenticated teams now persist separately under `user_id` while reusing the existing authenticated save path and keeping the existing builder edit link.
@@ -130,3 +135,21 @@
 - Kept the `my-pokemon` management controls focused on high-value collection browsing signals rather than adding broader sort families.
 - Extended capture-time sorting with an `오래된 포획순` option in addition to the existing recent-first order.
 - Explicitly left generation, shiny-priority, and type-group sorting out of the current MVP scope.
+
+## Random Team Entry Point (Added: 2026-04-07)
+- Added `/teams/random` as a lightweight random-team experience under the team-building navigation.
+- The first version intentionally randomizes Pokemon species only and leaves item, ability, nature, moves, battle stats, and tera settings out of scope.
+- The first version samples six unique Pokemon species and renders only artwork, dex number, name, and types in a lightweight result card grid.
+- Kept the feature as a separate entry under the team-building navigation so it does not alter the existing team-builder save/edit flow.
+- Followed up on the presentation so the explanation, action button, and result area now read as one connected block, while the result heading copy is simplified to `랜덤 팀` / `Random Team`.
+- Added a short rolling state with lightweight motion and a brief delay so the random draw feels intentional without stretching into a long wait.
+- Added a first-load placeholder grid for `/teams/random` so the result area keeps its six-card structure visible before the user triggers the first draw.
+- Added a first-pass filter bar for `/teams/random` with generation selection and `전설 · 환상 제외`.
+- Kept the existing no-duplicate-species behavior implicit in the current random sampling logic, so no separate dex-duplication toggle was added.
+- Expanded the default `/teams/random` draw so currently supported general forms are sampled inside the existing six-species draw, and the result cards now render the selected form artwork, types, and Korean form label when a supported form is chosen.
+- Added a first-pass `최소 타입` draw condition for `/teams/random`, retrying the six-species sample until the final displayed team includes at least one Pokemon of the selected type.
+
+## Account Hub Navigation Split (Added: 2026-04-14)
+- Reworked `/my` so the account-hub links are no longer shown as one flat card row.
+- Grouped the hub navigation into collection, team, and account-management sections while keeping the existing destinations unchanged.
+- Kept account profile, summary, guide copy, and delete-request entry on the same page so the change stays within information architecture and presentation scope.

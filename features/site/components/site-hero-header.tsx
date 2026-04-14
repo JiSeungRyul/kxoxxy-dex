@@ -54,7 +54,7 @@ export function SiteHeroHeader() {
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
-  const isTeamsActive = pathname === "/teams" || pathname === "/my-teams";
+  const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
   const isMyActive = pathname === "/my" || pathname === "/favorites";
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -101,7 +101,7 @@ export function SiteHeroHeader() {
     };
   }, []);
 
-  async function handleDevelopmentLogin() {
+  async function handleSignIn() {
     if (authMode === "provider" && authProvider === "google") {
       window.location.assign("/api/auth/sign-in");
       return;
@@ -213,14 +213,14 @@ export function SiteHeroHeader() {
               {authUser
                 ? "로그인 상태입니다."
                 : authMode === "provider" && authProvider === "google"
-                  ? "Google 계정으로 로그인하고 모든 기능을 사용해 보세요."
-                  : "현재는 개발용 로그인만 지원합니다."}
+                  ? "로그인하고 모든 기능을 사용해 보세요."
+                  : "provider 설정이 없어 개발용 로그인 경로를 사용 중입니다."}
             </p>
             {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={authUser ? handleLogout : handleDevelopmentLogin}
+                onClick={authUser ? handleLogout : handleSignIn}
                 disabled={isAuthMutating}
                 className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -323,6 +323,13 @@ export function SiteHeroHeader() {
                 className={SUBMENU_LINK_CLASS}
               >
                 내 팀 보기
+              </Link>
+              <Link
+                href="/teams/random"
+                onClick={() => setIsTeamsMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                랜덤 팀 뽑기
               </Link>
             </div>
           </div>

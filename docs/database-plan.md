@@ -210,12 +210,12 @@ Result:
 - Add follow-up checks for migration application and local server restart behavior during DB-related development.
 - Keep the current auth replacement work narrow:
   - preserve `users`, `auth_accounts`, and `sessions`
-  - preserve the current-session read helper and `user_id` ownership resolver
+  - preserve the current-session read helper and the direct `user_id` ownership boundary used by persisted-state APIs
   - replace only the development-only session issuance path with a real provider-backed sign-in/sign-out flow
 - The first provider-backed target is now Google:
   - sign-in redirect starts at `/api/auth/sign-in`
   - callback lands at `/api/auth/callback/google`
-  - successful callback should continue materializing local `sessions` rows so the existing ownership resolver keeps working unchanged
+  - successful callback should continue materializing local `sessions` rows so the existing direct `user_id` API ownership flow keeps working unchanged
 - The anonymous ownership cleanup is now also live at the schema layer:
   - `daily_captures`, `daily_encounters`, `favorite_pokemon`, and `teams` no longer keep `anonymous_session_id`
   - `anonymous_sessions` is removed

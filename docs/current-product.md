@@ -7,8 +7,13 @@
   - `/`
   - `/pokedex`
   - `/pokemon/[slug]`
+  - `/favorites`
   - `/daily`
   - `/my-pokemon`
+  - `/teams`
+  - `/teams/random`
+  - `/my-teams`
+  - `/my`
 
 ## User-Facing Features
 - Main Pokedex browsing with search, type filter, generation filter, sorting, and pagination
@@ -22,9 +27,13 @@
   - evolution displays
   - defensive matchup reference
   - cry audio and footprint display
+- Favorites gallery based on account-bound saved Pokemon
 - Daily encounter flow with login-required capture progress and shiny chance
 - My Pokemon gallery based on captured Pokemon stored on the logged-in account
 - Team builder for saving up to six Pokemon with account-bound persistence plus team-level default-or-Gen 6-9 format selection and per-member level, nature, item, ability, moves, IVs, EVs, and level-based battle stat display
+- My Teams management with search, filtering, sorting, duplication, and rename actions
+- Random team route that samples six unique species and shows a lightweight result card grid
+- Account hub for profile, activity summary, login-required guidance, and account deletion request
 - Theme toggle
 - Contact, terms, and privacy pages
 
@@ -33,12 +42,17 @@
 - Daily encounter now uses authenticated `user_id`-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
 - My Pokemon now reads the same authenticated server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
+- `/teams/random` now provides a lightweight random-team entry that samples six unique Pokemon species and renders image, dex number, name, and types only, while keeping a six-slot placeholder grid visible before the first draw.
+- `/teams/random` now also has first-pass draw filters for generation and legendary/mythical exclusion before the team is sampled.
+- `/teams/random` now treats currently supported general forms as part of the default draw experience, so species such as Rotom can appear with one of the already-supported non-default forms while still keeping the draw at six unique species.
+- `/teams/random` now also supports a first-pass minimum-type condition so the final six-card result includes at least one Pokemon of the selected type.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
-- The site header now exposes Google sign-in/sign-out rather than the old development-only auth panel.
+- The site header now resolves auth mode from `/api/auth/session` and exposes Google sign-in in provider mode or a development fallback button when provider auth is not configured.
 - Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
 - `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
 - `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
-- `/my` now links directly into `즐겨찾기`, `내 포켓몬`, `내 팀 보기` so it acts as the first account hub.
+- `/my` now groups account-hub navigation into collection, team, and account-management sections instead of one flat link row.
+- `/my` still links directly into `즐겨찾기`, `내 포켓몬`, and `내 팀 보기`, while keeping account summary and policy copy in the same hub surface.
 - `/my` now also explains which features are login-required and how account-bound persistence currently works.
 - `/my` now also exposes a first account deletion request entry that soft-deletes the current account, clears authenticated sessions, and returns the user to signed-out behavior.
 - `/my` now also shows a recovery notice when a soft-deleted account is restored within the grace period through a new login.
@@ -64,16 +78,17 @@
 - The app currently presents one Korean-first experience and does not support runtime locale switching.
 
 ## Current Constraints
-- Real provider-backed authentication is now available locally through Google OAuth, though production hardening is still not complete.
-- Minimal auth schema groundwork exists, and the header auth panel now acts as the real Google sign-in entry in provider mode.
+- Provider-backed authentication is now available locally through Google OAuth when the provider env vars are configured, though production hardening is still not complete.
+- The header auth panel now acts as the Google sign-in entry in provider mode and falls back to a development-only session start button when provider auth is not configured.
 - Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams.
 - The current product policy is now fixed: browse routes stay public, but persisted state routes are login-required and no longer expose anonymous saved state as a product feature.
 - The current auth routes now already reflect that split:
   - `GET /api/auth/session` for current-session reads
-  - `GET /api/auth/sign-in` for provider redirect entry
+  - `GET /api/auth/sign-in` as the canonical user-facing sign-in entry, redirecting to Google in provider mode or creating a development fallback session when provider auth is not configured
+  - `POST /api/auth/sign-in` as the remaining local development fallback/session-test boundary used by the header in development mode
   - `POST /api/auth/sign-out` for sign-out
   - `POST /api/account/delete` for authenticated soft-delete requests
-- Google provider-backed auth routing is now implemented for local verification:
+- Google provider-backed auth routing is now implemented for local verification when provider mode is configured:
   - `/api/auth/sign-in` can start the Google OAuth redirect flow
   - `/api/auth/callback/google` can materialize a local authenticated session after callback
   - inactive soft-deleted users are blocked from creating a new authenticated session and fall back to signed-out behavior on protected reads
@@ -85,7 +100,7 @@
 - That cutover is now live for favorites:
   - favorites read/write is now login-required
   - `/favorites` renders a login CTA instead of anonymous saved state
-  - favorite toggles from browsing/detail routes now redirect into Google sign-in when auth is absent
+  - favorite toggles from browsing/detail routes now route into `/api/auth/sign-in` when auth is absent
   - `/favorites` now supports search, type/generation filtering, sort selection, and pagination for saved favorites
   - favorites navigation now flows through `/my` account hub instead of an independent top-level favorites menu
   - favorite toggles are now synchronized across list, detail, and favorites views through a shared client-side sync event, and `/favorites` distinguishes between true empty state and filter-result empty state
@@ -100,6 +115,7 @@
   - `/api/teams/state` is login-required
   - `/teams` and `/my-teams` render login CTA states instead of anonymous saved teams
   - team save/delete actions now depend on authenticated session
+  - `/teams/random` is browse-only and does not save or edit team data
   - `/my-teams` now supports sorting the saved team list by recent update, name, format, and mode
   - `/my-teams` now also supports team duplication and in-place team-name changes while keeping the existing builder edit entry
   - `/my-teams` now also supports team-name search plus format/mode filtering for larger saved-team lists
@@ -109,7 +125,7 @@
 - The follow-up schema cleanup also removes the old anonymous-session owner columns and table from active persisted-state storage.
 
 ## Current Risks
-- The current auth flow is now provider-backed locally, but it still needs product-level tightening around login-required persistence and broader runtime hardening.
+- The current auth flow can run in provider mode or development fallback mode depending on env configuration, and that split still needs product-level tightening around login-required persistence and broader runtime hardening.
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources

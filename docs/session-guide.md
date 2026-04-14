@@ -29,7 +29,7 @@ If the task depends on refreshing upstream catalog content rather than only impo
 - `npm run db:seed:pokedex` and `npm run db:seed:items` only import the current local snapshot files
 - `npm run db:seed:moves` regenerates the move snapshot and then imports it
 
-If the task depends on /daily, /my-pokemon, /teams, or their state APIs, read docs/verification-guide.md before changing the verification flow.
+If the task depends on `/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/my`, `/teams/random`, or their state/auth APIs, read `docs/verification-guide.md` before changing the verification flow.
 
 If the task depends on route or API performance measurement, read docs/performance-guide.md before changing the measurement workflow.
 
@@ -37,13 +37,20 @@ If the task depends on route or API performance measurement, read docs/performan
 - The repository is in a hybrid state.
 - `/` and `/pokedex` load list data through PostgreSQL-backed catalog queries.
 - `/pokemon/[slug]` loads detail data from PostgreSQL-backed catalog queries.
+- `/favorites` loads saved favorite dex numbers through the authenticated favorites API and fetches favorite card detail on demand through `app/api/pokedex/catalog`.
 - `/daily` now loads a dex-number-only daily candidate index through PostgreSQL-backed catalog queries and fetches encounter/recent-capture detail on demand through `app/api/pokedex/catalog`.
 - `/daily` stores encounter and capture state through authenticated `user_id` ownership, including shiny flags.
 - `/my-pokemon` now loads captured Pokemon detail on demand through `app/api/pokedex/catalog` after authenticated collection state is loaded, instead of shipping the gallery catalog on first render.
 - `/my-pokemon` reads captured collection state through the same authenticated API used by daily.
 - `/teams` now loads a small option list with dex number, Korean name, generation, and Pokedex-name metadata through PostgreSQL-backed catalog queries and fetches selected team-member detail on demand through `app/api/pokedex/catalog`.
 - `/teams` and `/my-teams` read and write team data through the same authenticated `user_id`-backed PostgreSQL APIs, including per-member level configuration.
+- `/teams/random` now reads the same reduced team-builder option payload from PostgreSQL, samples six species in the client, and fetches displayed card detail through `app/api/pokedex/catalog` without touching saved team state.
 - Legacy anonymous-session handoff and local-storage session migration are no longer part of the active client runtime.
+- Auth routing is mode-aware:
+  - `GET /api/auth/session` returns current-session state plus `authMode`
+  - `GET /api/auth/sign-in` is the canonical user-facing sign-in entry, starting Google OAuth in provider mode or creating a development fallback session plus redirect when provider auth is not configured
+  - `POST /api/auth/sign-in` remains as a local development fallback/session-test boundary when provider auth is not configured
+  - `POST /api/auth/sign-out` clears the current local authenticated session
 - Soft-deleted inactive accounts are now rejected at the authenticated-session boundary: existing auth-session rows are treated as invalid, and protected routes fall back to login-required states until the account is active again.
 - `/my` now also includes a first account deletion request entry that posts to `app/api/account/delete` and soft-deletes the current account while clearing active sessions.
 - The same account flow now also allows grace-period recovery: a soft-deleted user who signs in again within the current recovery window is reactivated and lands on `/my` with a restore notice.
@@ -65,12 +72,21 @@ If the task depends on route or API performance measurement, read docs/performan
 - `app/page.tsx`
 - `app/pokedex/page.tsx`
 - `app/pokemon/[slug]/page.tsx`
+- `app/favorites/page.tsx`
 - `app/daily/page.tsx`
 - `app/my-pokemon/page.tsx`
 - `app/teams/page.tsx`
+- `app/teams/random/page.tsx`
 - `app/my-teams/page.tsx`
+- `app/my/page.tsx`
+- `app/api/auth/session/route.ts`
+- `app/api/auth/sign-in/route.ts`
+- `app/api/auth/sign-out/route.ts`
+- `app/api/auth/callback/google/route.ts`
+- `app/api/favorites/state/route.ts`
 - `app/api/account/delete/route.ts`
 - `app/api/teams/state/route.ts`
+- `features/pokedex/server/auth-session.ts`
 - `features/pokedex/server/repository.ts`
 - `features/pokedex/components/pokedex-page.tsx`
 - `features/pokedex/types.ts`
@@ -123,7 +139,7 @@ If the task depends on route or API performance measurement, read docs/performan
   - most runtime or schema work should stop at `db:migrate` plus the needed `db:seed:*` commands
   - `sync:*` is a dataset refresh workflow, not a routine runtime verification step
 - Daily and team migration caveat:
-  - the daily and team APIs depend on migrated anonymous-session tables and can fail until DB migrations are applied
+  - the persisted-state APIs depend on migrated authenticated user-state tables and can fail until DB migrations are applied
 - Local runtime caveat:
   - on Windows, DB-related changes may require a clean Next.js dev server restart because `.next/trace` locking can interfere with reload behavior
 - Doc drift:
@@ -161,17 +177,18 @@ If the task depends on route or API performance measurement, read docs/performan
   - `auth_accounts`
   - `sessions`
 - A minimal authenticated-session read boundary now also exists at `/api/auth/session`.
-- The header now has a development-only minimal auth panel that can create and clear a server-managed auth session for local verification.
+- The header now resolves auth mode from `/api/auth/session` and can either start Google OAuth in provider mode or issue a development fallback session when provider auth is not configured.
 - Local verification for that boundary now includes:
   - unauthenticated `GET /api/auth/session` -> `authenticated: false`
   - temporary local `users` + `sessions` rows plus `kxoxxy-auth-session` cookie -> `authenticated: true`
-- Local verification for the current minimal login UI now also includes:
-  - `POST /api/auth/session` -> auth cookie issued
+- Local verification for the current auth UI now also includes:
+  - development fallback `POST /api/auth/sign-in` -> auth cookie issued when provider auth is not configured
+  - provider mode `GET /api/auth/sign-in` -> Google redirect start when provider auth is configured
   - follow-up `GET /api/auth/session` -> `authenticated: true`
-  - `DELETE /api/auth/session` -> auth cookie cleared
+  - `POST /api/auth/sign-out` -> auth cookie cleared
   - final `GET /api/auth/session` -> `authenticated: false`
 - Favorites, daily/my-pokemon, and teams/my-teams now all use authenticated `user_id` as the only active runtime owner.
-- Real provider-backed Google auth is now live for local runtime verification, and authenticated favorites, daily/my-pokemon, and teams ownership can now be exercised without the old development-only auth path.
+- Real provider-backed Google auth is now live for local runtime verification when provider env vars are configured, and development fallback still remains available through the header when they are not.
 - `/my` now exists as the first account-hub route and renders the current user's name, email, and provider from the authenticated session.
 - `/my` now also aggregates favorites count, captured count, and saved-team count on the server for the first account-hub summary view.
 - `/my` now also acts as the first account-hub navigation surface for `/favorites`, `/my-pokemon`, and `/my-teams`.
@@ -194,18 +211,16 @@ If the task depends on route or API performance measurement, read docs/performan
   - teams / my-teams state
 - Anonymous persistence is no longer part of the active product runtime for persisted features.
 - The remaining auth follow-up is no longer the `user_id` write transition itself.
-- The next larger follow-up is replacing the current development-only auth flow with a real provider-backed authentication boundary when backlog item `25` is revisited at runtime quality level.
+- The next auth follow-up is tightening the coexistence boundary between provider mode and the remaining development fallback issuance path.
 
 ## Account Auth Replacement Plan (Added: 2026-04-05)
 - Backlog items `29-1` through `29-3` are now defined at the planning level.
 - Keep:
   - `resolveAuthenticatedUserSession()` as the current-session read boundary
-  - the shared ownership resolver that prefers authenticated `userId`
   - `/api/auth/session` as the current-session read endpoint for the header and other client UI
 - Replace:
   - `createDevelopmentAuthSession()` as the session-issuance path
   - the old development-only `POST /api/auth/sign-in` login flow
-  - the old development-only `POST /api/auth/sign-out` logout flow
   - the header button copy and click path that currently says `개발용 로그인`
 - Preferred real-auth shape:
   - one minimal provider-backed sign-in entry
@@ -214,7 +229,9 @@ If the task depends on route or API performance measurement, read docs/performan
 - The replacement goal is to preserve the existing `user_id` ownership behavior for favorites, daily/my-pokemon, and teams while swapping only the auth-session issuance and lifecycle boundary.
 - The current no-key groundwork now reflects that split:
   - `GET /api/auth/session` stays as the current-session read endpoint
-  - `GET /api/auth/sign-in` and `POST /api/auth/sign-out` are the new issuance/lifecycle boundaries
+  - `GET /api/auth/sign-in` is the canonical user-facing sign-in entry for both auth modes
+  - `POST /api/auth/sign-in` is the remaining local development fallback/session-test boundary when provider auth is not configured
+  - `POST /api/auth/sign-out` is the shared lifecycle boundary for both modes
   - provider env vars stay optional for now, and when they are empty the sign-in route keeps the current development fallback
 - Google auth route groundwork is now live when provider env vars are present:
   - `GET /api/auth/sign-in` redirects to Google and sets an auth-state cookie
@@ -267,15 +284,15 @@ If the task depends on route or API performance measurement, read docs/performan
 - Favorites is now the first route fully switched to auth-required persistence:
   - `/api/favorites/state` now returns `401` with `authRequired: true` when no authenticated session exists
   - `/favorites` now shows a login CTA instead of anonymous saved data
-  - favorites toggles from the main Pokedex and Pokemon detail page now use Google sign-in as the entry point when auth is missing
+  - favorites toggles from the main Pokedex and Pokemon detail page now use `/api/auth/sign-in` as the entry point when auth is missing
 - Daily and my-pokemon are now the next routes switched to auth-required persistence:
   - `/api/daily/state` now returns `401` with `authRequired: true` when no authenticated session exists
   - `/daily` and `/my-pokemon` now show login CTA states instead of anonymous saved progress
-  - capture / reset / reroll / release actions now use Google sign-in as the entry point when auth is missing
+  - capture / reset / reroll / release actions now use `/api/auth/sign-in` as the entry point when auth is missing
 - Teams and my-teams are now also switched to auth-required persistence:
   - `/api/teams/state` now returns `401` with `authRequired: true` when no authenticated session exists
   - `/teams` and `/my-teams` now show login CTA states instead of anonymous saved team data
-  - team save / delete actions now use Google sign-in as the entry point when auth is missing
+  - team save / delete actions now use `/api/auth/sign-in` as the entry point when auth is missing
 - `29-12` now also completes the remaining cleanup:
   - the old anonymous-session helper files are removed from the active runtime
   - the old local-storage session handoff is removed from the client
@@ -324,11 +341,8 @@ If the task depends on route or API performance measurement, read docs/performan
 ## Snapshot-Era Runtime Helper Candidates (Added: 2026-04-05)
 - `28-3` is now completed at the documentation level.
 - Cleanup candidates in `features/pokedex/server/repository.ts` are the old local-file runtime helpers that no longer back the active route tree:
-  - `readPokedexSnapshot()`
-  - `getCachedPokedexSnapshot()`
-  - `getPokedexSnapshot()`
-  - `getPokemonBySlug()`
-- These helpers still point at `data/pokedex.json` and represent the older snapshot-runtime path rather than the current DB-backed route path.
+  - this cleanup is now completed for the local-file Pokemon snapshot helpers that used to read `data/pokedex.json` directly
+- The old local-file Pokemon snapshot helpers are no longer part of `repository.ts`.
 - Non-candidates for this cleanup step:
   - `getLatestSnapshotRecord()`
   - `getLatestMoveSnapshotRecord()`

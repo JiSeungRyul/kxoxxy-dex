@@ -21,6 +21,8 @@
   1. `docker compose up -d`
   2. `npm run db:migrate`
   3. `npm run db:seed:pokedex`
+  4. `npm run db:seed:items`
+- If you also want to measure move-option behavior, run `npm run db:seed:moves`.
 - `DATABASE_URL` points at the local PostgreSQL instance.
 - If Windows `.next/trace` locking blocks `npm run dev`, stop the stale Next.js node process and restart before measuring.
 
@@ -33,7 +35,8 @@
 - Treat `npm run start` as the primary comparison baseline for payload and first-response changes.
 - Treat `npm run dev` as a secondary local-debug baseline only.
   - Dev timings are noisier because route compilation and hot-reload overhead can dominate the first request.
-- Use fresh session ids for `/api/daily/state` and `/api/teams/state` so the requests are repeatable.
+- Use a valid authenticated `kxoxxy-auth-session` cookie for `/api/daily/state` and `/api/teams/state`.
+- Signed-out requests to those state APIs now return `401`, so protected API measurements are only comparable when the auth state is controlled.
 - Keep the optional `/api/pokedex/catalog` spot check small and deterministic.
   - Example: `view=teams&dexNumbers=25`
 
@@ -56,8 +59,12 @@ curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/daily
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/my-pokemon
 curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/teams
-curl.exe -s -c cookiejar-dev.txt -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/api/daily/state
-curl.exe -s -b cookiejar-dev.txt -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3002/api/teams/state
+```
+
+Protected API example with an existing authenticated cookie:
+```powershell
+curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 -H "Cookie: kxoxxy-auth-session=<session-token>" http://localhost:3002/api/daily/state
+curl.exe -s -o NUL -w "dev|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 -H "Cookie: kxoxxy-auth-session=<session-token>" http://localhost:3002/api/teams/state
 ```
 
 ### Start
@@ -71,11 +78,17 @@ curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{ti
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/daily
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/my-pokemon
 curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/teams
-curl.exe -s -c cookiejar-start.txt -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/api/daily/state
-curl.exe -s -b cookiejar-start.txt -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 http://localhost:3003/api/teams/state
+```
+
+Protected API example with an existing authenticated cookie:
+```powershell
+curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 -H "Cookie: kxoxxy-auth-session=<session-token>" http://localhost:3003/api/daily/state
+curl.exe -s -o NUL -w "start|%{url_effective}|%{http_code}|%{size_download}|%{time_starttransfer}|%{time_total}`n" --max-time 30 -H "Cookie: kxoxxy-auth-session=<session-token>" http://localhost:3003/api/teams/state
 ```
 
 ## Latest Local Measurements
+
+The protected API rows below were captured with a valid authenticated session cookie. The same requests now return `401` when signed out.
 
 ### 2026-03-26 `npm run dev`
 | Target | Status | Bytes | TTFB (s) | Total (s) |
@@ -111,4 +124,4 @@ curl.exe -s -b cookiejar-start.txt -o NUL -w "start|%{url_effective}|%{http_code
 - After changing route-entry payload shapes for `/`, `/daily`, `/my-pokemon`, or `/teams`
 - After changing `app/api/daily/state`, `app/api/teams/state`, or `app/api/pokedex/catalog`
 - After changing cache behavior that affects first response size or latency
-- After meaningful DB query or anonymous-session state changes
+- After meaningful DB query or authenticated persisted-state changes

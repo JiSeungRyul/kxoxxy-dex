@@ -6,7 +6,7 @@
 - Ensure the hybrid runtime (snapshot + PostgreSQL) remains stable across development environments.
 
 ## Scope
-- Routes: `/daily`, `/my-pokemon`, `/teams`, `/my-teams`, `/my`
+- Routes: `/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/teams/random`, `/my-teams`, `/my`
 - APIs: `/api/daily/state`, `/api/teams/state`, `/api/pokedex/catalog`, `/api/pokedex/moves`, `/api/account/delete`
 
 ---
@@ -51,7 +51,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 | **500 Internal Server Error** | Missing Table or Column | Check server logs for `Relation "..." does not exist` | Run `npm run db:migrate` |
 | **Empty Data / Broken Images** | Missing Catalog Seeds | Check `/api/pokedex/catalog` for empty arrays | Run `npm run db:seed:pokedex` |
 | **Old Data Still Appears** | Next.js / Windows Cache | Change a UI string; if it doesn't update, it's a lock issue | Stop node.exe and restart `npm run dev` |
-| **401 Authentication Required** | Missing Auth Session | Check `/api/auth/session` and confirm `authenticated: true` | Sign in again through Google and retry |
+| **401 Authentication Required** | Missing Auth Session | Check `/api/auth/session` and confirm `authenticated: true` | Sign in again through the configured auth flow and retry |
 | **Signed in but still treated as signed out** | Inactive soft-deleted account or invalidated session | Check `users.is_active`, `users.deleted_at`, and retry `GET /api/auth/session` | Reactivate the account or create a valid active-user session |
 
 ---
@@ -74,7 +74,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 1. Clear auth cookies or sign out.
 2. Open `/daily` and verify the page shows a login CTA instead of persisted progress.
 3. Confirm `GET /api/daily/state` returns `401` while signed out.
-4. Sign in through Google.
+4. Sign in through the configured auth flow.
 5. Capture a Pokemon, open `/my-pokemon`, and verify the captured Pokemon appears under the same account.
 6. Mark the same user inactive in `users.is_active` or set `deleted_at`, then retry `GET /api/auth/session` and confirm it returns `authenticated: false`.
 7. Recheck `/daily` or `/my` and confirm the route now falls back to the login-required state instead of resolving the old session.
@@ -91,7 +91,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 
 ### E. Account Hub Smoke Check
 1. While signed out, open `/my` and confirm the page shows the login-required state instead of account details.
-2. Sign in through Google, open `/my`, and confirm the account hub renders the current profile, activity summary, and navigation links without a hydration or loading mismatch.
+2. Sign in through the configured auth flow, open `/my`, and confirm the account hub renders the current profile, activity summary, and navigation links without a hydration or loading mismatch.
 3. From `/my`, trigger the delete request and confirm `POST /api/account/delete` succeeds, the auth cookie is cleared, and the next `/my` visit falls back to the signed-out state.
 4. Sign in again with the same account while `deleted_at` is still inside the 30-day grace period and confirm `/my?accountRestored=true` shows the recovery notice after the new session is issued.
 5. After recovery, re-open `/favorites`, `/daily`, and `/my-teams` and confirm previously retained persisted data is still available under the restored account.
@@ -117,6 +117,11 @@ If a feature fails after a migration or update, use this checklist to identify t
 - While signed out, open `/my` and verify the account hub stays in its auth-required fallback state.
 - After sign-in, open `/my` and verify the account summary, personal navigation, and account-delete entry render together.
 - Trigger account deletion only with a local test account and confirm the next `/my` load does not reuse the invalidated session.
+
+## Auth Mode Note
+- In provider mode, the sign-in path is Google OAuth through `GET /api/auth/sign-in`.
+- `GET /api/auth/sign-in` is the canonical user-facing sign-in entry in both auth modes.
+- When provider auth is not configured, the header's `개발용 로그인` entry and the development fallback `POST /api/auth/sign-in` path remain local verification boundaries on top of that same policy.
 
 ## 5. Environment Notes (24-6)
 - **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
