@@ -8,8 +8,8 @@
 - The target runtime shape is a clearer frontend UI -> server/API -> PostgreSQL data boundary, even while the catalog source pipeline remains hybrid for now.
 - Persisted user state now resolves through authenticated `user_id` for favorites, daily/my-pokemon, and teams/my-teams.
 - Legacy anonymous-session ownership is no longer part of the active runtime or active schema path for persisted product features.
-- The current auth shape is minimal provider-backed Google sign-in plus a server-managed authenticated session that resolves `users.id`.
-- Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and the active runtime uses the provider-backed authenticated-session flow rather than the older development-only issuance path.
+- The current auth shape is a server-managed authenticated session that resolves `users.id`, with Google provider mode available when env vars are configured and a development fallback issuance path still present otherwise.
+- Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and the active runtime resolves current-session reads through the same session boundary in both provider and development fallback modes.
 - `/my` is now the first account-hub route and reads the authenticated session on the server before rendering a profile card.
 - The same `/my` route now also performs small server-side summary reads for `favorite_pokemon`, `daily_captures`, and `teams` before rendering the account hub.
 - The same page now also acts as a hub entry by linking into `/favorites`, `/my-pokemon`, and `/my-teams`.
@@ -75,6 +75,13 @@
 6. `PokedexPage` loads collection state from the same authenticated API for both `/daily` and `/my-pokemon`
 7. When auth is absent, `/daily` and `/my-pokemon` render login CTA states instead of returning persisted collection data
 
+### Favorites Route
+1. `app/favorites/page.tsx` renders `PokedexPage` in `favorites` mode with shared filter options only
+2. `PokedexPage` requests saved favorite dex numbers through `app/api/favorites/state/route.ts`
+3. `app/api/favorites/state/route.ts` requires authenticated session and reads/writes `favorite_pokemon` through `user_id`
+4. When favorite dex numbers are ready, `PokedexPage` fetches favorite card detail on demand through `app/api/pokedex/catalog/route.ts`
+5. When auth is absent, `/favorites` renders a login CTA state instead of persisted favorites
+
 ### Team Routes
 1. `app/teams/page.tsx` loads a small team-builder option list with dex number, Korean name, generation, and Pokedex-name metadata plus reduced item option entries from PostgreSQL through `getPokedexTeamBuilderOptionSnapshot()` and `getPokedexTeamBuilderItemOptionSnapshot()`
 2. `TeamBuilderPage` fetches selected Pokemon detail on demand through `app/api/pokedex/catalog/route.ts` and selected slot-aware move options on demand through `app/api/pokedex/moves/route.ts` so the first render does not ship the full team-builder catalog or move learnset data
@@ -84,6 +91,15 @@
 6. Team member detail views join saved member configuration with the latest `pokemon_catalog.payload` snapshot and compute level-based battle stats in the client
 7. Saved team members now persist a nullable `formKey` field for limited non-Mega form support, separate from the existing Mega-only `megaFormKey`
 8. The current first-pass non-Mega form support is intentionally limited to Rotom appliance forms, a small regional-form shortlist including the same-dex multi-region `나옹(알로라/가라르)` case, a small legendary/mythical shortlist (`기라티나 오리진폼`, `쉐이미 스카이폼`), and `팔데아 켄타로스` breed forms, while the move-query path uses slot + `formKey` overrides only for a bounded set of known form-specific move gaps instead of reopening the whole form-specific learnset catalog at once
+9. `app/teams/random/page.tsx` reads the same reduced team-builder option snapshot from PostgreSQL, samples six species in the client, and fetches the displayed card detail through `app/api/pokedex/catalog/route.ts` without touching saved team state
+
+### Account And Auth Routes
+1. `app/my/page.tsx` reads the auth session cookie on the server, resolves the current user through `resolveAuthenticatedUserSessionByToken()`, and loads a small summary from `favorite_pokemon`, `daily_captures`, and `teams`
+2. `app/api/auth/session/route.ts` returns the current session plus `authMode` metadata for client UI
+3. `app/api/auth/sign-in/route.ts` acts as the canonical user-facing sign-in entry, starting Google OAuth on `GET` in provider mode or issuing a development fallback session plus redirect on `GET` when provider auth is not configured, while `POST` remains as a local development fallback/session-test boundary
+4. `app/api/auth/callback/google/route.ts` validates state, exchanges the Google code, materializes local `users` / `auth_accounts` / `sessions`, and redirects back into the app
+5. `app/api/auth/sign-out/route.ts` removes the current local authenticated session
+6. `app/api/account/delete/route.ts` soft-deletes the authenticated user, clears active sessions, and leaves retained gameplay data in place for recovery or later purge
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
@@ -160,56 +176,52 @@
   - broad client-facing contract churn is explicitly out of scope for the first normalization step
 
 ## Current Architectural Risks
-- Mixed read paths:
-  - runtime behavior differs by route
+- Runtime coupling to imported snapshot lineage:
+  - route and API reads are DB-backed, but many helpers still select the latest imported snapshot id before reading catalog rows
 - Environment dependency:
   - `lib/db/client.ts` requires `DATABASE_URL`
 - Migration dependency:
-  - `anonymous_sessions`, `daily_encounters`, `daily_captures`, `teams`, and `team_members` must exist before the daily, My Pokemon, and team-builder flows can succeed
+  - `daily_encounters`, `daily_captures`, `favorite_pokemon`, `teams`, and `team_members` must exist before the persisted daily, favorites, My Pokemon, and team-builder flows can succeed
 - Catalog duplication:
   - the same catalog exists in both `data/pokedex.json` and PostgreSQL
-- User-state split:
-  - the current runtime still carries anonymous fallback persistence alongside authenticated `user_id` persistence, but the desired product end state is auth-required persistence rather than long-lived dual ownership
+- Legacy helper drift:
+  - older snapshot-file helpers still exist in `repository.ts`, even though the active route tree reads catalog data from PostgreSQL
 - Doc drift:
   - architecture can become misleading unless runtime-path changes are documented immediately
 
-## Ownership Transition Scope
-- Daily and my-pokemon state now support both ownership paths:
-  - anonymous daily state by `anonymous_session_id`
-  - authenticated daily state by `user_id`
-- Team state now also supports both ownership paths:
-  - anonymous team state by `anonymous_session_id`
-  - authenticated team state by `user_id`
-- The long-term durable owner should be `user_id` once auth work begins.
-- The current project plan does not require preserving or merging old anonymous development-era records into future user-owned records.
-- That means the ownership follow-up is primarily a schema-and-runtime-boundary planning task, not a legacy-data migration project.
+## Ownership Runtime Status
+- Persisted product features now read and write only through authenticated `user_id`.
+- Active auth-required persisted boundaries are:
+  - `app/api/favorites/state/route.ts`
+  - `app/api/daily/state/route.ts`
+  - `app/api/teams/state/route.ts`
+- The current active runtime behavior is:
+  - unauthenticated user -> browse-only routes plus login CTA on persisted-feature routes
+  - authenticated user -> favorites, daily/my-pokemon, and teams/my-teams resolve only through `user_id`
+- Legacy anonymous ownership is no longer part of the active runtime contract or the active schema path.
 
 ## Preferred Authentication Shape
 - Start with one minimal auth path and a server-managed auth session instead of opening multiple providers or a broader account system immediately.
 - Add a separate authenticated session boundary that resolves `users.id` for logged-in requests.
-- Prefer switching persisted product features directly to authenticated `user_id` ownership instead of making anonymous and authenticated ownership co-equal long-term paths.
+- Persisted product features now already resolve directly through authenticated `user_id`.
 - The intended authenticated write order is favorites, then daily/my-pokemon state, then teams.
-- A shared ownership resolver now codifies the current transitional rule at the server boundary by returning authenticated `userId` first and anonymous `sessionId` as the fallback path.
-- That first authenticated write target is now live for favorites: authenticated favorites resolve by `user_id`, while anonymous favorites still resolve by `anonymous_session_id`.
-- That next authenticated write target is now also live for daily/my-pokemon: authenticated daily state resolves by `user_id`, while anonymous daily state still resolves by `anonymous_session_id`.
-- That final current authenticated write target is now also live for teams/my-teams: authenticated team state resolves by `user_id`, while anonymous team state still resolves by `anonymous_session_id`.
-- The next intended cutover is to stop treating those anonymous paths as user-facing persistence and instead gate persisted state behind authenticated session checks.
+- The current runtime no longer uses anonymous fallback ownership for persisted state APIs.
 - `29-8` fixes the runtime policy for that cutover:
   - public browsing stays open
-  - persisted state APIs stop issuing anonymous ownership for unauthenticated requests
+  - persisted state APIs do not issue anonymous ownership for unauthenticated requests
   - client routes that depend on persisted state should show auth-required CTA/empty states instead of anonymous saved data
 - `29-9` is now live for favorites:
   - `app/api/favorites/state/route.ts` reads only authenticated session-backed `user_id`
   - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
-  - `/favorites` and the favorite-toggle entry points now treat Google sign-in as the persistence entry boundary
+  - `/favorites` and the favorite-toggle entry points now treat `/api/auth/sign-in` as the persistence entry boundary
 - `29-10` is now live for daily/my-pokemon:
   - `app/api/daily/state/route.ts` reads and writes only authenticated session-backed `user_id`
   - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
-  - `/daily` and `/my-pokemon` now treat Google sign-in as the persistence entry boundary for collection progress
+  - `/daily` and `/my-pokemon` now treat `/api/auth/sign-in` as the persistence entry boundary for collection progress
 - `29-11` is now live for teams/my-teams:
   - `app/api/teams/state/route.ts` reads and writes only authenticated session-backed `user_id`
   - unauthenticated requests receive an auth-required `401` response instead of anonymous fallback data
-  - `/teams` and `/my-teams` now treat Google sign-in as the persistence entry boundary for saved team management
+  - `/teams` and `/my-teams` now treat `/api/auth/sign-in` as the persistence entry boundary for saved team management
 - `29-12` now removes the leftover anonymous-session runtime helpers and local-storage handoff path, so auth-required persistence is the only active runtime path for favorites, daily/my-pokemon, and teams/my-teams
 
 ## Auth Replacement Boundary
@@ -219,18 +231,22 @@
 - The current account-management lifecycle boundary now also includes:
   - `app/api/account/delete/route.ts` POST handler for soft-delete requests
   - grace-period reactivation inside `createGoogleAuthSession()` before a new session is issued
-- The current development-only boundary that should be replaced is:
+- The remaining development fallback boundary is:
   - `createDevelopmentAuthSession()`
   - `POST /api/auth/sign-in`
-  - `POST /api/auth/sign-out`
   - the development-login action in `features/site/components/site-hero-header.tsx`
-- This keeps the `user_id` ownership runtime stable while narrowing real-auth implementation work to sign-in, sign-out, and authenticated session lifecycle.
-- The current no-key groundwork already follows that boundary split: session reads stay on `/api/auth/session`, while sign-in/sign-out are isolated so a real provider can replace only the issuance path later.
-- The current provider-backed Google route layer now does the first real replacement step:
-  - `GET /api/auth/sign-in` creates the Google OAuth redirect URL
+- `POST /api/auth/sign-out` is already the shared local sign-out boundary for both auth modes.
+- This keeps the `user_id` ownership runtime stable while narrowing auth implementation work to sign-in mode selection, sign-out, and authenticated session lifecycle.
+- The current route split is:
+  - `GET /api/auth/session` for current-session reads
+  - `GET /api/auth/sign-in` for the canonical user-facing sign-in entry in both auth modes
+  - `POST /api/auth/sign-in` for local development fallback issuance when provider auth is absent
+  - `POST /api/auth/sign-out` for local session cleanup
+- The current provider-backed Google route layer now coexists with the development fallback:
+  - `GET /api/auth/sign-in` creates the Google OAuth redirect URL in provider mode
   - `GET /api/auth/callback/google` validates state and materializes a local authenticated session
   - `POST /api/auth/sign-out` removes that local authenticated session
-- That provider-backed route layer is now verified through a real local Google login round-trip, and the resulting session can read/write favorites, daily state, and teams through the existing `user_id` ownership paths.
+- That provider-backed route layer is now verified through a real local Google login round-trip, while the header still supports POST-based development fallback when provider auth is not configured.
 
 ## Cache Strategy Review Scope (Added: 2026-03-25)
 

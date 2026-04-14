@@ -18,8 +18,11 @@
 - Sort by dex number, name, and base stats
 - Navigate paginated results
 - View Pokemon detail pages with forms, evolution, abilities, and matchup references
+- Save and browse login-required favorite Pokemon
 - Use login-required daily encounter and captured-Pokemon collection flows
 - Build and browse login-required Pokemon teams
+- Use the account hub for profile, summary, and account-management entry points
+- Try the lightweight browse-only random team experience
 - Use light and dark theme modes
 
 ## Tech Stack
