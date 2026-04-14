@@ -147,6 +147,7 @@ The sections below record intermediate migration steps that are no longer the ac
 - Added a first-pass filter bar for `/teams/random` with generation selection and `전설 · 환상 제외`.
 - Kept the existing no-duplicate-species behavior implicit in the current random sampling logic, so no separate dex-duplication toggle was added.
 - Expanded the default `/teams/random` draw so currently supported general forms are sampled inside the existing six-species draw, and the result cards now render the selected form artwork, types, and Korean form label when a supported form is chosen.
+- Added a first-pass `최소 타입` draw condition for `/teams/random`, retrying the six-species sample until the final displayed team includes at least one Pokemon of the selected type.
 
 ## Account Hub Navigation Split (Added: 2026-04-14)
 - Reworked `/my` so the account-hub links are no longer shown as one flat card row.

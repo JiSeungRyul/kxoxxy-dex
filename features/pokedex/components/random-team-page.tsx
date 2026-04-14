@@ -8,6 +8,8 @@ import type {
   GenerationFilterValue,
   PokemonTeamBuilderCatalogEntry,
   PokemonTeamBuilderOptionEntry,
+  PokemonTypeName,
+  TypeFilterValue,
 } from "@/features/pokedex/types";
 import {
   formatDexNumber,
@@ -41,6 +43,7 @@ type RandomTeamDisplayEntry = {
 
 const RANDOM_TEAM_SIZE = 6;
 const RANDOM_TEAM_ROLL_MS = 1200;
+const RANDOM_TEAM_MAX_ATTEMPTS = 12;
 const RANDOM_TEAM_PLACEHOLDER_SLOTS = Array.from({ length: RANDOM_TEAM_SIZE }, (_, index) => index);
 const LEGENDARY_MYTHICAL_DEX_NUMBERS = new Set<number>([
   144, 145, 146, 150, 151, 243, 244, 245, 249, 250, 251, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 480, 481,
@@ -124,12 +127,21 @@ function resolveRandomTeamDisplayEntry(
   };
 }
 
+function matchesRequiredType(team: RandomTeamDisplayEntry[], requiredType: TypeFilterValue) {
+  if (requiredType === "all") {
+    return true;
+  }
+
+  return team.some((entry) => entry.types.some((type) => type.name === requiredType));
+}
+
 export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
   const [team, setTeam] = useState<RandomTeamDisplayEntry[]>([]);
   const [isRolling, setIsRolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>("all");
   const [excludeLegendaryMythical, setExcludeLegendaryMythical] = useState(false);
+  const [requiredType, setRequiredType] = useState<TypeFilterValue>("all");
 
   async function rollRandomTeam() {
     const filteredOptions = filterRandomTeamPool({
@@ -144,46 +156,63 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
       return;
     }
 
-    const rollCandidates = buildRollCandidates(filteredOptions);
-    const sampledDexNumbers = sampleDexNumbers(rollCandidates);
-    const sampledCandidates = sampledDexNumbers
-      .map((dexNumber) => rollCandidates.find((candidate) => candidate.nationalDexNumber === dexNumber) ?? null)
-      .filter((candidate): candidate is RandomTeamRollCandidate => Boolean(candidate));
-
     setIsRolling(true);
     setError(null);
     setTeam([]);
 
     try {
-      const [response] = await Promise.all([
-        fetch(`/api/pokedex/catalog?view=teams&dexNumbers=${sampledDexNumbers.join(",")}`),
-        new Promise((resolve) => setTimeout(resolve, RANDOM_TEAM_ROLL_MS)),
-      ]);
+      let resolvedTeam: RandomTeamDisplayEntry[] | null = null;
 
-      if (!response.ok) {
-        throw new Error("Failed to load random team");
+      for (let attempt = 0; attempt < RANDOM_TEAM_MAX_ATTEMPTS; attempt += 1) {
+        const rollCandidates = buildRollCandidates(filteredOptions);
+        const sampledDexNumbers = sampleDexNumbers(rollCandidates);
+        const sampledCandidates = sampledDexNumbers
+          .map((dexNumber) => rollCandidates.find((candidate) => candidate.nationalDexNumber === dexNumber) ?? null)
+          .filter((candidate): candidate is RandomTeamRollCandidate => Boolean(candidate));
+
+        const [response] = await Promise.all([
+          fetch(`/api/pokedex/catalog?view=teams&dexNumbers=${sampledDexNumbers.join(",")}`),
+          attempt === 0 ? new Promise((resolve) => setTimeout(resolve, RANDOM_TEAM_ROLL_MS)) : Promise.resolve(),
+        ]);
+
+        if (!response.ok) {
+          throw new Error("Failed to load random team");
+        }
+
+        const payload = (await response.json()) as TeamBuilderCatalogResponse;
+        const pokemonByDexNumber = new Map((payload.pokemon ?? []).map((entry) => [entry.nationalDexNumber, entry]));
+        const orderedTeam = sampledCandidates
+          .map((candidate) => {
+            const pokemonEntry = pokemonByDexNumber.get(candidate.nationalDexNumber) ?? null;
+
+            if (!pokemonEntry) {
+              return null;
+            }
+
+            return resolveRandomTeamDisplayEntry(pokemonEntry, candidate.formKey);
+          })
+          .filter((entry): entry is RandomTeamDisplayEntry => Boolean(entry));
+
+        if (orderedTeam.length !== RANDOM_TEAM_SIZE) {
+          continue;
+        }
+
+        if (!matchesRequiredType(orderedTeam, requiredType)) {
+          continue;
+        }
+
+        resolvedTeam = orderedTeam;
+        break;
       }
 
-      const payload = (await response.json()) as TeamBuilderCatalogResponse;
-      const pokemonByDexNumber = new Map((payload.pokemon ?? []).map((entry) => [entry.nationalDexNumber, entry]));
-      const orderedTeam = sampledCandidates
-        .map((candidate) => {
-          const pokemonEntry = pokemonByDexNumber.get(candidate.nationalDexNumber) ?? null;
-
-          if (!pokemonEntry) {
-            return null;
-          }
-
-          return resolveRandomTeamDisplayEntry(pokemonEntry, candidate.formKey);
-        })
-        .filter((entry): entry is RandomTeamDisplayEntry => Boolean(entry));
-
-      if (orderedTeam.length !== RANDOM_TEAM_SIZE) {
-        throw new Error("Random team did not resolve correctly");
+      if (!resolvedTeam) {
+        setError("현재 조건을 만족하는 랜덤 팀을 만들지 못했습니다. 타입 또는 다른 필터를 완화하고 다시 시도해 주세요.");
+        setTeam([]);
+        return;
       }
 
       startTransition(() => {
-        setTeam(orderedTeam);
+        setTeam(resolvedTeam);
       });
     } catch {
       setError("랜덤 팀을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -237,6 +266,43 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                     className="h-4 w-4 rounded border-border text-ember focus:ring-ember"
                   />
                   <span className="font-semibold">전설 · 환상 제외</span>
+                </label>
+                <label className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-sm text-foreground">
+                  <span className="font-semibold">최소 타입</span>
+                  <select
+                    value={requiredType}
+                    onChange={(event) => {
+                      setRequiredType(event.target.value as TypeFilterValue);
+                      setError(null);
+                    }}
+                    className="rounded-xl border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none transition focus:border-foreground"
+                  >
+                    <option value="all">없음</option>
+                    {Object.values([
+                      "bug",
+                      "dark",
+                      "dragon",
+                      "electric",
+                      "fairy",
+                      "fighting",
+                      "fire",
+                      "flying",
+                      "ghost",
+                      "grass",
+                      "ground",
+                      "ice",
+                      "normal",
+                      "poison",
+                      "psychic",
+                      "rock",
+                      "steel",
+                      "water",
+                    ] as PokemonTypeName[]).map((typeName) => (
+                      <option key={typeName} value={typeName}>
+                        {formatTypeLabel(typeName)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             </div>
