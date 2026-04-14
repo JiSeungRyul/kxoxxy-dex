@@ -9,7 +9,12 @@ import type {
   PokemonTeamBuilderCatalogEntry,
   PokemonTeamBuilderOptionEntry,
 } from "@/features/pokedex/types";
-import { formatDexNumber, formatTypeLabel } from "@/features/pokedex/utils";
+import {
+  formatDexNumber,
+  formatTeamGeneralFormOptionLabel,
+  formatTypeLabel,
+  TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER,
+} from "@/features/pokedex/utils";
 
 type RandomTeamPageProps = {
   pokemonOptions: PokemonTeamBuilderOptionEntry[];
@@ -17,6 +22,21 @@ type RandomTeamPageProps = {
 
 type TeamBuilderCatalogResponse = {
   pokemon?: PokemonTeamBuilderCatalogEntry[];
+};
+
+type RandomTeamRollCandidate = {
+  nationalDexNumber: number;
+  name: string;
+  generation: PokemonTeamBuilderOptionEntry["generation"];
+  formKey: string | null;
+};
+
+type RandomTeamDisplayEntry = {
+  nationalDexNumber: number;
+  name: string;
+  artworkImageUrl: string;
+  types: PokemonTeamBuilderCatalogEntry["types"];
+  formLabel: string | null;
 };
 
 const RANDOM_TEAM_SIZE = 6;
@@ -30,7 +50,7 @@ const LEGENDARY_MYTHICAL_DEX_NUMBERS = new Set<number>([
   1016, 1017, 1024, 1025,
 ]);
 
-function sampleDexNumbers(pokemonOptions: PokemonTeamBuilderOptionEntry[]) {
+function sampleDexNumbers(pokemonOptions: Array<Pick<RandomTeamRollCandidate, "nationalDexNumber">>) {
   const pool = [...pokemonOptions];
 
   for (let index = pool.length - 1; index > 0; index -= 1) {
@@ -63,8 +83,49 @@ function filterRandomTeamPool({
   });
 }
 
+function getRandomFormKeyForDexNumber(nationalDexNumber: number) {
+  const supportedFormKeys = TEAM_BUILDER_GENERAL_FORM_KEYS_BY_NATIONAL_DEX_NUMBER[nationalDexNumber] ?? [];
+  const candidateFormKeys = [null, ...supportedFormKeys];
+  const randomIndex = Math.floor(Math.random() * candidateFormKeys.length);
+  return candidateFormKeys[randomIndex] ?? null;
+}
+
+function buildRollCandidates(pokemonOptions: PokemonTeamBuilderOptionEntry[]) {
+  return pokemonOptions.map<RandomTeamRollCandidate>((entry) => ({
+    nationalDexNumber: entry.nationalDexNumber,
+    name: entry.name,
+    generation: entry.generation,
+    formKey: getRandomFormKeyForDexNumber(entry.nationalDexNumber),
+  }));
+}
+
+function resolveRandomTeamDisplayEntry(
+  entry: PokemonTeamBuilderCatalogEntry,
+  formKey: string | null,
+): RandomTeamDisplayEntry {
+  const selectedGeneralForm = entry.generalForms.find((form) => form.key === formKey) ?? null;
+
+  if (!selectedGeneralForm) {
+    return {
+      nationalDexNumber: entry.nationalDexNumber,
+      name: entry.name,
+      artworkImageUrl: entry.artworkImageUrl,
+      types: entry.types,
+      formLabel: null,
+    };
+  }
+
+  return {
+    nationalDexNumber: entry.nationalDexNumber,
+    name: entry.name,
+    artworkImageUrl: selectedGeneralForm.artworkImageUrl,
+    types: selectedGeneralForm.types,
+    formLabel: formatTeamGeneralFormOptionLabel(entry.name, entry.nationalDexNumber, selectedGeneralForm),
+  };
+}
+
 export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
-  const [team, setTeam] = useState<PokemonTeamBuilderCatalogEntry[]>([]);
+  const [team, setTeam] = useState<RandomTeamDisplayEntry[]>([]);
   const [isRolling, setIsRolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>("all");
@@ -83,7 +144,11 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
       return;
     }
 
-    const sampledDexNumbers = sampleDexNumbers(filteredOptions);
+    const rollCandidates = buildRollCandidates(filteredOptions);
+    const sampledDexNumbers = sampleDexNumbers(rollCandidates);
+    const sampledCandidates = sampledDexNumbers
+      .map((dexNumber) => rollCandidates.find((candidate) => candidate.nationalDexNumber === dexNumber) ?? null)
+      .filter((candidate): candidate is RandomTeamRollCandidate => Boolean(candidate));
 
     setIsRolling(true);
     setError(null);
@@ -101,9 +166,17 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
 
       const payload = (await response.json()) as TeamBuilderCatalogResponse;
       const pokemonByDexNumber = new Map((payload.pokemon ?? []).map((entry) => [entry.nationalDexNumber, entry]));
-      const orderedTeam = sampledDexNumbers
-        .map((dexNumber) => pokemonByDexNumber.get(dexNumber) ?? null)
-        .filter((entry): entry is PokemonTeamBuilderCatalogEntry => Boolean(entry));
+      const orderedTeam = sampledCandidates
+        .map((candidate) => {
+          const pokemonEntry = pokemonByDexNumber.get(candidate.nationalDexNumber) ?? null;
+
+          if (!pokemonEntry) {
+            return null;
+          }
+
+          return resolveRandomTeamDisplayEntry(pokemonEntry, candidate.formKey);
+        })
+        .filter((entry): entry is RandomTeamDisplayEntry => Boolean(entry));
 
       if (orderedTeam.length !== RANDOM_TEAM_SIZE) {
         throw new Error("Random team did not resolve correctly");
@@ -253,6 +326,7 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                       {formatDexNumber(entry.nationalDexNumber)}
                     </p>
                     <h4 className="mt-1 text-sm font-semibold text-foreground">{entry.name}</h4>
+                    {entry.formLabel ? <p className="mt-1 text-[11px] text-muted-foreground">{entry.formLabel}</p> : null}
                     <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                       {entry.types.map((type) => (
                         <span
