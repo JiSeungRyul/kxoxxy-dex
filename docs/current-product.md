@@ -42,7 +42,10 @@
 - Daily encounter now uses authenticated `user_id`-backed server persistence, a dex-number-only initial candidate payload, and on-demand encounter/recent-capture detail fetches.
 - My Pokemon now reads the same authenticated server collection state as daily and fetches captured gallery card detail on demand instead of shipping the gallery catalog on first render.
 - Team builder and My Teams now store team data per authenticated account in PostgreSQL, and the team builder route now uses a small option payload with dex number, Korean name, generation, and Pokedex-name metadata plus on-demand selected-detail fetches instead of shipping the full team-builder catalog on first render.
-- `/teams/random` now provides a lightweight random-team entry that samples six unique Pokemon species and renders image, dex number, name, and types only.
+- `/teams/random` now provides a lightweight random-team entry that samples six unique Pokemon species and renders image, dex number, name, and types only, while keeping a six-slot placeholder grid visible before the first draw.
+- `/teams/random` now also has first-pass draw filters for generation and legendary/mythical exclusion before the team is sampled.
+- `/teams/random` now treats currently supported general forms as part of the default draw experience, so species such as Rotom can appear with one of the already-supported non-default forms while still keeping the draw at six unique species.
+- `/teams/random` now also supports a first-pass minimum-type condition so the final six-card result includes at least one Pokemon of the selected type.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
 - The site header now resolves auth mode from `/api/auth/session` and exposes Google sign-in in provider mode or a development fallback button when provider auth is not configured.
 - Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
