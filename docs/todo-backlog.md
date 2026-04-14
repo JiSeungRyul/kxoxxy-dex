@@ -8,9 +8,6 @@
 
 ## 바로 할 일
 
-### 35. 계정 설정 및 운영성 후속
-- [ ] `35-3). 로그인 실패 / provider callback 실패 / 세션 만료 시 에러 UX 정리`
-
 ### 38. 랜덤 팀 후속
 - [ ] `38-8-1). 첫 진입 시 결과 영역은 카드 그리드 빈칸 placeholder 상태로 두고, 뽑기 전 안내 문구는 별도로 더 자연스럽게 정리`
 - [ ] `38-9). 랜덤 팀 뽑기 조건 옵션은 최종진화만 / 특정 세대만 / 전설·환상 제외 / 중복 타입 제한 / 전국도감 중복 종 금지 범위까지 우선 검토`
@@ -242,6 +239,7 @@
 - [x] `35-2-3). 계정 삭제 후 grace period 동안 복구 가능 여부와 재활성화 흐름 정리`
 - [x] `35-2-4). grace period 만료 후 favorites / daily / teams 실제 purge 정책 및 작업 방식 정리`
 - [x] `35-2-5). 사용자 데이터 초기화 범위(즐겨찾기 / 내 포켓몬 / 팀)와 실행 순서 정의`
+- [x] `35-3). 로그인 실패 / provider callback 실패 / 세션 만료 시 에러 UX 정리`
 - [x] `35-3-1). 로그인 시작 실패 UX 정리 (/api/auth/sign-in 실패, provider 미설정, inactive account 포함)`
 - [x] `35-3-2). provider callback 실패 UX 정리 (invalid-state / missing-code / callback-failed / account-inactive)`
 - [x] `35-3-3). 보호 화면의 세션 만료 UX 정리 (401 응답 시 재로그인 안내와 상태 복구 기준 정리)`
