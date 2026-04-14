@@ -48,7 +48,8 @@
 - Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
 - `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
 - `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
-- `/my` now links directly into `즐겨찾기`, `내 포켓몬`, `내 팀 보기` so it acts as the first account hub.
+- `/my` now groups account-hub navigation into collection, team, and account-management sections instead of one flat link row.
+- `/my` still links directly into `즐겨찾기`, `내 포켓몬`, and `내 팀 보기`, while keeping account summary and policy copy in the same hub surface.
 - `/my` now also explains which features are login-required and how account-bound persistence currently works.
 - `/my` now also exposes a first account deletion request entry that soft-deletes the current account, clears authenticated sessions, and returns the user to signed-out behavior.
 - `/my` now also shows a recovery notice when a soft-deleted account is restored within the grace period through a new login.
