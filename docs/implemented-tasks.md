@@ -143,3 +143,8 @@ The sections below record intermediate migration steps that are no longer the ac
 - Kept the feature as a separate entry under the team-building navigation so it does not alter the existing team-builder save/edit flow.
 - Followed up on the presentation so the explanation, action button, and result area now read as one connected block, while the result heading copy is simplified to `랜덤 팀` / `Random Team`.
 - Added a short rolling state with lightweight motion and a brief delay so the random draw feels intentional without stretching into a long wait.
+
+## Account Hub Navigation Split (Added: 2026-04-14)
+- Reworked `/my` so the account-hub links are no longer shown as one flat card row.
+- Grouped the hub navigation into collection, team, and account-management sections while keeping the existing destinations unchanged.
+- Kept account profile, summary, guide copy, and delete-request entry on the same page so the change stays within information architecture and presentation scope.
