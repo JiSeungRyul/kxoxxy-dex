@@ -9,20 +9,27 @@
 
 ## 바로 할 일
 
+### 40. Soft Launch 전 필수
+- [ ] `40). 소규모 공개 전 필요한 최소 서비스화 준비`
+- [ ] `40-1). repository / auth session / persisted state API에 대한 최소 자동 테스트 세트 추가`
+- [ ] `40-2). provider mode와 development fallback의 운영 경계를 더 명확히 정리`
+- [ ] `40-3). 로그인 실패 / API 실패 / migration-seed 실패를 추적하기 위한 최소 에러/로그/운영 대응 기준 정리`
+- [ ] `40-4). 실제 배포 전 필요한 env / bootstrap / smoke-check / failure triage 체크리스트 정리`
+- [ ] `40-5). 운영 DB 백업과 배포 후 smoke-check 절차를 실제 런칭 기준으로 고정`
+
+### 43. Public Launch 전 권장
+- [ ] `43). 외부 커뮤니티 공개 전 필요한 운영/품질 보강`
+- [ ] `43-1). team-builder-page / pokedex-page / repository / utils의 큰 파일 분해 우선순위와 단계별 분리 계획 정리`
+- [ ] `43-2). auth session / persisted state / repository 핵심 경계의 자동 테스트 범위를 public launch 기준으로 확장`
+- [ ] `43-3). 앱 재시작 / DB restore / deploy rollback 절차를 1인 운영 기준으로 정리`
+- [ ] `43-4). production 로그 확인과 failure triage 흐름을 실서비스 기준으로 점검`
+
+## 추후 할 일
+
 ### 38. 랜덤 팀 후속
 - 현재 남은 후속만 유지한다. 완료 이력은 `docs/implemented-tasks.md`를 본다.
 - [ ] `38-13). 각 슬롯별 타입 지정 기반 랜덤 배치 옵션 추가 검토`
 - [ ] `38-14). 준전설 포함, 전설/환상 일부 허용 등 배틀 플랫폼 기준 후보군 모드 추가 검토`
-
-### 40. 서비스화 기반 정리
-- [ ] `40). 서비스화 준비를 위한 안정성/운영성 보강`
-- [ ] `40-1). repository / auth session / persisted state API에 대한 최소 자동 테스트 세트 추가`
-- [ ] `40-2). team-builder-page / pokedex-page / repository / utils의 큰 파일 분해 우선순위와 단계별 분리 계획 정리`
-- [ ] `40-3). provider mode와 development fallback의 운영 경계를 더 명확히 정리`
-- [ ] `40-4). 로그인 실패 / API 실패 / migration-seed 실패를 추적하기 위한 최소 에러/로그/운영 대응 기준 정리`
-- [ ] `40-5). 실제 배포 전 필요한 env / bootstrap / smoke-check / failure triage 체크리스트 정리`
-
-## 추후 할 일
 
 ### 36. 인증 방식 확장
 - [ ] `36). 인증 방식 확장 (추후)`

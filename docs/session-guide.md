@@ -54,6 +54,10 @@ Do not default to reading every doc in `docs/`.
 - Read `docs/database-plan.md`.
 - Use it before assuming local DB state or changing schema/import workflow.
 
+### Deployment, hosting, or early operating cost
+- Read `docs/deployment-guide.md`.
+- Use it when the task depends on production hosting shape, runtime env, or cheapest-service rollout planning.
+
 ### Verification or smoke-check changes
 - Read `docs/verification-guide.md`.
 - Use it for `/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/teams/random`, `/my-teams`, `/my`, and related APIs.
@@ -141,5 +145,6 @@ Do not default to reading every doc in `docs/`.
 - `docs/current-product.md` is the current user-facing behavior summary.
 - `docs/architecture.md` is the current runtime/data-flow summary.
 - `docs/database-plan.md` is the current DB/bootstrap/migration guide.
+- `docs/deployment-guide.md` is the current deployment/hosting guide.
 - `docs/verification-guide.md` is the current manual verification guide.
 - `docs/implemented-tasks.md` and `docs/decision-log.md` are historical support docs, not first-read docs.

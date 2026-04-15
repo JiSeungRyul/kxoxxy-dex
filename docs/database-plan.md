@@ -3,6 +3,7 @@
 ## When To Read This
 - Read this before changing schema, migration order, seed/import workflow, or local PostgreSQL assumptions.
 - Skip this for pure UI work that does not depend on DB-backed runtime or local setup.
+- Read `docs/deployment-guide.md` as well when the question is about production hosting or cheapest real-service rollout.
 
 ## Purpose
 - Define the future DB direction without restating the full current product or architecture.
@@ -97,6 +98,16 @@ Result:
 - Drizzle migrations are the source of truth for table structure.
 - The seed/import script is the source of truth for initial catalog contents.
 - This flow is repeatable across local, staging, and other fresh environments.
+
+## Production DB Direction
+- For the earliest low-cost production phase, PostgreSQL can run on the same host as the Next.js app.
+- That is a cost-saving deployment choice, not a long-term scaling target.
+- Once backup/recovery burden, uptime requirements, or traffic increase, the first infrastructure upgrade should usually be moving PostgreSQL to a separate managed or dedicated host.
+- Production rollout sequencing still remains:
+  - set `DATABASE_URL`
+  - run `npm run db:migrate`
+  - run `db:seed:*` only for first bootstrap or intentional catalog refresh
+  - start the app and verify persisted-state routes
 
 ## Compose Automation Guidance
 - Automatic DB population during `docker compose up` is possible, but it is not the current default.

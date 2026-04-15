@@ -122,11 +122,27 @@ If a feature fails after a migration or update, use this checklist to identify t
 - After sign-in, open `/my` and verify the account summary, personal navigation, and account-delete entry render together.
 - Trigger account deletion only with a local test account and confirm the next `/my` load does not reuse the invalidated session.
 
+## 5. Production Rollout Smoke Check
+
+Use this after the first real deploy or after a production release that touches auth, DB schema, or persisted-state routes.
+
+1. Open `/` and confirm the home route renders without server error.
+2. Open `/pokedex` and one representative detail route such as `/pokemon/pikachu`.
+3. Confirm `GET /api/auth/session` returns a valid unauthenticated or authenticated response instead of `500`.
+4. In provider mode, verify `GET /api/auth/sign-in` starts the Google login flow on the real production domain.
+5. After sign-in, open `/favorites`, `/daily`, `/teams`, and `/my` and confirm each protected route resolves with the expected logged-in state.
+6. Create one small persisted change:
+   - favorite toggle, or
+   - daily capture, or
+   - team save
+7. Refresh the matching route and confirm the persisted state is still present.
+8. Restart the app process once and recheck `GET /api/auth/session` plus one persisted route to confirm DB connectivity and session reads survive the restart.
+
 ## Auth Mode Note
 - In provider mode, the sign-in path is Google OAuth through `GET /api/auth/sign-in`.
 - `GET /api/auth/sign-in` is the canonical user-facing sign-in entry in both auth modes.
 - When provider auth is not configured, the header's `개발용 로그인` entry and the development fallback `POST /api/auth/sign-in` path remain local verification boundaries on top of that same policy.
 
-## 5. Environment Notes (24-6)
+## 6. Environment Notes (24-6)
 - **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
 - **Auth Requirement:** Persisted routes now require a valid `kxoxxy-auth-session`; signed-out behavior should be a login CTA plus `401` from the matching state API.
