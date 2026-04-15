@@ -1,5 +1,9 @@
 # Project Overview
 
+## When To Read This
+- Read this first when you need a compact overview of product scope, stack, and hybrid model.
+- Use this as orientation only; route behavior and data flow details live in the more specific docs.
+
 ## What This Project Is
 - `KxoxxyDex` is a Korean-first Pokemon encyclopedia product built with Next.js.
 - The repository is centered on the `features/pokedex` domain.

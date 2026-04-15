@@ -1,5 +1,9 @@
 # Current Product
 
+## When To Read This
+- Read this when the task depends on user-facing behavior, route scope, copy, or MVP boundaries.
+- Use `docs/architecture.md` instead when the question is about runtime data flow or server/client boundaries.
+
 ## Product Snapshot
 - Product name: `KxoxxyDex`
 - Product type: Korean-first Pokemon encyclopedia MVP

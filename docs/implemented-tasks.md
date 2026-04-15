@@ -5,6 +5,22 @@
 - Record what has been built without redefining the full current architecture.
 - Older entries may describe intermediate runtime states that were later replaced; use `docs/current-product.md`, `docs/architecture.md`, and `docs/session-guide.md` as the current runtime source of truth.
 
+## When To Read This
+- Read this when you need historical implementation context or want to confirm whether a backlog item was already completed.
+- Do not read this first for ordinary feature work; current runtime behavior belongs in `docs/current-product.md` and `docs/architecture.md`.
+
+## Current Feature Baseline
+- Main Pokedex browsing, Pokemon detail, favorites, daily encounter, My Pokemon, team builder, My Teams, random team, and account hub are already implemented.
+- Persisted gameplay features are now account-bound through authenticated `user_id`.
+- The sections below are historical implementation notes grouped by milestone, not a replacement for current runtime docs.
+
+## Documentation Routing Cleanup (Added: 2026-04-15)
+- Slimmed `docs/session-guide.md` into a session-start routing document instead of a long historical handoff.
+- Split condensed historical design notes into `docs/decision-log.md` so session startup no longer needs to load long review sections by default.
+- Changed `docs/todo-backlog.md` to keep only unfinished work and moved the "completed work" role fully onto this document.
+- Added `When To Read This` guidance to the main topic docs so agents can load only task-relevant documents instead of reading the whole docs tree each time.
+- Added a short `Project Identity / Non-Negotiables / Source Of Truth` block at the top of `docs/session-guide.md` so the repository's character is injected immediately at session start.
+
 ## Core Pokedex Browsing
 - Implemented the main Pokedex browsing route at `/pokedex`
 - Implemented the Pokemon detail route at `/pokemon/[slug]`

@@ -1,5 +1,9 @@
 # Architecture
 
+## When To Read This
+- Read this before changing route data flow, repository usage, API boundaries, or server/client responsibilities.
+- Use `docs/current-product.md` for product-facing scope and `docs/database-plan.md` for migration/bootstrap details.
+
 ## Current System Shape
 - The app uses Next.js App Router with domain logic in `features/pokedex`.
 - The runtime is hybrid:
