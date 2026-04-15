@@ -21,6 +21,31 @@
 - Added `When To Read This` guidance to the main topic docs so agents can load only task-relevant documents instead of reading the whole docs tree each time.
 - Added a short `Project Identity / Non-Negotiables / Source Of Truth` block at the top of `docs/session-guide.md` so the repository's character is injected immediately at session start.
 
+## Auth Boundary Documentation Tightening (Added: 2026-04-15)
+- Fixed the docs so provider mode and development fallback are no longer described as equally valid production paths.
+- Recorded the exact env-gated provider-mode condition and clarified that Google provider mode is the real launch/production auth path.
+- Marked the development fallback sign-in route as a local/provider-unconfigured verification boundary only, and aligned the deployment and verification guides to enforce that distinction.
+
+## Minimum Automated Test Baseline (Added: 2026-04-15)
+- Added a Node built-in test runner setup plus small test-environment shims so repo-local TypeScript server modules and Next route handlers can be exercised without adding a new dependency.
+- Added minimum automated coverage for the auth-session boundary, persisted state APIs (`favorites`, `daily`, `teams`), and representative repository read paths.
+- Fixed the first soft-launch test baseline as a boundary-safety layer rather than a full integration-test suite.
+
+## Minimum Failure Triage Baseline (Added: 2026-04-15)
+- Added a minimum one-operator triage flow for login/session failure, persisted-state API failure, and `db:migrate` / `db:seed:*` failure.
+- Fixed `docs/verification-guide.md` as the primary troubleshooting document for auth, API, and bootstrap failures.
+- Linked `docs/deployment-guide.md` and `docs/session-guide.md` back to that same verification path so deploy-time and session-start guidance use one triage entry.
+
+## Deploy Readiness Checklist Baseline (Added: 2026-04-15)
+- Organized the production docs around one execution order: pre-deploy env/bootstrap, post-deploy smoke check, then first triage when rollout verification fails.
+- Fixed the post-deploy 10-minute smoke-check route/API order and aligned `docs/deployment-guide.md`, `docs/verification-guide.md`, and `docs/soft-launch-checklist.md` to the same sequence.
+- Left backup execution and restore-proof steps for the next launch-prep stage instead of mixing them into the pre-deploy checklist.
+
+## Backup And Restore Launch Baseline (Added: 2026-04-15)
+- Fixed the soft-launch backup requirement around a concrete `pg_dump`-based minimum instead of a vague “backup exists” standard.
+- Added restore proof as an explicit launch criterion: one safe restore must be completed and followed by route/session rechecks.
+- Tightened the launch smoke-check baseline so it now includes app restart plus post-restart session and persisted-route confirmation.
+
 ## Core Pokedex Browsing
 - Implemented the main Pokedex browsing route at `/pokedex`
 - Implemented the Pokemon detail route at `/pokemon/[slug]`

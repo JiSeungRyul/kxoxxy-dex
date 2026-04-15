@@ -11,11 +11,6 @@
 
 ### 40. Soft Launch 전 필수
 - [ ] `40). 소규모 공개 전 필요한 최소 서비스화 준비`
-- [ ] `40-1). repository / auth session / persisted state API에 대한 최소 자동 테스트 세트 추가`
-- [ ] `40-2). provider mode와 development fallback의 운영 경계를 더 명확히 정리`
-- [ ] `40-3). 로그인 실패 / API 실패 / migration-seed 실패를 추적하기 위한 최소 에러/로그/운영 대응 기준 정리`
-- [ ] `40-4). 실제 배포 전 필요한 env / bootstrap / smoke-check / failure triage 체크리스트 정리`
-- [ ] `40-5). 운영 DB 백업과 배포 후 smoke-check 절차를 실제 런칭 기준으로 고정`
 
 ### 43. Public Launch 전 권장
 - [ ] `43). 외부 커뮤니티 공개 전 필요한 운영/품질 보강`

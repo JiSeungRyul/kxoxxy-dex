@@ -16,7 +16,7 @@
   - one PostgreSQL database
 - Current runtime assumptions:
   - `DATABASE_URL` must be set
-  - Google OAuth can be enabled through provider env vars
+  - Google OAuth becomes the real sign-in path only when all provider env vars are configured
   - persisted product features depend on PostgreSQL-backed authenticated state
 
 ## Cheapest Recommended Start
@@ -72,12 +72,38 @@
 - Required:
   - `DATABASE_URL`
 - Production auth env:
+  - `AUTH_PROVIDER=google`
+  - `AUTH_URL`
+  - `AUTH_SECRET`
   - Google OAuth client id
   - Google OAuth client secret
   - service base URL / callback URL related env
 - Operational recommendation:
   - keep production env in server-managed secret storage or systemd environment files
   - do not reuse local development env values in production
+
+## Pre-Deploy Checklist
+Run this in order before the first real deployment or a release that changes auth, DB schema, or persisted-state behavior.
+
+1. Confirm production env is set:
+   - `DATABASE_URL`
+   - `AUTH_PROVIDER=google`
+   - `AUTH_URL`
+   - `AUTH_SECRET`
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+2. Confirm the real domain and Google OAuth redirect URI match the production host.
+3. Run:
+   - `npm ci`
+   - `npm run build`
+4. If schema changed, run:
+   - `npm run db:migrate`
+5. If this is the first bootstrap or an intentional catalog refresh, run:
+   - `npm run db:seed:pokedex`
+   - `npm run db:seed:items`
+   - `npm run db:seed:moves`
+6. Start or restart the app process.
+7. Move immediately into the post-deploy smoke check in `docs/verification-guide.md`.
 
 ## First Production Bootstrap
 1. Provision the server.
@@ -93,6 +119,11 @@
 5. Start the app process.
 6. Verify the main routes and auth flow.
 
+Important auth policy:
+- The real production sign-in path is Google provider mode.
+- `GET /api/auth/sign-in` should redirect into Google OAuth on the real domain before launch.
+- The development fallback sign-in path is not a substitute for production auth verification.
+
 Important:
 - `db:seed:*` is for first bootstrap or intentional catalog refresh, not every deploy.
 - `sync:*` is not part of the default deploy pipeline.
@@ -106,6 +137,33 @@ Important:
 6. Run `npm run db:seed:*` only if a catalog refresh is intentionally part of the release.
 7. Restart the app process.
 8. Recheck login, persisted routes, and one representative detail route.
+
+### Post-Deploy 10-Minute Smoke Check
+Use this order immediately after deploy:
+1. `/`
+2. `/pokedex`
+3. `/pokemon/pikachu`
+4. `GET /api/auth/session`
+5. `GET /api/auth/sign-in` on the real domain in provider mode
+6. Sign in and recheck:
+   - `/favorites`
+   - `/daily`
+   - `/teams`
+   - `/my`
+7. Create one persisted change:
+   - favorite toggle, or
+   - daily capture, or
+   - team save
+8. Refresh the matching route and confirm the saved state remains visible.
+
+### Failure Triage Entry
+- If deploy verification fails, start with `docs/verification-guide.md`.
+- Use this order first:
+  - `GET /api/auth/session`
+  - the affected persisted API or route
+  - `npm run db:migrate` / required `db:seed:*` command status
+  - app logs, then reverse proxy logs, then PostgreSQL logs
+- Do not treat development fallback sign-in as a production auth substitute during rollout checks.
 
 ## Cost Strategy
 
@@ -132,9 +190,10 @@ Important:
 
 ## Backups And Operations
 - Minimum recommendation:
-  - daily PostgreSQL backup
+  - daily PostgreSQL backup via `pg_dump`
   - keep 7 to 14 days of backups
-  - verify that restore works at least once
+  - confirm that backup files are actually created
+  - verify that restore works at least once before treating soft launch as ready
 - Track at least:
   - service uptime
   - disk usage
@@ -163,6 +222,7 @@ This is the earliest point where a quiet release to friends, portfolio viewers, 
   - `/pokedex`
   - `/pokemon/[slug]`
 - Google sign-in works on the real domain.
+- The real-domain sign-in flow is provider-backed Google auth, not the development fallback session path.
 - Protected routes work after sign-in:
   - `/favorites`
   - `/daily`
@@ -174,8 +234,9 @@ This is the earliest point where a quiet release to friends, portfolio viewers, 
   - `npm run db:migrate`
   - initial `db:seed:*`
   - app start/restart
-- At least one backup job exists.
-- A post-deploy smoke-check flow exists and has passed at least once.
+- At least one backup job exists and produces a real dump file.
+- At least one restore path is documented and has been proven once in a safe environment or test DB.
+- A post-deploy smoke-check flow exists, has passed at least once, and includes an app restart followed by session/persisted-route recheck.
 - Session expiry, login failure, and DB connection failure do not collapse into repeated unexplained `500` responses.
 
 ### Recommended public-launch threshold
@@ -188,6 +249,7 @@ This is the level recommended before broader SNS/community exposure.
   - key repository read paths
 - The riskiest oversized files have a first-pass decomposition plan or partial split already applied.
 - Provider mode and development fallback are clearly separated in product/ops expectations.
+- Production verification does not treat development fallback as an acceptable substitute for provider-backed sign-in.
 - App restart, DB restore, and deploy rollback are documented well enough for one operator to execute them.
 - Production logs are available and readable during failure triage.
 
@@ -230,6 +292,7 @@ The most realistic product differentiation for this repo is:
   - Next.js app as one service
   - PostgreSQL as the only required stateful dependency
   - Google auth as the only real provider-backed auth flow
+- Current production verification assumes provider-backed Google auth is configured before public launch.
 - Current production recommendation avoids:
   - service decomposition
   - unnecessary managed services

@@ -60,7 +60,137 @@ If a feature fails after a migration or update, use this checklist to identify t
 
 ---
 
-## 3. Change-Specific Verification (24-3, 24-4)
+## 3. Minimum Ops Triage
+
+Use this section first when the problem is not tied to a specific code change yet.
+
+### A. Login Start Or Session Failure
+1. Check `GET /api/auth/session`.
+2. If it returns `500`, treat it as auth-session or DB connectivity failure before checking UI.
+3. If it returns `authenticated: false`, verify which auth mode the response reports.
+4. In production or launch verification, confirm `GET /api/auth/sign-in` starts Google OAuth on the real domain.
+5. In local/provider-unconfigured environments only, the development fallback sign-in path may be used as a local verification boundary.
+6. If the user should be signed in but still resolves as signed out, check for:
+   - missing or cleared `kxoxxy-auth-session`
+   - inactive soft-deleted account
+   - invalidated session row
+7. Expected outcome:
+   - `GET /api/auth/session` returns `authenticated: true` for an active signed-in user
+   - protected routes stop showing login CTA fallback
+
+### B. Persisted API Failure
+Check these routes in order:
+1. `GET /api/auth/session`
+2. the failing persisted API:
+   - `/api/favorites/state`
+   - `/api/daily/state`
+   - `/api/teams/state`
+3. Interpret the result:
+   - `401` -> missing auth session or signed-out state
+   - `403` -> inactive-account path where applicable
+   - `400` -> invalid client payload or unsupported action
+   - `500` -> server/runtime or DB failure
+4. If `GET /api/auth/session` is healthy but the state API returns `500`, check server logs first, then recheck whether the required DB tables and seed data exist.
+5. Expected outcome:
+   - signed-out requests return the documented auth-required response
+   - valid signed-in requests return `200`
+   - invalid payloads fail as `400`, not unexplained `500`
+
+### C. `db:migrate` Or `db:seed:*` Failure
+1. Confirm PostgreSQL is running before retrying commands.
+2. Run `npm run db:migrate`.
+3. If migrate succeeds, run only the required seed commands:
+   - `npm run db:seed:pokedex`
+   - `npm run db:seed:items`
+   - `npm run db:seed:moves`
+4. After a seed/import fix, restart the app process or dev server if the affected route uses cached catalog helpers.
+5. Recheck:
+   - `/pokedex`
+   - one detail route such as `/pokemon/pikachu`
+   - `GET /api/auth/session`
+   - one affected persisted route or API
+6. Expected outcome:
+   - migrate completes without missing-table errors
+   - the affected route no longer returns empty catalog or repeated `500`
+
+### D. Logs And First Checks
+- App/auth/session failures: inspect Next.js server logs first.
+- Production request failures: inspect reverse proxy logs next.
+- Migration/seed failures: inspect PostgreSQL logs and the failing CLI output.
+- Windows-only stale runtime suspicion: stop running `node` processes and restart the app before assuming the data path is still wrong.
+
+---
+
+## 4. Deploy Readiness Checklist
+
+Use this order before or during the first real production rollout.
+
+1. Confirm production env exists:
+   - `DATABASE_URL`
+   - `AUTH_PROVIDER=google`
+   - `AUTH_URL`
+   - `AUTH_SECRET`
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+2. Run:
+   - `npm ci`
+   - `npm run build`
+3. If schema changed, run `npm run db:migrate`.
+4. If this is the first bootstrap or a catalog refresh, run:
+   - `npm run db:seed:pokedex`
+   - `npm run db:seed:items`
+   - `npm run db:seed:moves`
+5. Start or restart the app process.
+6. Move directly into the post-deploy smoke check below.
+
+## 5. Post-Deploy Smoke Flow
+
+Use this exact order in the first 10 minutes after deploy.
+
+1. Open `/`.
+2. Open `/pokedex`.
+3. Open `/pokemon/pikachu`.
+4. Confirm `GET /api/auth/session` returns a valid unauthenticated or authenticated response instead of `500`.
+5. In provider mode, confirm `GET /api/auth/sign-in` starts Google OAuth on the real production domain.
+6. After sign-in, open:
+   - `/favorites`
+   - `/daily`
+   - `/teams`
+   - `/my`
+7. Create one small persisted change:
+   - favorite toggle, or
+   - daily capture, or
+   - team save
+8. Refresh the matching route and confirm the persisted state is still present.
+9. Restart the app process once.
+10. Recheck `GET /api/auth/session` and one persisted route or saved-state action.
+11. If any step fails, return immediately to `## 3. Minimum Ops Triage`.
+
+---
+
+## 6. Backup And Restore Proof
+
+Soft launch is not ready until backup creation and one restore path have both been proven.
+
+### A. Backup Proof
+1. Run or schedule a PostgreSQL backup using `pg_dump`.
+2. Confirm a real dump file is written to the expected backup location.
+3. Confirm the backup retention rule is documented as 7 to 14 days.
+
+### B. Restore Proof
+1. Select a safe restore target:
+   - a test database, or
+   - another non-production environment
+2. Use the saved dump file to restore once.
+3. After restore, verify:
+   - `/pokedex`
+   - `GET /api/auth/session`
+   - one protected route such as `/favorites`, `/daily`, `/teams`, or `/my`
+4. Record that restore proof was completed once before treating soft launch as ready.
+
+---
+
+## 7. Change-Specific Verification (24-3, 24-4)
 
 ### A. DB Schema Change (e.g., New column in `team_members`)
 1. Run `npm run db:migrate`.
@@ -102,7 +232,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 
 ---
 
-## 4. Route Smoke Flow (Baseline)
+## 8. Route Smoke Flow (Baseline)
 
 ### `/daily` & `/my-pokemon`
 - While signed out, open `/daily` and verify the login CTA renders.
@@ -122,7 +252,7 @@ If a feature fails after a migration or update, use this checklist to identify t
 - After sign-in, open `/my` and verify the account summary, personal navigation, and account-delete entry render together.
 - Trigger account deletion only with a local test account and confirm the next `/my` load does not reuse the invalidated session.
 
-## 5. Production Rollout Smoke Check
+## 9. Production Rollout Smoke Check
 
 Use this after the first real deploy or after a production release that touches auth, DB schema, or persisted-state routes.
 
@@ -141,8 +271,9 @@ Use this after the first real deploy or after a production release that touches 
 ## Auth Mode Note
 - In provider mode, the sign-in path is Google OAuth through `GET /api/auth/sign-in`.
 - `GET /api/auth/sign-in` is the canonical user-facing sign-in entry in both auth modes.
-- When provider auth is not configured, the header's `개발용 로그인` entry and the development fallback `POST /api/auth/sign-in` path remain local verification boundaries on top of that same policy.
+- Google provider mode should be treated as the real production and launch verification path.
+- When provider auth is not configured, the header's `개발용 로그인` entry and the development fallback `POST /api/auth/sign-in` path remain local verification boundaries only; they do not replace real-domain provider verification before launch.
 
-## 6. Environment Notes (24-6)
+## 10. Environment Notes (24-6)
 - **Windows `.next/trace` Lock:** If the server hangs or fails to reflect changes, the trace file is likely locked. Kill all `node` processes and restart.
 - **Auth Requirement:** Persisted routes now require a valid `kxoxxy-auth-session`; signed-out behavior should be a login CTA plus `401` from the matching state API.
