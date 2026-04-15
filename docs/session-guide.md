@@ -107,6 +107,9 @@ If the task depends on route or API performance measurement, read docs/performan
 - Preserve the current server/client boundary:
   - server data access in `features/pokedex/server/`
   - interactive state in client components
+- Treat `.codexignore` as the local Codex token-budget boundary:
+  - keep source code, runtime docs, and current source-of-truth files readable unless there is a strong reason to exclude them
+  - when new local-only generated artifacts, caches, logs, or secret-bearing files are introduced, add them to `.codexignore` in the same task so future sessions do not waste context on them
 - Do not describe the app as fully DB-backed.
 - Do not describe the app as fully snapshot-backed.
 - When changing docs, keep the hybrid runtime model explicit.
