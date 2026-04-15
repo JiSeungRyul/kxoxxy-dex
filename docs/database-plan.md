@@ -1,5 +1,9 @@
 # Database Plan
 
+## When To Read This
+- Read this before changing schema, migration order, seed/import workflow, or local PostgreSQL assumptions.
+- Skip this for pure UI work that does not depend on DB-backed runtime or local setup.
+
 ## Purpose
 - Define the future DB direction without restating the full current product or architecture.
 - Keep migration strategy explicit while the repository remains hybrid.

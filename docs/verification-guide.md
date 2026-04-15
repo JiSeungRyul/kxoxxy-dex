@@ -1,5 +1,9 @@
 # Verification Guide
 
+## When To Read This
+- Read this when a task changes DB-backed routes, auth/session boundaries, or persisted-state APIs.
+- Skip this for docs-only changes or isolated styling work that does not affect runtime behavior.
+
 ## Purpose
 - Provide a reliable manual verification flow for the DB-backed daily, collection, and team routes.
 - Standardize failure triage and command sequences after DB migrations or session logic changes.
