@@ -6,6 +6,7 @@
 - 완료 작업 기록은 `docs/implemented-tasks.md`를 우선하고, 이 문서에는 미완료 항목만 유지한다.
 - 현재 런타임 truth는 `docs/current-product.md`, `docs/architecture.md`, `docs/session-guide.md`를 우선한다.
 - 항목이 완료되면 이 문서에서 제거하고 같은 작업에서 `docs/implemented-tasks.md`를 갱신한다.
+- 현재 `40`의 남은 일은 문서 정리가 아니라 실제 운영 환경에서 soft-launch proof를 수행하는 것이다.
 
 ## 바로 할 일
 
