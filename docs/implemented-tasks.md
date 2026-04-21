@@ -169,3 +169,37 @@ The sections below record intermediate migration steps that are no longer the ac
 - Reworked `/my` so the account-hub links are no longer shown as one flat card row.
 - Grouped the hub navigation into collection, team, and account-management sections while keeping the existing destinations unchanged.
 - Kept account profile, summary, guide copy, and delete-request entry on the same page so the change stays within information architecture and presentation scope.
+
+## Random Team Candidate Pool Mode And Layout Overhaul (Added: 2026-04-21)
+
+### 후보군 모드 (38-14)
+- Split the previous single `LEGENDARY_MYTHICAL_DEX_NUMBERS` set into three categorized sets: `SUB_LEGENDARY_DEX_NUMBERS` (준전설, VGC Restricted 미포함 전설 계열), `RESTRICTED_LEGENDARY_DEX_NUMBERS` (전설, VGC Restricted), `MYTHICAL_DEX_NUMBERS` (환상, 배포 한정).
+- Replaced the `excludeLegendaryMythical: boolean` filter state with `poolMode: "normal" | "sub-legendary" | "unrestricted"`.
+- Added a three-button inline toggle (`일반 / 준전설포함 / 전체`) replacing the previous checkbox, styled to match the Pokedex controls pattern.
+- Default pool mode is `normal` (전설·환상 전체 제외), matching the previous checkbox-checked behavior.
+
+### /teams/random 레이아웃 개편
+- Moved the filter bar (세대, 후보군 토글, 뽑기 버튼) into the lower 랜덤 팀 section and removed the separate filter area from the upper card.
+- Reorganized the header row of the 랜덤 팀 section into a right-aligned flex row using Pokedex controls style (`rounded-2xl border bg-card px-4 py-3` + label + content).
+- Moved each slot type select directly above its corresponding slot card so type conditions are co-located with their result.
+- Kept slot type selects always visible even during rolling (previously they disappeared with the grid).
+- Added a `비우기` button left of the 세대 filter: disabled/gray when the team is empty, enabled with rose styling when a team is present.
+- Replaced the gray placeholder inner circle with an inline SVG Pokéball (red top half, white bottom half) in each unrolled slot.
+- Changed the placeholder name text to `뽑기 전` and slot type option label `없음` → `전체`.
+- Added a custom `▾` arrow indicator to slot type selects using `appearance-none` + absolute positioned span for consistent visibility.
+
+### 헤더 소폭 개선
+- Changed `ThemeToggle` from horizontal (`inline-flex`) to vertical (`flex-col`) layout so light/dark buttons stack top-to-bottom.
+- Moved `ThemeToggle` before the account info box so the account box sits at the rightmost end of the header.
+- Removed the `로그인 상태입니다.` status line that showed under the user name when authenticated.
+- Changed the account box text alignment from `text-right` to `text-left` so the `ACCOUNT` label is left-aligned.
+
+### 개발 환경 개선
+- Updated `package.json` `dev` script to `fuser -k 3000/tcp 2>/dev/null; next dev -p 3000` so the dev server always starts on port 3000, killing any existing process on that port first.
+
+## Random Team Slot-Based Type Conditions (Added: 2026-04-21)
+- Replaced the single global `최소 타입` condition with per-slot type conditions for `/teams/random`.
+- Each of the six result slots now has its own type dropdown so the user can independently require a specific type per slot.
+- Replaced `matchesRequiredType` with a backtracking `findValidSlotAssignment` function that finds a valid assignment of sampled Pokemon to slots satisfying all per-slot type requirements.
+- The retry loop remains unchanged; if no valid assignment is found within the attempt limit the existing error message is shown.
+- All six slots default to `없음` so the behavior is identical to the previous global-off state when no slot conditions are set.
