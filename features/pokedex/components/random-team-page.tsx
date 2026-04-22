@@ -454,15 +454,14 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                               </span>
                             ))}
                           </div>
-                          {canRollSlot ? (
-                            <button
-                              type="button"
-                              onClick={() => rollSingleSlot(index)}
-                              className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
-                            >
-                              뽑기
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => rollSingleSlot(index)}
+                            disabled={!canRollSlot}
+                            className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition enabled:hover:border-foreground/30 enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            뽑기
+                          </button>
                         </article>
                       ) : (
                         <article className="rounded-[1.25rem] border border-dashed border-border bg-card px-2.5 py-3 text-center shadow-sm">
@@ -488,15 +487,14 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                           <div className="mt-3 flex justify-center gap-1.5">
                             <span className="inline-flex h-5 w-10 rounded-full bg-muted/80" />
                           </div>
-                          {canRollSlot ? (
-                            <button
-                              type="button"
-                              onClick={() => rollSingleSlot(index)}
-                              className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
-                            >
-                              뽑기
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => rollSingleSlot(index)}
+                            disabled={!canRollSlot}
+                            className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition enabled:hover:border-foreground/30 enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            뽑기
+                          </button>
                         </article>
                       )}
                     </div>
