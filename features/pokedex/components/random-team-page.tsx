@@ -190,7 +190,7 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
   async function rollSingleSlot(index: number) {
     const filteredOptions = filterRandomTeamPool({ pokemonOptions, selectedGeneration, poolMode });
     const otherDexNumbers = new Set(
-      team.filter((_, i) => i !== index).map((entry) => entry.nationalDexNumber),
+      team.filter((entry, i): entry is RandomTeamDisplayEntry => i !== index && entry != null).map((entry) => entry.nationalDexNumber),
     );
     const candidatePool = filteredOptions.filter((entry) => !otherDexNumbers.has(entry.nationalDexNumber));
 
