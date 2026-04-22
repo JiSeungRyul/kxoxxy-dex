@@ -181,10 +181,56 @@ function findValidSlotAssignment(
 export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
   const [team, setTeam] = useState<RandomTeamDisplayEntry[]>([]);
   const [isRolling, setIsRolling] = useState(false);
+  const [rollingSlot, setRollingSlot] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedGeneration, setSelectedGeneration] = useState<GenerationFilterValue>("all");
   const [poolMode, setPoolMode] = useState<PoolModeFilterValue>("normal");
   const [slotTypes, setSlotTypes] = useState<TypeFilterValue[]>(Array(RANDOM_TEAM_SIZE).fill("all"));
+
+  async function rollSingleSlot(index: number) {
+    const filteredOptions = filterRandomTeamPool({ pokemonOptions, selectedGeneration, poolMode });
+    const otherDexNumbers = new Set(
+      team.filter((_, i) => i !== index).map((entry) => entry.nationalDexNumber),
+    );
+    const candidatePool = filteredOptions.filter((entry) => !otherDexNumbers.has(entry.nationalDexNumber));
+
+    if (candidatePool.length === 0) return;
+
+    const requiredType = slotTypes[index];
+    setRollingSlot(index);
+
+    try {
+      for (let attempt = 0; attempt < RANDOM_TEAM_MAX_ATTEMPTS; attempt += 1) {
+        const randomIndex = Math.floor(Math.random() * candidatePool.length);
+        const picked = candidatePool[randomIndex];
+        const formKey = getRandomFormKeyForDexNumber(picked.nationalDexNumber);
+
+        const response = await fetch(`/api/pokedex/catalog?view=teams&dexNumbers=${picked.nationalDexNumber}`);
+        if (!response.ok) throw new Error("Failed to load pokemon");
+
+        const payload = (await response.json()) as TeamBuilderCatalogResponse;
+        const pokemonEntry = payload.pokemon?.[0] ?? null;
+        if (!pokemonEntry) continue;
+
+        const displayEntry = resolveRandomTeamDisplayEntry(pokemonEntry, formKey);
+
+        if (requiredType !== "all" && !displayEntry.types.some((t) => t.name === requiredType)) {
+          continue;
+        }
+
+        setTeam((current) => {
+          const next = [...current];
+          next[index] = displayEntry;
+          return next;
+        });
+        return;
+      }
+    } catch {
+      // fail silently for per-slot roll
+    } finally {
+      setRollingSlot(null);
+    }
+  }
 
   async function rollRandomTeam() {
     const filteredOptions = filterRandomTeamPool({
@@ -282,14 +328,6 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
 
           <section className="rounded-[1.75rem] border border-border bg-background px-6 py-6 shadow-card">
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => { setTeam([]); setError(null); }}
-                disabled={team.length === 0}
-                className="rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:text-muted-foreground/40 enabled:bg-rose-50 enabled:text-rose-400 enabled:hover:bg-rose-100"
-              >
-                비우기
-              </button>
               <label className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
                 <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">세대</span>
                 <select
@@ -322,7 +360,7 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                       title={option.description}
                       className={`h-12 px-4 text-sm font-semibold transition ${
                         poolMode === option.value
-                          ? "bg-ember text-ember-foreground"
+                          ? "bg-toggle-active text-toggle-active-foreground"
                           : "bg-input text-muted-foreground hover:bg-muted"
                       }`}
                     >
@@ -331,6 +369,14 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                   ))}
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => { setTeam([]); setError(null); }}
+                disabled={team.length === 0}
+                className="self-end rounded-xl px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:text-muted-foreground/40 enabled:bg-rose-50 enabled:text-rose-400 enabled:hover:bg-rose-100"
+              >
+                비우기
+              </button>
               <button
                 type="button"
                 onClick={rollRandomTeam}
@@ -374,23 +420,14 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
               ))}
             </div>
 
-            {isRolling ? (
-              <div className="mt-4 rounded-[1.5rem] border border-dashed border-ember/30 bg-card px-6 py-12 text-center">
-                <div className="mx-auto flex w-fit items-center gap-3">
-                  <span className="h-4 w-4 animate-bounce rounded-full bg-ember [animation-delay:-0.2s]" />
-                  <span className="h-5 w-5 animate-bounce rounded-full border-2 border-foreground bg-background [animation-delay:-0.1s]" />
-                  <span className="h-4 w-4 animate-bounce rounded-full bg-ember" />
-                </div>
-                <p className="mt-5 text-lg font-semibold text-foreground">팀을 뽑는 중입니다.</p>
-                <p className="mt-2 text-sm text-muted-foreground">잠깐만 기다리면 6마리 구성 결과를 바로 보여드립니다.</p>
-              </div>
-            ) : (
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {RANDOM_TEAM_PLACEHOLDER_SLOTS.map((_, index) => {
                   const entry = team[index] ?? null;
+                  const isSlotRolling = rollingSlot === index;
+                  const canRollSlot = !isRolling && rollingSlot === null;
                   return (
                     <div key={index}>
-                      {entry ? (
+                      {entry && !isSlotRolling ? (
                         <article className="rounded-[1.25rem] border border-border bg-card px-2.5 py-3 text-center shadow-sm">
                           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-border bg-background">
                             <Image
@@ -417,11 +454,26 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                               </span>
                             ))}
                           </div>
+                          {canRollSlot ? (
+                            <button
+                              type="button"
+                              onClick={() => rollSingleSlot(index)}
+                              className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+                            >
+                              뽑기
+                            </button>
+                          ) : null}
                         </article>
                       ) : (
                         <article className="rounded-[1.25rem] border border-dashed border-border bg-card px-2.5 py-3 text-center shadow-sm">
                           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-border bg-background">
-                            <svg viewBox="0 0 100 100" width="60" height="60" aria-hidden="true">
+                            <svg
+                              viewBox="0 0 100 100"
+                              width="60"
+                              height="60"
+                              aria-hidden="true"
+                              className={isRolling || isSlotRolling ? "animate-spin" : ""}
+                            >
                               <circle cx="50" cy="50" r="47" fill="white" stroke="#d1d5db" strokeWidth="3" />
                               <path d="M 3 50 A 47 47 0 0 1 97 50 Z" fill="#f87171" />
                               <line x1="3" y1="50" x2="97" y2="50" stroke="#d1d5db" strokeWidth="3" />
@@ -430,17 +482,27 @@ export function RandomTeamPage({ pokemonOptions }: RandomTeamPageProps) {
                             </svg>
                           </div>
                           <div className="mt-3 h-3 rounded-full bg-muted/80" />
-                          <p className="mt-2 text-xs font-semibold text-muted-foreground/60">뽑기 전</p>
+                          <p className="mt-2 text-xs font-semibold text-muted-foreground/60">
+                            {isRolling || isSlotRolling ? "뽑는 중..." : "뽑기 전"}
+                          </p>
                           <div className="mt-3 flex justify-center gap-1.5">
                             <span className="inline-flex h-5 w-10 rounded-full bg-muted/80" />
                           </div>
+                          {canRollSlot ? (
+                            <button
+                              type="button"
+                              onClick={() => rollSingleSlot(index)}
+                              className="mt-3 w-full rounded-xl border border-border bg-background py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
+                            >
+                              뽑기
+                            </button>
+                          ) : null}
                         </article>
                       )}
                     </div>
                   );
                 })}
               </div>
-            )}
 
           </section>
         </div>
