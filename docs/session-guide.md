@@ -4,7 +4,7 @@
 KxoxxyDex is a Korean-first hybrid Pokedex app: runtime catalog reads are DB-backed, while snapshot generation and DB import still remain in the data pipeline.
 
 ## Purpose
-- Start a new Codex session cheaply.
+- Start a new Claude Code session cheaply.
 - Route the agent to only the docs that matter for the current task.
 - Keep current runtime truth separate from historical notes.
 
@@ -112,12 +112,6 @@ Do not default to reading every doc in `docs/`.
 - Keep the hybrid runtime model explicit when updating docs.
 - Treat `features/pokedex/types.ts` as the payload contract for snapshot and catalog shapes.
 - Do not assume the database is active unless the task explicitly verifies it.
-
-## `.codexignore` Rule
-- `.codexignore` is the default token-budget boundary for local Codex exploration.
-- Keep source code, active docs, and current source-of-truth files readable unless there is a strong reason to exclude them.
-- Add new local-only generated artifacts, caches, logs, or secret-bearing files to `.codexignore` in the same task that introduces them.
-- A file in `.codexignore` can still be read when the user explicitly asks for it.
 
 ## Known Risks
 - Hybrid drift: runtime reads and generation/import do not share the same source boundary.
