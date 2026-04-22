@@ -12,7 +12,8 @@
 - The target runtime shape is a clearer frontend UI -> server/API -> PostgreSQL data boundary, even while the catalog source pipeline remains hybrid for now.
 - Persisted user state now resolves through authenticated `user_id` for favorites, daily/my-pokemon, and teams/my-teams.
 - Legacy anonymous-session ownership is no longer part of the active runtime or active schema path for persisted product features.
-- The current auth shape is a server-managed authenticated session that resolves `users.id`, with Google provider mode available when env vars are configured and a development fallback issuance path still present otherwise.
+- The current auth shape is a server-managed authenticated session that resolves `users.id`, with Google provider mode becoming active only when `AUTH_PROVIDER=google`, `AUTH_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are all configured.
+- A development fallback issuance path still exists otherwise, but it is a local/provider-unconfigured boundary rather than the intended production auth path.
 - Minimal auth schema groundwork now exists for `users`, `auth_accounts`, and `sessions`, and the active runtime resolves current-session reads through the same session boundary in both provider and development fallback modes.
 - `/my` is now the first account-hub route and reads the authenticated session on the server before rendering a profile card.
 - The same `/my` route now also performs small server-side summary reads for `favorite_pokemon`, `daily_captures`, and `teams` before rendering the account hub.
@@ -100,7 +101,7 @@
 ### Account And Auth Routes
 1. `app/my/page.tsx` reads the auth session cookie on the server, resolves the current user through `resolveAuthenticatedUserSessionByToken()`, and loads a small summary from `favorite_pokemon`, `daily_captures`, and `teams`
 2. `app/api/auth/session/route.ts` returns the current session plus `authMode` metadata for client UI
-3. `app/api/auth/sign-in/route.ts` acts as the canonical user-facing sign-in entry, starting Google OAuth on `GET` in provider mode or issuing a development fallback session plus redirect on `GET` when provider auth is not configured, while `POST` remains as a local development fallback/session-test boundary
+3. `app/api/auth/sign-in/route.ts` acts as the canonical user-facing sign-in entry, starting Google OAuth on `GET` in provider mode or issuing a development fallback session plus redirect on `GET` only when provider auth is not configured, while `POST` remains a local development fallback/session-test boundary
 4. `app/api/auth/callback/google/route.ts` validates state, exchanges the Google code, materializes local `users` / `auth_accounts` / `sessions`, and redirects back into the app
 5. `app/api/auth/sign-out/route.ts` removes the current local authenticated session
 6. `app/api/account/delete/route.ts` soft-deletes the authenticated user, clears active sessions, and leaves retained gameplay data in place for recovery or later purge
@@ -239,6 +240,7 @@
   - `createDevelopmentAuthSession()`
   - `POST /api/auth/sign-in`
   - the development-login action in `features/site/components/site-hero-header.tsx`
+- That development fallback boundary is intentionally treated as a local verification aid, not as the preferred public-service auth mode.
 - `POST /api/auth/sign-out` is already the shared local sign-out boundary for both auth modes.
 - This keeps the `user_id` ownership runtime stable while narrowing auth implementation work to sign-in mode selection, sign-out, and authenticated session lifecycle.
 - The current route split is:
@@ -250,7 +252,7 @@
   - `GET /api/auth/sign-in` creates the Google OAuth redirect URL in provider mode
   - `GET /api/auth/callback/google` validates state and materializes a local authenticated session
   - `POST /api/auth/sign-out` removes that local authenticated session
-- That provider-backed route layer is now verified through a real local Google login round-trip, while the header still supports POST-based development fallback when provider auth is not configured.
+- That provider-backed route layer is now verified through a real local Google login round-trip and should be treated as the real launch/production auth path, while the header still supports POST-based development fallback only when provider auth is not configured.
 
 ## Cache Strategy Review Scope (Added: 2026-03-25)
 

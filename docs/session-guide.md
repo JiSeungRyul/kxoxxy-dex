@@ -54,9 +54,14 @@ Do not default to reading every doc in `docs/`.
 - Read `docs/database-plan.md`.
 - Use it before assuming local DB state or changing schema/import workflow.
 
+### Deployment, hosting, or early operating cost
+- Read `docs/deployment-guide.md`.
+- Use it when the task depends on production hosting shape, runtime env, or cheapest-service rollout planning.
+
 ### Verification or smoke-check changes
 - Read `docs/verification-guide.md`.
 - Use it for `/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/teams/random`, `/my-teams`, `/my`, and related APIs.
+- Use it first for login failures, persisted-state API failures, and `db:migrate` / `db:seed:*` failure triage work.
 
 ### Historical context only
 - Read `docs/implemented-tasks.md` for completed work history.
@@ -73,7 +78,9 @@ Do not default to reading every doc in `docs/`.
 - `/favorites`, `/daily`, `/my-pokemon`, `/teams`, and `/my-teams` use authenticated `user_id` ownership for persisted state.
 - `/daily`, `/my-pokemon`, and `/teams` use reduced first-load payloads and fetch richer card/detail data on demand through catalog APIs.
 - `/teams/random` is browse-only, uses the reduced team-builder option payload, and does not touch saved team state.
-- Auth uses a server-managed local session boundary with Google provider mode when configured and a development fallback sign-in path otherwise.
+- Auth uses a server-managed local session boundary.
+- Google provider mode is the production-facing auth path when `AUTH_PROVIDER`, `AUTH_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are all configured.
+- The development fallback sign-in path exists only for local/provider-unconfigured environments and is not the preferred real-service auth path.
 - Soft-deleted inactive accounts are blocked at the auth-session boundary and fall back to signed-out behavior on protected views.
 - Snapshot generation still writes `data/pokedex.json`, `data/item-catalog.json`, and `data/move-catalog.json`.
 - Local DB runtime bootstrap is migrate first, then seed from current local snapshots; `sync:*` is only for intentional upstream refresh work.
@@ -135,5 +142,6 @@ Do not default to reading every doc in `docs/`.
 - `docs/current-product.md` is the current user-facing behavior summary.
 - `docs/architecture.md` is the current runtime/data-flow summary.
 - `docs/database-plan.md` is the current DB/bootstrap/migration guide.
+- `docs/deployment-guide.md` is the current deployment/hosting guide.
 - `docs/verification-guide.md` is the current manual verification guide.
 - `docs/implemented-tasks.md` and `docs/decision-log.md` are historical support docs, not first-read docs.
