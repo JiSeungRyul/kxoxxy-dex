@@ -7,6 +7,7 @@
 ## Product Snapshot
 - Product name: `KxoxxyDex`
 - Product type: Korean-first Pokemon encyclopedia MVP
+- Live at: `https://kxoxxy-dex.com` (Hetzner CAX11, Helsinki, PM2 + Caddy + PostgreSQL 16)
 - Primary routes:
   - `/`
   - `/pokedex`
@@ -51,7 +52,7 @@
 - `/teams/random` now treats currently supported general forms as part of the default draw experience, so species such as Rotom can appear with one of the already-supported non-default forms while still keeping the draw at six unique species.
 - `/teams/random` now also supports a first-pass minimum-type condition so the final six-card result includes at least one Pokemon of the selected type.
 - A real provider-backed authenticated-session read boundary now exists at `/api/auth/session`.
-- The site header now resolves auth mode from `/api/auth/session` and exposes Google sign-in in provider mode or a development fallback button only when provider auth is not configured.
+- The site header now resolves auth mode from `/api/auth/session` and exposes Google sign-in only; the development fallback button is removed from the UI.
 - Soft-deleted inactive accounts no longer resolve as authenticated sessions, and protected account routes fall back to the same login-required state used for signed-out users.
 - `/my` now acts as the first account hub entry and shows the current logged-in user's name, email, and provider in a dedicated profile card.
 - `/my` now also shows account activity summary counts for favorites, captured Pokemon, and saved teams.
@@ -83,8 +84,9 @@
 
 ## Current Constraints
 - Provider-backed authentication is now available through Google OAuth when all required provider env vars are configured: `AUTH_PROVIDER=google`, `AUTH_URL`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`.
-- The header auth panel now acts as the Google sign-in entry in provider mode and falls back to a development-only session start button only when those provider requirements are not configured.
-- Production and launch-readiness expectations should treat Google provider mode as the real auth path; the fallback sign-in path is only a local development convenience boundary.
+- The header auth panel now acts as the Google sign-in entry only. The development fallback button is removed from the UI entirely.
+- In production (`NODE_ENV=production`), both GET and POST handlers in `/api/auth/sign-in` block the dev-fallback session path and return 503; Google OAuth is the only valid sign-in path in production.
+- Production and launch-readiness expectations treat Google provider mode as the only real auth path; the fallback sign-in path is only available in local development when provider env is absent.
 - Server-backed authenticated user persistence is live for favorites, daily/my-pokemon, and teams.
 - The current product policy is now fixed: browse routes stay public, but persisted state routes are login-required and no longer expose anonymous saved state as a product feature.
 - The current auth routes now already reflect that split:
@@ -99,7 +101,7 @@
   - inactive soft-deleted users are blocked from creating a new authenticated session and fall back to signed-out behavior on protected reads
   - soft-deleted users inside the grace period can be reactivated on sign-in and are redirected back through `/my?accountRestored=true`
   - a browser-driven Google login round-trip is verified for session creation and user-owned favorites / daily / teams state
-- Development fallback still creates a real local authenticated session, but current product policy treats it as a local/provider-unconfigured verification path rather than a launch-ready auth mode.
+- Development fallback still creates a real local authenticated session when `NODE_ENV !== "production"` and provider env is absent, but it is blocked in production and is only a local verification path.
 - Automated tests are not present.
 - Catalog data operations are still split across snapshot generation and DB import workflows.
 - Route/runtime reads are already PostgreSQL-backed; the remaining hybrid split is now mainly in generation/import workflow rather than direct page rendering.
@@ -131,9 +133,8 @@
 - The follow-up schema cleanup also removes the old anonymous-session owner columns and table from active persisted-state storage.
 
 ## Current Risks
-- The current auth flow can run in provider mode or development fallback mode depending on env configuration, but the intended product/ops boundary is now fixed:
-  - production and launch checks should use Google provider mode
-  - development fallback remains a local verification path when provider env is absent
+- The current auth flow runs in Google provider mode in production. Dev fallback is blocked at the API level (`NODE_ENV=production` guard). Local development without provider env still uses dev fallback.
+- Production deployment is live at `kxoxxy-dex.com`; DB backup and restore proof are still pending (soft-launch checklist E still open).
 - Local development remains sensitive to Windows `.next/trace` lock issues during server restart.
 
 ## Current Content Sources

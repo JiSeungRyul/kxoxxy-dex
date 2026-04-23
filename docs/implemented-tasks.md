@@ -14,6 +14,47 @@
 - Persisted gameplay features are now account-bound through authenticated `user_id`.
 - The sections below are historical implementation notes grouped by milestone, not a replacement for current runtime docs.
 
+## Production Deployment — Hetzner VPS (Added: 2026-04-23)
+- Provisioned Hetzner CAX11 ARM64 VPS (Helsinki, Ubuntu 24.04, 2 vCPU / 4 GB RAM) at `135.181.252.56`.
+- Installed Node.js v24 LTS, PostgreSQL 16, Caddy reverse proxy, and PM2 process manager.
+- Connected domain `kxoxxy-dex.com` via DNS A record; Caddy issued HTTPS certificate automatically.
+- Set production env vars in `/var/www/kxoxxy-dex/.env`: `DATABASE_URL`, `AUTH_PROVIDER=google`, `AUTH_URL=https://kxoxxy-dex.com`, `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+- Ran `npm ci`, `npm run build`, `npm run db:migrate`, and all seed scripts; started app with PM2.
+- Note: drizzle-kit reads `.env`, not `.env.local`; copied `.env.local` → `.env` to unblock migrations.
+- Note: PostgreSQL connection string required URL-encoding (`@` → `%40`, `#` → `%23`) for passwords with special characters.
+
+## Google OAuth Production Setup (Added: 2026-04-23)
+- Created Google OAuth 2.0 credentials in Google Cloud Console with production redirect URI `https://kxoxxy-dex.com/api/auth/callback/google`.
+- Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in production env.
+- Verified full Google login round-trip (sign-in → OAuth consent → callback → session) on the live domain.
+
+## Auth Callback Redirect Fix — AUTH_URL Env Var (Added: 2026-04-23)
+- `app/api/auth/callback/google/route.ts` was using `new URL("/", request.url)` to construct redirect URLs after OAuth callback.
+- Behind Caddy reverse proxy, `request.url` resolved to `http://localhost:3000/...` instead of the external domain, causing login to redirect to `localhost:3000`.
+- Fix: introduced `AUTH_URL` env var as the canonical base for all redirect URL construction in the callback route, replacing the `request.url`-derived base.
+- Both `getReturnUrl()` and `getRecoveredAccountReturnUrl()` helpers now use `AUTH_URL` directly.
+- Caddyfile `header_up Host {host}` forwarding was also added as a proxy-header fix but the root cause was in the route code.
+
+## Dev Login Blocked In Production — Task 45 (Added: 2026-04-23)
+- Added `NODE_ENV === "production"` guards to both the GET and POST handlers in `app/api/auth/sign-in/route.ts`.
+- In production, both handlers now return `{ error: "Authentication not configured" }` with status `503` immediately, blocking any dev-fallback session creation.
+- Removed all dev-mode UI from `features/site/components/site-hero-header.tsx`:
+  - `handleSignIn` now calls `window.location.assign("/api/auth/sign-in")` unconditionally; the dev POST fetch branch is removed.
+  - Dev mode warning message and dev-only button label variants are removed.
+  - Default `authMode` state changed from `"development"` to `"provider"`.
+  - All `"development"` UI copy paths replaced with provider-mode equivalents.
+
+## Pokedex Search Debounce — Task 48 (Added: 2026-04-23)
+- `features/pokedex/components/pokedex-page.tsx` was syncing the search query to the URL (triggering a server re-fetch) on every keystroke, causing visible flickering of Pokemon name text.
+- Added a 350 ms debounced `debouncedSearchTerm` state derived from `searchTerm`.
+- URL sync effect and page-reset effect now use `debouncedSearchTerm`; the existing `deferredSearchTerm` value is kept for immediate local UI filtering only.
+
+## My-Teams Independent Accordion — Task 49 (Added: 2026-04-23)
+- `/my-teams` previously allowed only one team expanded at a time (`expandedTeamId: number | null`).
+- Changed to a `Set<number>` (`expandedTeamIds`) so each team can be independently opened or closed without collapsing others.
+- All previous single-expand references (auto-open on load, auto-open on first load of each team) replaced with Set-based toggles or removed.
+- Saved-team auto-open after save still works via `setExpandedTeamIds(prev => new Set(prev).add(savedId))`.
+
 ## Documentation Routing Cleanup (Added: 2026-04-15)
 - Slimmed `docs/session-guide.md` into a session-start routing document instead of a long historical handoff.
 - Split condensed historical design notes into `docs/decision-log.md` so session startup no longer needs to load long review sections by default.
