@@ -227,6 +227,11 @@ export function PokedexPage({
   }
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const todayKey = getLocalDateKey();
   const pokedexPokemon = pokemon as PokemonCatalogListEntry[];
   const dailyCandidateDexNumbers = dailyDexNumbers ?? pokemon.map((entry) => entry.nationalDexNumber);
@@ -536,7 +541,7 @@ export function PokedexPage({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [deferredSearchTerm, selectedType, selectedGeneration, sortKey, sortDirection]);
+  }, [debouncedSearchTerm, selectedType, selectedGeneration, sortKey, sortDirection]);
 
   useEffect(() => {
     if (!serverListState) {
@@ -564,8 +569,8 @@ export function PokedexPage({
 
     const nextSearchParams = new URLSearchParams(searchParams.toString());
 
-    if (deferredSearchTerm.length > 0) {
-      nextSearchParams.set("search", deferredSearchTerm);
+    if (debouncedSearchTerm.length > 0) {
+      nextSearchParams.set("search", debouncedSearchTerm);
     } else {
       nextSearchParams.delete("search");
     }
@@ -610,7 +615,7 @@ export function PokedexPage({
     router.replace(nextQueryString.length > 0 ? `${pathname}?${nextQueryString}` : pathname, { scroll: false });
   }, [
     currentPage,
-    deferredSearchTerm,
+    debouncedSearchTerm,
     isServerDrivenPokedex,
     pathname,
     router,
