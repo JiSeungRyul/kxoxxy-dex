@@ -78,7 +78,7 @@ function EmptyState() {
 
 export function MyTeamsPage() {
   const [teams, setTeams] = useState<PokemonTeam[]>([]);
-  const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
+  const [expandedTeamIds, setExpandedTeamIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [deletingTeamId, setDeletingTeamId] = useState<number | null>(null);
   const [duplicatingTeamId, setDuplicatingTeamId] = useState<number | null>(null);
@@ -110,7 +110,6 @@ export function MyTeamsPage() {
     setIsAuthRequired(false);
     setAuthRequiredMessage(null);
     setTeams(nextTeams);
-    setExpandedTeamId((currentTeamId) => currentTeamId ?? nextTeams[0]?.id ?? null);
   }
 
   useEffect(() => {
@@ -157,7 +156,6 @@ export function MyTeamsPage() {
       setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
-      setExpandedTeamId(nextTeams[0]?.id ?? null);
     } catch {
       setError("팀 삭제 중 오류가 발생했습니다.");
     } finally {
@@ -197,7 +195,9 @@ export function MyTeamsPage() {
       setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
-      setExpandedTeamId(payload.savedTeamId ?? nextTeams[0]?.id ?? null);
+      if (payload.savedTeamId) {
+        setExpandedTeamIds((prev) => new Set([...prev, payload.savedTeamId as number]));
+      }
     } catch {
       setError("팀 복제 중 오류가 발생했습니다.");
     } finally {
@@ -244,7 +244,6 @@ export function MyTeamsPage() {
       setIsAuthRequired(false);
       const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
       setTeams(nextTeams);
-      setExpandedTeamId(team.id);
     } catch {
       setError("팀 이름 변경 중 오류가 발생했습니다.");
     } finally {
@@ -401,7 +400,7 @@ export function MyTeamsPage() {
 
       <div className="space-y-5">
         {sortedTeams.map((team) => {
-          const isExpanded = expandedTeamId === team.id;
+          const isExpanded = expandedTeamIds.has(team.id);
           const selectedMembers = team.members.filter((member) => member.pokemon);
 
           return (
@@ -452,7 +451,7 @@ export function MyTeamsPage() {
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => setExpandedTeamId((currentTeamId) => (currentTeamId === team.id ? null : team.id))}
+                  onClick={() => setExpandedTeamIds((prev) => { const next = new Set(prev); next.has(team.id) ? next.delete(team.id) : next.add(team.id); return next; })}
                   className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
                 >
                   {isExpanded ? "상세 닫기" : "상세 보기"}
