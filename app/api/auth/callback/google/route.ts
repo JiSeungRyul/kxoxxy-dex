@@ -10,8 +10,10 @@ import {
   isValidAuthState,
 } from "@/features/pokedex/server/auth-session";
 
-function getReturnUrl(request: NextRequest, searchParamError?: string | null) {
-  const returnUrl = new URL("/", request.url);
+const AUTH_URL = process.env.AUTH_URL?.trim() ?? "http://localhost:3000";
+
+function getReturnUrl(searchParamError?: string | null) {
+  const returnUrl = new URL("/", AUTH_URL);
 
   if (searchParamError) {
     returnUrl.searchParams.set("authError", searchParamError);
@@ -20,8 +22,8 @@ function getReturnUrl(request: NextRequest, searchParamError?: string | null) {
   return returnUrl;
 }
 
-function getRecoveredAccountReturnUrl(request: NextRequest) {
-  const returnUrl = new URL("/my", request.url);
+function getRecoveredAccountReturnUrl() {
+  const returnUrl = new URL("/my", AUTH_URL);
   returnUrl.searchParams.set("accountRestored", "true");
   return returnUrl;
 }
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
   const authMode = getAuthMode();
 
   if (authMode.kind !== "provider" || authMode.provider !== "google") {
-    return NextResponse.redirect(getReturnUrl(request, "provider-not-configured"));
+    return NextResponse.redirect(getReturnUrl("provider-not-configured"));
   }
 
   const { searchParams } = new URL(request.url);
@@ -39,20 +41,20 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
 
   if (error) {
-    const response = NextResponse.redirect(getReturnUrl(request, error));
+    const response = NextResponse.redirect(getReturnUrl(error));
     clearAuthStateCookie(response);
     return response;
   }
 
   if (!isValidAuthState(request, state)) {
-    const response = NextResponse.redirect(getReturnUrl(request, "invalid-state"));
+    const response = NextResponse.redirect(getReturnUrl("invalid-state"));
     clearAuthSessionCookie(response);
     clearAuthStateCookie(response);
     return response;
   }
 
   if (!code) {
-    const response = NextResponse.redirect(getReturnUrl(request, "missing-code"));
+    const response = NextResponse.redirect(getReturnUrl("missing-code"));
     clearAuthStateCookie(response);
     return response;
   }
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
   try {
     const { sessionToken, expiresAt, wasRestored } = await createGoogleAuthSession(code);
     const response = NextResponse.redirect(
-      wasRestored ? getRecoveredAccountReturnUrl(request) : getReturnUrl(request),
+      wasRestored ? getRecoveredAccountReturnUrl() : getReturnUrl(),
     );
 
     applyAuthSessionCookie(response, sessionToken, expiresAt);
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     const response = NextResponse.redirect(
-      getReturnUrl(request, isInactiveAccountError(error) ? "account-inactive" : "callback-failed"),
+      getReturnUrl(isInactiveAccountError(error) ? "account-inactive" : "callback-failed"),
     );
 
     clearAuthSessionCookie(response);
