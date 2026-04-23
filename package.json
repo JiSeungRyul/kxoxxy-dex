@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "fuser -k 3000/tcp 2>/dev/null; next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --import ./tests/register-paths.mjs --experimental-strip-types --experimental-test-module-mocks --test tests/**/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "sync:pokedex": "node scripts/sync-pokedex.mjs",
     "sync:items": "node scripts/sync-items.mjs",

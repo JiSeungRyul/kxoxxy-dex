@@ -202,20 +202,21 @@ export function SiteHeroHeader() {
         </div>
 
         <div className="flex flex-wrap items-start justify-end gap-3">
-          <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-right shadow-card">
+          <ThemeToggle />
+          <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-left shadow-card">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Account
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
               {isAuthLoading ? "확인 중..." : authUser ? (authUser.name ?? authUser.email) : "방문자"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {authUser
-                ? "로그인 상태입니다."
-                : authMode === "provider" && authProvider === "google"
+            {!authUser ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {authMode === "provider" && authProvider === "google"
                   ? "로그인하고 모든 기능을 사용해 보세요."
                   : "provider 설정이 없어 개발용 로그인 경로를 사용 중입니다."}
-            </p>
+              </p>
+            ) : null}
             {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
@@ -242,7 +243,6 @@ export function SiteHeroHeader() {
               ) : null}
             </div>
           </div>
-          <ThemeToggle />
         </div>
       </div>
 

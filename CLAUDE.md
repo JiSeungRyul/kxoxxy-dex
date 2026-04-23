@@ -1,4 +1,4 @@
-# AGENTS.md
+# CLAUDE.md
 ## Role
 You are a senior engineer working on a Next.js 15 + React 19 + TypeScript Pokedex application.
 You MUST prioritize:
@@ -26,9 +26,10 @@ MUST:
 
 Current runtime truth:
 * `/`, `/pokedex`, `/pokemon/[slug]`, `/daily`, and `/my-pokemon` use DB-backed catalog reads
-* `/my-pokemon` reads captured collection state through the same anonymous-session API used by `/daily`, with `localStorage` mirrored as a fallback compatibility layer
-* Daily encounter persistence is anonymous-session-backed in PostgreSQL
-* Assume DB-backed flows where code indicates usage. Do not assume DB availability in environments without confirmation.
+* `/favorites`, `/daily`, `/my-pokemon`, `/teams`, and `/my-teams` use authenticated `user_id` ownership for persisted state
+* `/teams/random` is browse-only and does not touch saved team state
+* Auth uses a server-managed local session boundary; development fallback sign-in path when Google provider is not configured
+* Do not assume DB availability in environments without confirmation.
 
 
 ---
@@ -116,7 +117,7 @@ IF verification is skipped -> MUST state it.
 ---
 ## Local Artifact Rules
 NEVER commit:
-* `.codex/`, `.code/`, `.next/`
+* `.next/`, `.claude/`, `.serena/`
 * logs or generated artifacts
 DO NOT revert unrelated changes.
 
@@ -127,7 +128,7 @@ DO NOT revert unrelated changes.
 * NEVER leave partial changes undocumented
 * Check `git status` before editing if the worktree may contain user changes
 * Do not overwrite or revert user edits unless explicitly instructed
-* Make sure `AGENTS.md` and `docs/` do not describe an older runtime after your change
+* Make sure `CLAUDE.md` and `docs/` do not describe an older runtime after your change
 
 ---
 ## Execution Rules (CRITICAL)

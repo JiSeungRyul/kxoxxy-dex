@@ -148,7 +148,7 @@ function isInactiveUser(user: Pick<UserRow, "isActive" | "deletedAt">) {
   return !user.isActive || user.deletedAt !== null;
 }
 
-function isWithinRecoveryGracePeriod(deletedAt: string | null) {
+export function isWithinRecoveryGracePeriod(deletedAt: string | null) {
   if (!deletedAt) {
     return false;
   }
