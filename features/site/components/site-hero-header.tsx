@@ -47,7 +47,7 @@ export function SiteHeroHeader() {
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(null);
-  const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("development");
+  const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("provider");
   const [authProvider, setAuthProvider] = useState<AuthSessionResponse["authProvider"]>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
@@ -78,14 +78,14 @@ export function SiteHeroHeader() {
         }
 
         setAuthUser(payload.authenticated ? (payload.user ?? null) : null);
-        setAuthMode(payload.authMode ?? "development");
+        setAuthMode(payload.authMode ?? "provider");
         setAuthProvider(payload.authProvider ?? null);
         setAuthErrorMessage(null);
       })
       .catch(() => {
         if (isMounted) {
           setAuthUser(null);
-          setAuthMode("development");
+          setAuthMode("provider");
           setAuthProvider(null);
           setAuthErrorMessage(null);
         }
@@ -101,49 +101,8 @@ export function SiteHeroHeader() {
     };
   }, []);
 
-  async function handleSignIn() {
-    if (authMode === "provider" && authProvider === "google") {
-      window.location.assign("/api/auth/sign-in");
-      return;
-    }
-
-    setIsAuthMutating(true);
-    setAuthErrorMessage(null);
-
-    try {
-      const response = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: "dev@kxoxxydex.local",
-          name: "개발 테스트 사용자",
-        }),
-      });
-      const payload = (await response.json()) as AuthSessionResponse;
-      setAuthMode(payload.authMode ?? "development");
-      setAuthProvider(payload.authProvider ?? null);
-
-      if (!response.ok) {
-        setAuthUser(null);
-        setAuthErrorMessage(
-          payload.accountInactive
-            ? AUTH_UI_COPY.inactiveAccountStartFailed
-            : AUTH_UI_COPY.signInStartFailed,
-        );
-        return;
-      }
-
-      setAuthUser(payload.user ?? null);
-      setAuthErrorMessage(null);
-    } catch {
-      setAuthUser(null);
-      setAuthErrorMessage(AUTH_UI_COPY.signInStartFailed);
-    } finally {
-      setIsAuthLoading(false);
-      setIsAuthMutating(false);
-    }
+  function handleSignIn() {
+    window.location.assign("/api/auth/sign-in");
   }
 
   async function handleLogout() {
@@ -157,7 +116,7 @@ export function SiteHeroHeader() {
       const payload = (await response.json()) as AuthSessionResponse;
       
       setAuthUser(null);
-      setAuthMode(payload.authMode ?? "development");
+      setAuthMode(payload.authMode ?? "provider");
       setAuthProvider(payload.authProvider ?? null);
 
       // Protected routes should redirect to home after logout
@@ -212,9 +171,7 @@ export function SiteHeroHeader() {
             </p>
             {!authUser ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                {authMode === "provider" && authProvider === "google"
-                  ? "로그인하고 모든 기능을 사용해 보세요."
-                  : "provider 설정이 없어 개발용 로그인 경로를 사용 중입니다."}
+                로그인하고 모든 기능을 사용해 보세요.
               </p>
             ) : null}
             {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
@@ -225,13 +182,7 @@ export function SiteHeroHeader() {
                 disabled={isAuthMutating}
                 className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isAuthMutating
-                  ? "처리 중..."
-                  : authUser
-                    ? "로그아웃"
-                    : authMode === "provider" && authProvider === "google"
-                      ? AUTH_UI_COPY.signInButton
-                      : "개발용 로그인"}
+                {isAuthMutating ? "처리 중..." : authUser ? "로그아웃" : AUTH_UI_COPY.signInButton}
               </button>
               {authUser ? (
                 <Link

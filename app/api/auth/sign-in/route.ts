@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Authentication not configured" }, { status: 503 });
+    }
+
     const { sessionToken, expiresAt } = await createDevelopmentAuthSession({
       email: "dev@kxoxxydex.local",
       name: "개발 테스트 사용자",
@@ -72,6 +76,10 @@ export async function POST(request: NextRequest) {
       });
       applyAuthStateCookie(response, state);
       return response;
+    }
+
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Authentication not configured" }, { status: 503 });
     }
 
     const body = (await request.json().catch(() => ({}))) as {

@@ -23,45 +23,45 @@
 이 섹션이 끝나면 소프트 런치 가능으로 본다.
 
 ### A. 운영 서버 준비
-- [ ] Linux VPS 1대 준비
-- [ ] Node.js LTS 설치
-- [ ] PostgreSQL 16 설치
-- [ ] Caddy 또는 Nginx 설치 및 설정
-- [ ] 운영 도메인을 서버에 연결
-- [ ] HTTPS 적용
-- [ ] 운영 환경변수 설정
-- [ ] 아래 필수 env가 실제 운영 값으로 들어가 있는지 확인
-  - [ ] `DATABASE_URL`
-  - [ ] `AUTH_PROVIDER=google`
-  - [ ] `AUTH_URL`
-  - [ ] `AUTH_SECRET`
-  - [ ] `GOOGLE_CLIENT_ID`
-  - [ ] `GOOGLE_CLIENT_SECRET`
-- [ ] 서버에서 `DATABASE_URL`이 유효한지 확인
-- [ ] `npm ci` 실행
-- [ ] `npm run build` 실행
-- [ ] `npm run start` 또는 선택한 프로세스 매니저로 앱 기동
+- [x] Linux VPS 1대 준비 (Hetzner CAX11 / Helsinki)
+- [x] Node.js LTS 설치 (v24)
+- [x] PostgreSQL 16 설치
+- [x] Caddy 또는 Nginx 설치 및 설정
+- [x] 운영 도메인을 서버에 연결 (kxoxxy-dex.com)
+- [x] HTTPS 적용 (Caddy 자동 인증서)
+- [x] 운영 환경변수 설정
+- [x] 아래 필수 env가 실제 운영 값으로 들어가 있는지 확인
+  - [x] `DATABASE_URL`
+  - [x] `AUTH_PROVIDER=google`
+  - [x] `AUTH_URL`
+  - [x] `AUTH_SECRET`
+  - [x] `GOOGLE_CLIENT_ID`
+  - [x] `GOOGLE_CLIENT_SECRET`
+- [x] 서버에서 `DATABASE_URL`이 유효한지 확인
+- [x] `npm ci` 실행
+- [x] `npm run build` 실행
+- [x] `npm run start` 또는 선택한 프로세스 매니저로 앱 기동 (PM2)
 
 ### B. 운영 DB 초기화
-- [ ] `npm run db:migrate` 실행
-- [ ] `npm run db:seed:pokedex` 실행
-- [ ] `npm run db:seed:items` 실행
-- [ ] `npm run db:seed:moves` 실행
-- [ ] `/pokedex` 접속 후 카탈로그 데이터 로딩 확인
-- [ ] `/pokemon/pikachu` 같은 상세 라우트 1개 확인
+- [x] `npm run db:migrate` 실행
+- [x] `npm run db:seed:pokedex` 실행
+- [x] `npm run db:seed:items` 실행
+- [x] `npm run db:seed:moves` 실행
+- [x] `/pokedex` 접속 후 카탈로그 데이터 로딩 확인
+- [x] `/pokemon/pikachu` 같은 상세 라우트 1개 확인
 - [ ] `/teams`, `/daily` 접속 후 DB 오류 없이 기본 화면이 열리는지 확인
 
 ### C. 실도메인 로그인 검증
-- [ ] 운영 도메인 기준 Google OAuth redirect URI 설정
-- [ ] 실제 도메인에서 `GET /api/auth/sign-in` 실행
-- [ ] Google callback 흐름 정상 완료
+- [x] 운영 도메인 기준 Google OAuth redirect URI 설정
+- [x] 실제 도메인에서 `GET /api/auth/sign-in` 실행
+- [x] Google callback 흐름 정상 완료
 - [ ] 로그인 후 `GET /api/auth/session` 응답 확인
-- [ ] 로그인 후 `/favorites`, `/daily`, `/teams`, `/my` 진입 확인
+- [x] 로그인 후 `/favorites`, `/daily`, `/teams`, `/my` 진입 확인
 - [ ] 로그아웃 확인
 - [ ] 로그인 실패 또는 세션 만료 시 설명 없는 `500` 반복으로 무너지지 않는지 확인
 
 ### D. 배포 후 스모크 체크
-- [ ] “배포 후 10분 내 확인 순서”를 아래 순서로 고정
+- [ ] "배포 후 10분 내 확인 순서"를 아래 순서로 고정
   - [ ] `/`
   - [ ] `/pokedex`
   - [ ] `/pokemon/pikachu`
@@ -72,7 +72,7 @@
   - [ ] 로그인 후 `/teams`
   - [ ] 로그인 후 `/my`
   - [ ] 저장 동작 1회 후 새로고침 유지 확인
-- [ ] 실제 재배포 1회 수행
+- [x] 실제 재배포 1회 수행 (callback 버그 수정 배포)
 - [ ] 재배포 후 스모크 체크 통과
 
 ### E. DB 백업과 복구 proof
@@ -103,11 +103,11 @@
 - [ ] 배포 실패 시 롤백 또는 임시 복구 순서 문서화
 
 ### G. 최소 품질 가드레일
-- [ ] `npm run typecheck` 실행
-- [ ] `npm run build` 실행
-- [ ] auth/session 경계에 대한 최소 자동 검증 1개 이상 추가 또는 확인
-- [ ] persisted-state API에 대한 최소 자동 검증 1개 이상 추가 또는 확인
-- [ ] 핵심 repository read path에 대한 최소 자동 검증 1개 이상 추가 또는 확인
+- [x] `npm run typecheck` 실행
+- [x] `npm run build` 실행
+- [x] auth/session 경계에 대한 최소 자동 검증 1개 이상 추가 또는 확인 (tests/auth-session.test.mjs)
+- [x] persisted-state API에 대한 최소 자동 검증 1개 이상 추가 또는 확인 (tests/favorites-route, daily-route, teams-route)
+- [x] 핵심 repository read path에 대한 최소 자동 검증 1개 이상 추가 또는 확인 (tests/repository.test.mjs)
 
 ## 2. 런칭 직후 바로 할 것
 - [ ] 운영 로그를 다시 점검하고 first triage 순서대로 즉시 대응 가능한지 확인
@@ -122,10 +122,10 @@
 - [ ] `docs/todo-backlog.md`의 `43-4` production 로그와 failure triage 흐름 점검
 
 ## 소프트 런치 종료 조건
-- [ ] 실제 도메인에서 앱이 열린다.
-- [ ] 실제 도메인에서 Google 로그인이 동작한다.
-- [ ] 로그인 사용자가 최소 1개 이상의 저장 기능을 저장 후 다시 불러올 수 있다.
-- [ ] 재배포가 1회 이상 성공했다.
+- [x] 실제 도메인에서 앱이 열린다.
+- [x] 실제 도메인에서 Google 로그인이 동작한다.
+- [x] 로그인 사용자가 최소 1개 이상의 저장 기능을 저장 후 다시 불러올 수 있다.
+- [x] 재배포가 1회 이상 성공했다.
 - [ ] 백업 작업이 존재하고 실제 파일을 생성한다.
 - [ ] 복구 경로가 문서화되어 있고 1회 테스트됐다.
 - [ ] app restart 후 `GET /api/auth/session`과 보호 라우트 1개가 다시 정상 동작한다.
