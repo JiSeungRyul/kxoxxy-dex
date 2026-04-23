@@ -49,58 +49,58 @@
 - [x] `npm run db:seed:moves` 실행
 - [x] `/pokedex` 접속 후 카탈로그 데이터 로딩 확인
 - [x] `/pokemon/pikachu` 같은 상세 라우트 1개 확인
-- [ ] `/teams`, `/daily` 접속 후 DB 오류 없이 기본 화면이 열리는지 확인
+- [x] `/teams`, `/daily` 접속 후 DB 오류 없이 기본 화면이 열리는지 확인
 
 ### C. 실도메인 로그인 검증
 - [x] 운영 도메인 기준 Google OAuth redirect URI 설정
 - [x] 실제 도메인에서 `GET /api/auth/sign-in` 실행
 - [x] Google callback 흐름 정상 완료
-- [ ] 로그인 후 `GET /api/auth/session` 응답 확인
+- [x] 로그인 후 `GET /api/auth/session` 응답 확인
 - [x] 로그인 후 `/favorites`, `/daily`, `/teams`, `/my` 진입 확인
-- [ ] 로그아웃 확인
+- [x] 로그아웃 확인
 - [ ] 로그인 실패 또는 세션 만료 시 설명 없는 `500` 반복으로 무너지지 않는지 확인
 
 ### D. 배포 후 스모크 체크
-- [ ] "배포 후 10분 내 확인 순서"를 아래 순서로 고정
-  - [ ] `/`
-  - [ ] `/pokedex`
-  - [ ] `/pokemon/pikachu`
-  - [ ] `/api/auth/session`
-  - [ ] 실제 도메인에서 `GET /api/auth/sign-in`
-  - [ ] 로그인 후 `/favorites`
-  - [ ] 로그인 후 `/daily`
-  - [ ] 로그인 후 `/teams`
-  - [ ] 로그인 후 `/my`
-  - [ ] 저장 동작 1회 후 새로고침 유지 확인
+- [x] "배포 후 10분 내 확인 순서"를 아래 순서로 고정
+  - [x] `/`
+  - [x] `/pokedex`
+  - [x] `/pokemon/pikachu`
+  - [x] `/api/auth/session`
+  - [x] 실제 도메인에서 `GET /api/auth/sign-in`
+  - [x] 로그인 후 `/favorites`
+  - [x] 로그인 후 `/daily`
+  - [x] 로그인 후 `/teams`
+  - [x] 로그인 후 `/my`
+  - [x] 저장 동작 1회 후 새로고침 유지 확인
 - [x] 실제 재배포 1회 수행 (callback 버그 수정 배포)
-- [ ] 재배포 후 스모크 체크 통과
+- [x] 재배포 후 스모크 체크 통과
 
 ### E. DB 백업과 복구 proof
-- [ ] `pg_dump` 기반 백업 스크립트 또는 명령 순서 작성
-- [ ] 하루 1회 백업 실행 예약
-- [ ] 백업 파일 저장 경로 고정
-- [ ] 최소 7일 보관 규칙 정의
-- [ ] 백업 파일이 실제 생성되는지 확인
-- [ ] 복구 명령 또는 복구 절차 문서화
-- [ ] 안전한 환경에서 복구 테스트 1회 수행
+- [x] `pg_dump` 기반 백업 스크립트 또는 명령 순서 작성 (/usr/local/bin/kxoxxy-dex-backup.sh)
+- [x] 하루 1회 백업 실행 예약 (postgres crontab, 매일 03:00)
+- [x] 백업 파일 저장 경로 고정 (/var/backups/kxoxxy-dex/)
+- [x] 최소 7일 보관 규칙 정의 (스크립트 내 find -mtime +7 -delete)
+- [x] 백업 파일이 실제 생성되는지 확인 (kxoxxy_dex_2026-04-23.sql.gz, 15MB)
+- [x] 복구 명령 또는 복구 절차 문서화
+- [x] 안전한 환경에서 복구 테스트 1회 수행 (kxoxxy_dex_restore_test DB 복구 후 삭제)
 
 ### F. 로그와 장애 대응
-- [ ] Next.js 앱 로그 확인 위치 고정
-- [ ] reverse proxy 로그 확인 위치 고정
-- [ ] PostgreSQL 로그 확인 위치 고정
-- [ ] 아래 상황의 1차 확인 절차 문서화:
-  - [ ] 로그인 실패
-  - [ ] DB 연결 실패
-  - [ ] 반복적인 `500` 응답
-- [ ] first triage 순서를 아래와 같이 고정
-  - [ ] `GET /api/auth/session`
-  - [ ] 실패한 route 또는 persisted API
-  - [ ] `npm run db:migrate` / 필요한 `db:seed:*`
-  - [ ] app log
-  - [ ] reverse proxy log
-  - [ ] PostgreSQL log
-- [ ] 앱 재시작 명령 고정
-- [ ] 배포 실패 시 롤백 또는 임시 복구 순서 문서화
+- [x] Next.js 앱 로그 확인 위치 고정 (pm2 logs / /root/.pm2/logs/kxoxxy-dex-error.log)
+- [x] reverse proxy 로그 확인 위치 고정 (journalctl -u caddy)
+- [x] PostgreSQL 로그 확인 위치 고정 (/var/log/postgresql/postgresql-16-main.log)
+- [x] 아래 상황의 1차 확인 절차 문서화:
+  - [x] 로그인 실패
+  - [x] DB 연결 실패
+  - [x] 반복적인 `500` 응답
+- [x] first triage 순서를 아래와 같이 고정
+  - [x] `GET /api/auth/session`
+  - [x] 실패한 route 또는 persisted API
+  - [x] `npm run db:migrate` / 필요한 `db:seed:*`
+  - [x] app log
+  - [x] reverse proxy log
+  - [x] PostgreSQL log
+- [x] 앱 재시작 명령 고정 (pm2 restart kxoxxy-dex)
+- [x] 배포 실패 시 롤백 또는 임시 복구 순서 문서화
 
 ### G. 최소 품질 가드레일
 - [x] `npm run typecheck` 실행
@@ -126,11 +126,11 @@
 - [x] 실제 도메인에서 Google 로그인이 동작한다.
 - [x] 로그인 사용자가 최소 1개 이상의 저장 기능을 저장 후 다시 불러올 수 있다.
 - [x] 재배포가 1회 이상 성공했다.
-- [ ] 백업 작업이 존재하고 실제 파일을 생성한다.
-- [ ] 복구 경로가 문서화되어 있고 1회 테스트됐다.
-- [ ] app restart 후 `GET /api/auth/session`과 보호 라우트 1개가 다시 정상 동작한다.
-- [ ] 장애 대응 중 운영 로그를 확인할 수 있다.
-- [ ] 배포 후 스모크 체크가 최소 1회 통과했다.
+- [x] 백업 작업이 존재하고 실제 파일을 생성한다.
+- [x] 복구 경로가 문서화되어 있고 1회 테스트됐다.
+- [x] app restart 후 `GET /api/auth/session`과 보호 라우트 1개가 다시 정상 동작한다.
+- [x] 장애 대응 중 운영 로그를 확인할 수 있다.
+- [x] 배포 후 스모크 체크가 최소 1회 통과했다.
 
 ## 이 체크리스트 동안 범위 확장 금지
 - [ ] 추가 OAuth provider 구현 금지

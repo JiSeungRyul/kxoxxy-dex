@@ -114,6 +114,36 @@ Check these routes in order:
    - the affected route no longer returns empty catalog or repeated `500`
 
 ### D. Logs And First Checks
+
+**Production log locations (Hetzner):**
+- App logs (stdout): `pm2 logs kxoxxy-dex --nostream --lines 50`
+- App logs (error): `/root/.pm2/logs/kxoxxy-dex-error.log`
+- Caddy (reverse proxy): `journalctl -u caddy --no-pager -n 50`
+- PostgreSQL: `tail -50 /var/log/postgresql/postgresql-16-main.log`
+
+**App restart:**
+```bash
+pm2 restart kxoxxy-dex   # 재시작
+pm2 status               # 상태 확인
+```
+
+**First triage order:**
+1. `GET /api/auth/session` — 앱이 살아있는지 확인
+2. 실패한 라우트 또는 API 직접 접속
+3. `pm2 logs kxoxxy-dex --nostream --lines 50` — 앱 에러 확인
+4. `journalctl -u caddy --no-pager -n 50` — 프록시 에러 확인
+5. `tail -50 /var/log/postgresql/postgresql-16-main.log` — DB 에러 확인
+6. 필요 시 `npm run db:migrate` 실행
+
+**Deploy rollback:**
+```bash
+cd /var/www/kxoxxy-dex
+git log --oneline -5          # 현재 커밋 확인
+git checkout <이전-커밋-해시>  # 이전 버전으로 이동
+npm run build
+pm2 restart kxoxxy-dex
+```
+
 - App/auth/session failures: inspect Next.js server logs first.
 - Production request failures: inspect reverse proxy logs next.
 - Migration/seed failures: inspect PostgreSQL logs and the failing CLI output.

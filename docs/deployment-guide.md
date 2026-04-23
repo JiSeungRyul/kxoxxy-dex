@@ -189,20 +189,33 @@ Use this order immediately after deploy:
   - team-sharing or analytics features increase write/read load noticeably
 
 ## Backups And Operations
-- Minimum recommendation:
-  - daily PostgreSQL backup via `pg_dump`
-  - keep 7 to 14 days of backups
-  - confirm that backup files are actually created
-  - verify that restore works at least once before treating soft launch as ready
-- Track at least:
-  - service uptime
-  - disk usage
-  - memory usage
-  - app restart success
-- Keep logs simple at first:
-  - Next.js process logs
-  - reverse proxy access/error logs
-  - PostgreSQL logs
+
+### Backup Setup (Production — Hetzner)
+- Script: `/usr/local/bin/kxoxxy-dex-backup.sh`
+- Backup dir: `/var/backups/kxoxxy-dex/`
+- Schedule: postgres crontab, `0 3 * * *` (매일 03:00)
+- Retention: 7일 (`find -mtime +7 -delete`)
+- Run manually: `sudo -u postgres /usr/local/bin/kxoxxy-dex-backup.sh`
+
+### Restore Procedure
+1. 복구 대상 DB 생성 (운영 복구 시에는 기존 DB drop 후 재생성):
+   ```bash
+   sudo -u postgres dropdb kxoxxy_dex        # 운영 복구 시에만
+   sudo -u postgres createdb kxoxxy_dex
+   ```
+2. 백업 파일로 복구:
+   ```bash
+   sudo -u postgres gunzip -c /var/backups/kxoxxy-dex/kxoxxy_dex_YYYY-MM-DD.sql.gz | sudo -u postgres psql kxoxxy_dex
+   ```
+3. 앱 재시작:
+   ```bash
+   pm2 restart kxoxxy-dex
+   ```
+4. 복구 확인: `/api/auth/session` + 보호 라우트 1개 접속
+
+### Monitoring minimum
+- Track at least: service uptime, disk usage, memory usage, app restart success
+- Keep logs simple: Next.js process logs, reverse proxy access/error logs, PostgreSQL logs
 
 ## Cheapest Growth Path
 1. One VPS with app + DB
