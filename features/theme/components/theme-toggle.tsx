@@ -29,7 +29,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="inline-flex flex-col gap-1 rounded-2xl border border-border bg-toggle p-1 shadow-card">
+    <div className="inline-flex flex-row gap-1 rounded-2xl border border-border bg-toggle p-1 shadow-card">
       {([
         ["light", "☀️ 라이트"],
         ["dark", "🌙 다크"],

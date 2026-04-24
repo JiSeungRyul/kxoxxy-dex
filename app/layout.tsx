@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Do_Hyeon, Noto_Sans_KR } from "next/font/google";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
+import { AUTH_SESSION_COOKIE_NAME, resolveAuthenticatedUserSessionByToken } from "@/features/pokedex/server/auth-session";
 import { SiteHeroHeader } from "@/features/site/components/site-hero-header";
 
 import "./globals.css";
@@ -40,12 +42,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const currentYear = new Date().getFullYear();
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(AUTH_SESSION_COOKIE_NAME)?.value?.trim() ?? null;
+  const initialUser = await resolveAuthenticatedUserSessionByToken(sessionToken);
 
   return (
     <html lang="ko" suppressHydrationWarning>
@@ -55,7 +60,7 @@ export default function RootLayout({
       <body className={`${displayFont.variable} ${bodyFont.variable} bg-background text-foreground`}>
         <div className="flex min-h-screen flex-col">
           <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-            <SiteHeroHeader />
+            <SiteHeroHeader initialUser={initialUser} />
             <div className="mt-6 flex-1">{children}</div>
           </div>
           <footer className="mt-10 border-t border-border bg-card/70 backdrop-blur-sm">

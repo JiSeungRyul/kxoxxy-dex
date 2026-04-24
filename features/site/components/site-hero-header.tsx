@@ -4,9 +4,10 @@ import type { FocusEventHandler } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AUTH_UI_COPY } from "@/features/pokedex/constants";
+import type { AuthenticatedUserSession } from "@/features/pokedex/server/auth-session";
 import { ThemeToggle } from "@/features/theme/components/theme-toggle";
 
 function getNavLinkClass(isActive: boolean) {
@@ -41,15 +42,23 @@ type AuthSessionResponse = {
 
 const PROTECTED_ROUTES = ["/my", "/favorites", "/daily", "/my-pokemon", "/teams", "/my-teams"];
 
-export function SiteHeroHeader() {
+type SiteHeroHeaderProps = {
+  initialUser: AuthenticatedUserSession | null;
+};
+
+export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
-  const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(null);
+  const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
+    initialUser
+      ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, image: initialUser.image, provider: initialUser.provider }
+      : null,
+  );
   const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("provider");
   const [authProvider, setAuthProvider] = useState<AuthSessionResponse["authProvider"]>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
@@ -67,39 +76,6 @@ export function SiteHeroHeader() {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-
-    void fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((payload: AuthSessionResponse) => {
-        if (!isMounted) {
-          return;
-        }
-
-        setAuthUser(payload.authenticated ? (payload.user ?? null) : null);
-        setAuthMode(payload.authMode ?? "provider");
-        setAuthProvider(payload.authProvider ?? null);
-        setAuthErrorMessage(null);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setAuthUser(null);
-          setAuthMode("provider");
-          setAuthProvider(null);
-          setAuthErrorMessage(null);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsAuthLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   function handleSignIn() {
     window.location.assign("/api/auth/sign-in");
@@ -160,7 +136,7 @@ export function SiteHeroHeader() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-start justify-end gap-3">
+        <div className="flex flex-col items-end gap-3">
           <ThemeToggle />
           <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-left shadow-card">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
