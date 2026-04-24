@@ -263,6 +263,27 @@ The sections below record intermediate migration steps that are no longer the ac
 ### 개발 환경 개선
 - Updated `package.json` `dev` script to `fuser -k 3000/tcp 2>/dev/null; next dev -p 3000` so the dev server always starts on port 3000, killing any existing process on that port first.
 
+## Auth Gate, Header UX, and Ops Fixes (Added: 2026-04-24)
+
+### 보호 라우트 서버 사이드 auth gate
+- `middleware.ts` 없이 각 보호 페이지 서버 컴포넌트에서 직접 `kxoxxy-auth-session` 쿠키 유무를 체크.
+- 쿠키 없으면 `SignInPrompt` (`features/pokedex/components/sign-in-prompt.tsx`)를 즉시 서버 렌더링하여 클라이언트 flash 없이 로그인 UI 표시.
+- 대상: `/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/my-teams`.
+- `/teams`는 쿠키 없을 때 `Promise.all` DB fetch를 건너뛰고 즉시 반환.
+
+### 헤더 Account 영역 개선
+- `app/layout.tsx`를 async로 전환해 서버에서 세션 확인 후 `initialUser`를 `SiteHeroHeader`에 전달.
+- `SiteHeroHeader`가 `initialUser` prop으로 초기 auth 상태를 즉시 반영 — "확인 중..." flash 제거.
+- 초기 렌더용 `/api/auth/session` `useEffect` fetch 제거.
+- `ThemeToggle` 버튼을 가로 배치(`flex-row`)로 변경하고 Account 카드 위 세로 배치(`flex-col`)로 정렬.
+
+### DB 백업 크론 시간 수정
+- postgres crontab 스케줄을 `0 3 * * *` (UTC 03:00 = KST 12:00)에서 `0 18 * * *` (UTC 18:00 = KST 03:00)으로 변경.
+- `docs/deployment-guide.md` 백업 스케줄 항목도 동일하게 갱신.
+
+### 소프트 런치 체크리스트 마무리
+- 세션 만료/로그인 실패 시 500 반복 미발생 검증 완료 (C항목 체크).
+
 ## Random Team Slot-Based Type Conditions (Added: 2026-04-21)
 - Replaced the single global `최소 타입` condition with per-slot type conditions for `/teams/random`.
 - Each of the six result slots now has its own type dropdown so the user can independently require a specific type per slot.

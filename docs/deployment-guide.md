@@ -193,7 +193,7 @@ Use this order immediately after deploy:
 ### Backup Setup (Production — Hetzner)
 - Script: `/usr/local/bin/kxoxxy-dex-backup.sh`
 - Backup dir: `/var/backups/kxoxxy-dex/`
-- Schedule: postgres crontab, `0 3 * * *` (매일 03:00)
+- Schedule: postgres crontab, `0 18 * * *` (매일 UTC 18:00 = KST 03:00)
 - Retention: 7일 (`find -mtime +7 -delete`)
 - Run manually: `sudo -u postgres /usr/local/bin/kxoxxy-dex-backup.sh`
 

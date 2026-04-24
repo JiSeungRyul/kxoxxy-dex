@@ -23,6 +23,9 @@
 - The same account hub now also acts as the first recovery landing surface by showing a restored-account notice when the user returns within the grace period.
 - Final hard-delete purge is still outside the live request path; once the grace period expires, the preferred cleanup path is deleting the `users` row in an operations job so the existing FK cascades clear persisted account data.
 - Header-level account navigation now points to `/my`, and favorites is no longer treated as an independent primary nav surface.
+- Protected routes (`/favorites`, `/daily`, `/my-pokemon`, `/teams`, `/my-teams`) now perform a server-side cookie check in the page component and immediately render `SignInPrompt` if no session cookie is present — no client-side flash before login UI.
+- `app/layout.tsx` resolves the authenticated session server-side and passes `initialUser` to `SiteHeroHeader`, eliminating the "확인 중..." loading state on initial render.
+- No `middleware.ts` is used; auth gating is handled per-page at the server component level.
 
 ## High-Level Structure
 - `app/`
