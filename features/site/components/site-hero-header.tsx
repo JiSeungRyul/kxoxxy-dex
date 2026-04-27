@@ -49,6 +49,7 @@ type SiteHeroHeaderProps = {
 export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isPokedexMenuOpen, setIsPokedexMenuOpen] = useState(false);
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
@@ -61,11 +62,15 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
-  const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
+  const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/") || pathname === "/favorites";
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
-  const isFavoritesActive = pathname === "/favorites";
 
+  const handlePokedexMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsPokedexMenuOpen(false);
+    }
+  };
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setIsDailyMenuOpen(false);
@@ -178,13 +183,40 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
         aria-label="주요 서비스 이동"
         className="mt-6 flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-border bg-background p-2"
       >
-        <Link
-          href="/pokedex"
-          aria-current={isPokedexActive ? "page" : undefined}
-          className={getNavLinkClass(isPokedexActive)}
+        <div
+          className="relative"
+          onMouseEnter={() => setIsPokedexMenuOpen(true)}
+          onMouseLeave={() => setIsPokedexMenuOpen(false)}
+          onBlur={handlePokedexMenuBlur}
         >
-          포켓몬 도감
-        </Link>
+          <Link
+            href="/pokedex"
+            aria-current={isPokedexActive ? "page" : undefined}
+            onFocus={() => setIsPokedexMenuOpen(true)}
+            className={getNavLinkClass(isPokedexActive)}
+          >
+            포켓몬 도감
+          </Link>
+
+          <div className={getDropdownClass(isPokedexMenuOpen)}>
+            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+              <Link
+                href="/pokedex"
+                onClick={() => setIsPokedexMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                포켓몬 도감
+              </Link>
+              <Link
+                href="/favorites"
+                onClick={() => setIsPokedexMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                즐겨찾기
+              </Link>
+            </div>
+          </div>
+        </div>
 
         <div
           className="relative"
@@ -263,13 +295,6 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           </div>
         </div>
 
-        <Link
-          href="/favorites"
-          aria-current={isFavoritesActive ? "page" : undefined}
-          className={getNavLinkClass(isFavoritesActive)}
-        >
-          즐겨찾기
-        </Link>
 
       </nav>
     </section>
