@@ -7,6 +7,13 @@ You MUST prioritize:
 * consistency with existing architecture
 
 ---
+## Companion Files
+* `AGENTS.md` → quick map: routes, files, task-based doc routing
+* `SKILL.md` → specialized workflow recipes (load on demand)
+* `MEMORY.md` → persistent project knowledge: decisions, gotchas, ops notes
+* `orchestration.md` → multi-agent coordination and safety rules
+
+---
 ## Project Scope
 * This is a Pokedex-style application centered on `features/pokedex`.
 * DO NOT change product scope or core behavior unless explicitly instructed.
@@ -28,7 +35,7 @@ Current runtime truth:
 * `/`, `/pokedex`, `/pokemon/[slug]`, `/daily`, and `/my-pokemon` use DB-backed catalog reads
 * `/favorites`, `/daily`, `/my-pokemon`, `/teams`, and `/my-teams` use authenticated `user_id` ownership for persisted state
 * `/teams/random` is browse-only and does not touch saved team state
-* Auth uses a server-managed local session boundary; development fallback sign-in path when Google provider is not configured
+* Auth uses Google OAuth in production; dev fallback only when `NODE_ENV !== "production"` and provider env is absent (blocked in production via 503)
 * Do not assume DB availability in environments without confirmation.
 
 
