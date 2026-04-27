@@ -64,7 +64,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
-  const isMyActive = pathname === "/my" || pathname === "/favorites";
+
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setIsDailyMenuOpen(false);
@@ -262,9 +262,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           </div>
         </div>
 
-        <Link href="/my" aria-current={isMyActive ? "page" : undefined} className={getNavLinkClass(isMyActive)}>
-          마이 페이지
-        </Link>
+
       </nav>
     </section>
   );
