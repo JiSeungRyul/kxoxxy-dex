@@ -34,6 +34,7 @@ type AuthSessionResponse = {
     id: number;
     email: string;
     name: string | null;
+    displayName: string | null;
     image: string | null;
     provider: string | null;
   } | null;
@@ -49,11 +50,12 @@ type SiteHeroHeaderProps = {
 export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isPokedexMenuOpen, setIsPokedexMenuOpen] = useState(false);
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
     initialUser
-      ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, image: initialUser.image, provider: initialUser.provider }
+      ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, displayName: initialUser.displayName, image: initialUser.image, provider: initialUser.provider }
       : null,
   );
   const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("provider");
@@ -61,10 +63,15 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
-  const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
+  const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/") || pathname === "/favorites";
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
-  const isMyActive = pathname === "/my" || pathname === "/favorites";
+
+  const handlePokedexMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsPokedexMenuOpen(false);
+    }
+  };
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setIsDailyMenuOpen(false);
@@ -143,7 +150,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
               Account
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {isAuthLoading ? "확인 중..." : authUser ? (authUser.name ?? authUser.email) : "방문자"}
+              {isAuthLoading ? "확인 중..." : authUser ? (authUser.displayName ?? authUser.name ?? authUser.email) : "방문자"}
             </p>
             {!authUser ? (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -177,44 +184,36 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
         aria-label="주요 서비스 이동"
         className="mt-6 flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-border bg-background p-2"
       >
-        <Link
-          href="/pokedex"
-          aria-current={isPokedexActive ? "page" : undefined}
-          className={getNavLinkClass(isPokedexActive)}
-        >
-          포켓몬 도감
-        </Link>
-
         <div
           className="relative"
-          onMouseEnter={() => setIsDailyMenuOpen(true)}
-          onMouseLeave={() => setIsDailyMenuOpen(false)}
-          onBlur={handleDailyMenuBlur}
+          onMouseEnter={() => setIsPokedexMenuOpen(true)}
+          onMouseLeave={() => setIsPokedexMenuOpen(false)}
+          onBlur={handlePokedexMenuBlur}
         >
           <Link
-            href="/daily"
-            aria-current={isDailyActive ? "page" : undefined}
-            onFocus={() => setIsDailyMenuOpen(true)}
-            className={getNavLinkClass(isDailyActive)}
+            href="/pokedex"
+            aria-current={isPokedexActive ? "page" : undefined}
+            onFocus={() => setIsPokedexMenuOpen(true)}
+            className={getNavLinkClass(isPokedexActive)}
           >
-            오늘의 포켓몬
+            포켓몬 도감
           </Link>
 
-          <div className={getDropdownClass(isDailyMenuOpen)}>
+          <div className={getDropdownClass(isPokedexMenuOpen)}>
             <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
               <Link
-                href="/daily"
-                onClick={() => setIsDailyMenuOpen(false)}
+                href="/pokedex"
+                onClick={() => setIsPokedexMenuOpen(false)}
                 className={SUBMENU_LINK_CLASS}
               >
-                잡으러 가기
+                포켓몬 도감
               </Link>
               <Link
-                href="/my-pokemon"
-                onClick={() => setIsDailyMenuOpen(false)}
+                href="/favorites"
+                onClick={() => setIsPokedexMenuOpen(false)}
                 className={SUBMENU_LINK_CLASS}
               >
-                내 포켓몬
+                즐겨찾기
               </Link>
             </div>
           </div>
@@ -262,9 +261,42 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           </div>
         </div>
 
-        <Link href="/my" aria-current={isMyActive ? "page" : undefined} className={getNavLinkClass(isMyActive)}>
-          마이 페이지
-        </Link>
+        <div
+          className="relative"
+          onMouseEnter={() => setIsDailyMenuOpen(true)}
+          onMouseLeave={() => setIsDailyMenuOpen(false)}
+          onBlur={handleDailyMenuBlur}
+        >
+          <Link
+            href="/daily"
+            aria-current={isDailyActive ? "page" : undefined}
+            onFocus={() => setIsDailyMenuOpen(true)}
+            className={getNavLinkClass(isDailyActive)}
+          >
+            오늘의 포켓몬
+          </Link>
+
+          <div className={getDropdownClass(isDailyMenuOpen)}>
+            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+              <Link
+                href="/daily"
+                onClick={() => setIsDailyMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                잡으러 가기
+              </Link>
+              <Link
+                href="/my-pokemon"
+                onClick={() => setIsDailyMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                내 포켓몬
+              </Link>
+            </div>
+          </div>
+        </div>
+
+
       </nav>
     </section>
   );

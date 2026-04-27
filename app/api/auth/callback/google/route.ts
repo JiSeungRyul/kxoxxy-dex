@@ -28,6 +28,12 @@ function getRecoveredAccountReturnUrl() {
   return returnUrl;
 }
 
+function getSetupReturnUrl() {
+  const returnUrl = new URL("/my", AUTH_URL);
+  returnUrl.searchParams.set("setup", "true");
+  return returnUrl;
+}
+
 export async function GET(request: NextRequest) {
   const authMode = getAuthMode();
 
@@ -60,9 +66,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { sessionToken, expiresAt, wasRestored } = await createGoogleAuthSession(code);
+    const { sessionToken, expiresAt, wasRestored, isNewUser } = await createGoogleAuthSession(code);
     const response = NextResponse.redirect(
-      wasRestored ? getRecoveredAccountReturnUrl() : getReturnUrl(),
+      wasRestored ? getRecoveredAccountReturnUrl() : isNewUser ? getSetupReturnUrl() : getReturnUrl(),
     );
 
     applyAuthSessionCookie(response, sessionToken, expiresAt);

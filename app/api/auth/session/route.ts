@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         id: session.userId,
         email: session.email,
         name: session.name,
+        displayName: session.displayName,
         image: session.image,
         provider: session.provider,
       },

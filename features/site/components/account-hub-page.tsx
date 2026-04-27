@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AccountDeleteSection } from "@/features/site/components/account-delete-section";
 import { InfoPageShell } from "@/features/site/components/info-page-shell";
+import { NicknameEditSection } from "@/features/site/components/nickname-edit-section";
 
 type AccountHubPageProps = {
   user:
@@ -9,12 +10,14 @@ type AccountHubPageProps = {
         userId: number;
         email: string;
         name: string | null;
+        displayName: string | null;
         image: string | null;
         provider: string | null;
         expiresAt: string;
       }
     | null;
   accountRestored?: boolean;
+  setup?: boolean;
   summary:
     | {
         favoriteCount: number;
@@ -73,7 +76,7 @@ const ACCOUNT_HUB_SECTIONS = [
   },
 ] as const;
 
-export function AccountHubPage({ user, summary, accountRestored = false }: AccountHubPageProps) {
+export function AccountHubPage({ user, summary, accountRestored = false, setup = false }: AccountHubPageProps) {
   return (
     <InfoPageShell
       eyebrow="My"
@@ -91,13 +94,19 @@ export function AccountHubPage({ user, summary, accountRestored = false }: Accou
             </section>
           ) : null}
 
+          {setup ? (
+            <section className="rounded-[1.5rem] border border-border bg-background p-5 shadow-card">
+              <p className="text-sm font-semibold text-foreground">닉네임을 설정해보세요.</p>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                아래 Profile 섹션에서 화면에 표시될 닉네임을 직접 설정할 수 있습니다.
+              </p>
+            </section>
+          ) : null}
+
           <section className="rounded-[1.5rem] border border-border bg-background p-5 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile</p>
             <div className="mt-4 space-y-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">이름</p>
-                <p className="mt-1 text-lg font-semibold text-foreground">{user.name ?? "이름 미설정"}</p>
-              </div>
+              <NicknameEditSection initialDisplayName={user.displayName} />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">이메일</p>
                 <p className="mt-1 text-sm text-foreground">{user.email}</p>

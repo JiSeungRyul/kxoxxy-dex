@@ -152,6 +152,7 @@ export const users = pgTable(
     id: serial("id").primaryKey(),
     email: text("email").notNull(),
     name: text("name"),
+    displayName: text("display_name"),
     image: text("image"),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     isActive: boolean("is_active").default(true).notNull(),

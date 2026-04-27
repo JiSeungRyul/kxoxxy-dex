@@ -17,6 +17,7 @@ type AuthSessionRow = {
   userId: number;
   email: string;
   name: string | null;
+  displayName: string | null;
   image: string | null;
   provider: string | null;
   isActive: boolean;
@@ -28,6 +29,7 @@ export type AuthenticatedUserSession = {
   userId: number;
   email: string;
   name: string | null;
+  displayName: string | null;
   image: string | null;
   provider: string | null;
   expiresAt: string;
@@ -49,6 +51,7 @@ type UserRow = {
   id: number;
   email: string;
   name: string | null;
+  displayName: string | null;
   image: string | null;
   isActive: boolean;
   deletedAt: string | null;
@@ -261,6 +264,7 @@ export async function resolveAuthenticatedUserSessionByToken(
         sessions.user_id AS "userId",
         users.email AS "email",
         users.name AS "name",
+        users.display_name AS "displayName",
         users.image AS "image",
         auth_accounts.provider AS "provider",
         users.is_active AS "isActive",
@@ -320,7 +324,7 @@ export async function createDevelopmentAuthSession(input?: {
         name = EXCLUDED.name,
         image = EXCLUDED.image,
         updated_at = now()
-      RETURNING id, email, name, image, is_active AS "isActive", deleted_at AS "deletedAt"
+      RETURNING id, email, name, display_name AS "displayName", image, is_active AS "isActive", deleted_at AS "deletedAt"
     `,
     [email, name, image],
   );
@@ -425,7 +429,7 @@ export async function createGoogleAuthSession(code: string) {
         image = EXCLUDED.image,
         email_verified_at = CASE WHEN $4 THEN NOW() ELSE users.email_verified_at END,
         updated_at = NOW()
-      RETURNING id, email, name, image, is_active AS "isActive", deleted_at AS "deletedAt"
+      RETURNING id, email, name, display_name AS "displayName", image, is_active AS "isActive", deleted_at AS "deletedAt"
     `,
     [normalizedEmail, normalizedName, normalizedImage, Boolean(userInfo.email_verified)],
   );
@@ -479,6 +483,7 @@ export async function createGoogleAuthSession(code: string) {
     sessionToken,
     expiresAt,
     wasRestored,
+    isNewUser: user.displayName === null,
   };
 }
 
