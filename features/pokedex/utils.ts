@@ -1136,13 +1136,13 @@ export function getTeamValidationError({
   moveNamesBySlot?: Map<number, Set<string>>;
 }) {
   if (teamName.trim().length === 0) {
-    return "�� �̸��� �Է����ּ���.";
+    return "팀 이름을 입력해주세요.";
   }
 
   const selectedMembers = members.filter((member) => member.nationalDexNumber !== null);
 
   if (selectedMembers.length === 0) {
-    return "�ּ� �� ���� �̻� �����ؾ� ���� ������ �� �ֽ��ϴ�.";
+    return "최소 한 명 이상 추가해야 저장할 수 있습니다.";
   }
 
   if (isBattleTeamMode(mode ?? getDefaultTeamMode())) {
@@ -1172,7 +1172,7 @@ export function getTeamValidationError({
     }
 
     if (getTeamEvTotal(member.evs) > 510) {
-      return `${member.slot}�� ������ ���ġ ������ 510�� �ʰ��߽��ϴ�.`;
+      return `${member.slot}번 슬롯의 노력치 합계가 510을 초과했습니다.`;
     }
 
     if (!pokemonByDexNumber || member.nationalDexNumber === null) {
@@ -1182,7 +1182,7 @@ export function getTeamValidationError({
     const selectedPokemon = pokemonByDexNumber.get(member.nationalDexNumber);
 
     if (!selectedPokemon) {
-      return `${member.slot}�� ������ ���ϸ� �����͸� ã�� �� �����ϴ�.`;
+      return `${member.slot}번 슬롯의 포켓몬 데이터를 찾을 수 없습니다.`;
     }
 
     if (
@@ -1193,7 +1193,7 @@ export function getTeamValidationError({
         megaFormKey: member.megaFormKey,
       }).some((ability) => ability.name === member.ability)
     ) {
-      return `${member.slot}�� ������ Ư���� ������ ���ϸ�� ���� �ʽ��ϴ�.`;
+      return `${member.slot}번 슬롯의 특성이 현재 포켓몬에는 없습니다.`;
     }
 
     const allowedMoveNames = moveNamesBySlot?.get(member.slot);
@@ -1215,22 +1215,24 @@ export function getTeamValidationError({
 const TEAM_NATURE_MODIFIERS: Partial<Record<string, Partial<Record<keyof PokemonBaseStats, number>>>> = {
   "\uC678\uB85C\uC6C0": { attack: 1.1, defense: 0.9 },
   "\uACE0\uC9D1": { attack: 1.1, specialAttack: 0.9 },
-  "\uAC1C\uAD6C\uC7C1\uC774": { attack: 1.1, specialDefense: 0.9 },
+  "\uC7A5\uB09C\uAFB8\uB7EC\uAE30": { attack: 1.1, specialDefense: 0.9 },
   "\uC6A9\uAC10": { attack: 1.1, speed: 0.9 },
   "\uB300\uB2F4": { defense: 1.1, attack: 0.9 },
-  "\uC7A5\uB09C\uAFB8\uB7EC\uAE30": { defense: 1.1, specialAttack: 0.9 },
-  "\uBB34\uC0AC\uD0DC\uD3C9": { defense: 1.1, specialDefense: 0.9 },
-  "\uCC9C\uC9C4\uB09C\uB9CC": { speed: 1.1, specialDefense: 0.9 },
+  "\uBB34\uC0AC\uD0DC\uD3C9": { defense: 1.1, speed: 0.9 },
+  "\uCC9C\uC9C4\uB09C\uB9CC": { defense: 1.1, specialAttack: 0.9 },
+  "\uAC74\uBC29": { defense: 1.1, specialDefense: 0.9 },
   "\uAC81\uC7C1\uC774": { speed: 1.1, attack: 0.9 },
   "\uC131\uAE09": { speed: 1.1, defense: 0.9 },
   "\uBA85\uB791": { speed: 1.1, specialAttack: 0.9 },
+  "\uCC9C\uC9C4": { speed: 1.1, specialDefense: 0.9 },
   "\uC870\uC2EC": { specialAttack: 1.1, attack: 0.9 },
-  "\uC758\uC82F": { specialAttack: 1.1, defense: 0.9 },
-  "\uC218\uC90D\uC74C": { specialAttack: 1.1, specialDefense: 0.9 },
+  "\uC758\uC813": { specialAttack: 1.1, defense: 0.9 },
+  "\uC218\uC90D\uC74C": { specialAttack: 1.1, speed: 0.9 },
+  "\uB9D0\uC37D\uC7C1\uC774": { specialAttack: 1.1, specialDefense: 0.9 },
   "\uCC28\uBD84": { specialDefense: 1.1, attack: 0.9 },
-  "\uC584\uC804": { specialDefense: 1.1, defense: 0.9 },
+  "\uC554\uC804": { specialDefense: 1.1, defense: 0.9 },
   "\uC2E0\uC911": { specialDefense: 1.1, specialAttack: 0.9 },
-  "\uAC74\uBC29": { specialDefense: 1.1, speed: 0.9 },
+  "\uCE68\uCC29": { specialDefense: 1.1, speed: 0.9 },
 };
 
 export function getTeamNatureMultiplier(nature: string, stat: keyof PokemonBaseStats) {
@@ -1299,7 +1301,7 @@ export function getEmptyTeamMember(slot: number): PokemonTeamMemberDraft {
     nationalDexNumber: null,
     formKey: null,
     level: getDefaultTeamLevel(),
-    nature: "����",
+    nature: "노력",
     item: "",
     ability: "",
     moves: ["", "", "", ""],
@@ -1370,7 +1372,7 @@ export function sanitizeTeamMembers(value: unknown, mode: TeamModeId = getDefaul
       nationalDexNumber: Number.isInteger(candidate.nationalDexNumber) ? Number(candidate.nationalDexNumber) : null,
       formKey: sanitizeTeamFormKey(candidate.formKey),
       level: normalizeTeamLevel(candidate.level, mode),
-      nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "����",
+      nature: typeof candidate.nature === "string" ? candidate.nature.trim().slice(0, 40) : "노력",
       item: sanitizeTeamTextValue(candidate.item, 80),
       ability: sanitizeTeamTextValue(candidate.ability, 80),
       moves: Array.isArray(candidate.moves)

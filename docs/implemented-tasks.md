@@ -49,6 +49,30 @@
 - Added a 350 ms debounced `debouncedSearchTerm` state derived from `searchTerm`.
 - URL sync effect and page-reset effect now use `debouncedSearchTerm`; the existing `deferredSearchTerm` value is kept for immediate local UI filtering only.
 
+## utils.ts 한글 인코딩 수정 — 성격 렌더링 버그 (Added: 2026-04-27)
+- `features/pokedex/utils.ts` 내 UTF-8 잘못 저장된 한글 문자열 6개 수정.
+- 주요 수정: `getEmptyTeamMember()` 기본 `nature` 값이 `"����"` (깨진 바이트)로 저장되어 팀 멤버 상세 보기에서 "성격: ?????" 로 표시되던 버그 수정 → `"노력"` 으로 교체.
+- `sanitizeTeamMembers()` fallback 동일하게 `"노력"` 으로 수정.
+- 유효성 검사 에러 메시지 4개 (`validateTeamData` 함수 내) 동일한 방식으로 복원.
+- `TEAM_NATURE_MODIFIERS` 키 오타 2개 수정: `의젯` → `의젓`, `얄전` → `얌전` (NATURE_OPTIONS 드롭다운과 불일치로 해당 성격 선택 시 스탯 보정값이 항상 neutral 1.0으로 반환되던 문제).
+- `TEAM_NATURE_MODIFIERS` 전체 재정렬 및 데이터 버그 수정:
+  - `개구쟁이`(Hardy = neutral) 잘못 포함 → 제거
+  - `장난꾸러기`: `+Def/-SpA` (잘못됨) → `+Atk/-SpD` (Naughty)
+  - `무사태평`: `+Def/-SpD` (잘못됨) → `+Def/-Spd` (Relaxed)
+  - `천진난만`: `+Spd/-SpD` (잘못됨) → `+Def/-SpA` (Impish)
+  - `수줍음`: `+SpA/-SpD` (잘못됨) → `+SpA/-Spd` (Quiet)
+  - `건방`: `+SpD/-Spd` (잘못됨) → `+Def/-SpD` (Lax)
+  - `천진`(Naive +Spd/-SpD), `말썽쟁이`(Rash +SpA/-SpD), `침착`(Sassy +SpD/-Spd) 3개 누락 항목 추가
+  - 결과: 20개 비중립 성격 모두 올바른 공식 한국어 매핑으로 완성
+- 파일은 `\uXXXX` 이스케이프로 작성되어 있어 Python 바이트 직접 치환으로 수정.
+
+## My-Teams 아코디언 UI — Task 49 (Added: 2026-04-27)
+- 헤더 전체를 클릭해 팀 상세를 펼치고 접는 아코디언 구조로 변경.
+- 헤더 div에 `onClick` 토글, `cursor-pointer`, `role="button"`, `aria-expanded` 추가.
+- 헤더 우측 썸네일 옆에 chevron SVG 추가 — `isExpanded` 에 따라 `rotate-90`.
+- 기존 "상세 보기/닫기" 전용 버튼 제거; 액션 버튼 row에는 수정하기, 복제, 이름 변경, 삭제만 남음.
+- 상태 구조 변경 없음 (`expandedTeamIds: Set<number>` 그대로).
+
 ## My-Teams Independent Accordion — Task 49 (Added: 2026-04-23)
 - `/my-teams` previously allowed only one team expanded at a time (`expandedTeamId: number | null`).
 - Changed to a `Set<number>` (`expandedTeamIds`) so each team can be independently opened or closed without collapsing others.
