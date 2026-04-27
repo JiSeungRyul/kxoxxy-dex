@@ -96,6 +96,20 @@
 - Added minimum automated coverage for the auth-session boundary, persisted state APIs (`favorites`, `daily`, `teams`), and representative repository read paths.
 - Fixed the first soft-launch test baseline as a boundary-safety layer rather than a full integration-test suite.
 
+## 닉네임(display_name) 분리 — Task 2 (Added: 2026-04-27)
+- Added `display_name` column to `users` table via Drizzle schema + migration `drizzle/0021_loud_rockslide.sql`.
+- `users.name` now stores the Google OAuth original name for reference only; all UI uses `display_name` (with `name` as fallback in the header).
+- `AuthenticatedUserSession`, `AuthSessionRow`, `UserRow` types in `auth-session.ts` extended with `displayName: string | null`.
+- `resolveAuthenticatedUserSessionByToken` SQL selects `users.display_name AS "displayName"`.
+- Both `createGoogleAuthSession` and `createDevelopmentAuthSession` RETURNING clauses include `display_name AS "displayName"`.
+- `createGoogleAuthSession` now returns `isNewUser: user.displayName === null` to detect first-time Google logins.
+- `GET /api/auth/callback/google` redirects new users to `/my?setup=true` and restored users to `/my?accountRestored=true`.
+- New `PATCH /api/account/profile` endpoint validates and persists `display_name` (1–20 chars) for the authenticated user.
+- New client component `features/site/components/nickname-edit-section.tsx` renders inline edit UI on `/my`.
+- `account-hub-page.tsx` now shows a "닉네임을 설정해보세요" banner when `?setup=true`, and uses `NicknameEditSection` for the profile row.
+- `site-hero-header.tsx` account panel now displays `displayName ?? name ?? email`; `AuthSessionResponse` type extended.
+- `GET /api/auth/session` response includes `displayName`.
+
 ## Minimum Failure Triage Baseline (Added: 2026-04-15)
 - Added a minimum one-operator triage flow for login/session failure, persisted-state API failure, and `db:migrate` / `db:seed:*` failure.
 - Fixed `docs/verification-guide.md` as the primary troubleshooting document for auth, API, and bootstrap failures.

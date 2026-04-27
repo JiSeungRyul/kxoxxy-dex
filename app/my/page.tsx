@@ -15,6 +15,7 @@ export default async function MyPage({
 }: {
   searchParams?: Promise<{
     accountRestored?: string;
+    setup?: string;
   }>;
 }) {
   const cookieStore = await cookies();
@@ -23,5 +24,5 @@ export default async function MyPage({
   const user = await resolveAuthenticatedUserSessionByToken(sessionToken);
   const summary = user ? await getAccountHubSummary(user.userId) : null;
 
-  return <AccountHubPage user={user} summary={summary} accountRestored={resolvedSearchParams.accountRestored === "true"} />;
+  return <AccountHubPage user={user} summary={summary} accountRestored={resolvedSearchParams.accountRestored === "true"} setup={resolvedSearchParams.setup === "true"} />;
 }

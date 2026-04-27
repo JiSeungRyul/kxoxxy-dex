@@ -34,6 +34,7 @@ type AuthSessionResponse = {
     id: number;
     email: string;
     name: string | null;
+    displayName: string | null;
     image: string | null;
     provider: string | null;
   } | null;
@@ -54,7 +55,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
     initialUser
-      ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, image: initialUser.image, provider: initialUser.provider }
+      ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, displayName: initialUser.displayName, image: initialUser.image, provider: initialUser.provider }
       : null,
   );
   const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("provider");
@@ -149,7 +150,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
               Account
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {isAuthLoading ? "확인 중..." : authUser ? (authUser.name ?? authUser.email) : "방문자"}
+              {isAuthLoading ? "확인 중..." : authUser ? (authUser.displayName ?? authUser.name ?? authUser.email) : "방문자"}
             </p>
             {!authUser ? (
               <p className="mt-1 text-xs text-muted-foreground">

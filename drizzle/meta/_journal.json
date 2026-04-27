@@ -148,6 +148,13 @@
       "when": 1775465806573,
       "tag": "0020_natural_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777272219617,
+      "tag": "0021_loud_rockslide",
+      "breakpoints": true
     }
   ]
 }

@@ -108,6 +108,7 @@
 4. `app/api/auth/callback/google/route.ts` validates state, exchanges the Google code, materializes local `users` / `auth_accounts` / `sessions`, and redirects back into the app
 5. `app/api/auth/sign-out/route.ts` removes the current local authenticated session
 6. `app/api/account/delete/route.ts` soft-deletes the authenticated user, clears active sessions, and leaves retained gameplay data in place for recovery or later purge
+7. `app/api/account/profile/route.ts` PATCH endpoint validates and persists `display_name` (1–20 chars) for the authenticated user; `users.display_name` is the sole source for displayed nickname, with `users.name` (Google OAuth original) kept as a fallback in the header only
 
 ## Catalog Data Pipeline
 1. `scripts/sync-pokedex.mjs` fetches from PokeAPI
@@ -238,7 +239,9 @@
   - `app/api/auth/session/route.ts` GET handler
 - The current account-management lifecycle boundary now also includes:
   - `app/api/account/delete/route.ts` POST handler for soft-delete requests
+  - `app/api/account/profile/route.ts` PATCH handler for `display_name` updates
   - grace-period reactivation inside `createGoogleAuthSession()` before a new session is issued
+  - first-time Google login detection (`isNewUser: user.displayName === null`) with redirect to `/my?setup=true`
 - The remaining development fallback boundary is:
   - `createDevelopmentAuthSession()`
   - `POST /api/auth/sign-in`
