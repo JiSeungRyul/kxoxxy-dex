@@ -64,6 +64,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/");
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
+  const isFavoritesActive = pathname === "/favorites";
 
   const handleDailyMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -262,6 +263,13 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           </div>
         </div>
 
+        <Link
+          href="/favorites"
+          aria-current={isFavoritesActive ? "page" : undefined}
+          className={getNavLinkClass(isFavoritesActive)}
+        >
+          즐겨찾기
+        </Link>
 
       </nav>
     </section>
