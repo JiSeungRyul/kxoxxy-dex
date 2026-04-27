@@ -284,6 +284,15 @@ The sections below record intermediate migration steps that are no longer the ac
 ### 소프트 런치 체크리스트 마무리
 - 세션 만료/로그인 실패 시 500 반복 미발생 검증 완료 (C항목 체크).
 
+## /my-teams 아코디언 UI (Added: 2026-04-27)
+- `/my-teams` 팀 목록을 아코디언 구조로 변경 (`features/pokedex/components/my-teams-page.tsx`).
+- 카드 헤더(날짜, 이름, 메타, 썸네일 영역) 전체를 클릭해 상세 멤버 카드를 펼치고 접을 수 있다.
+- 헤더 우측에 chevron SVG 추가 — `isExpanded` 여부에 따라 `rotate-90` 으로 방향 전환.
+- 기존 "상세 보기/닫기" 전용 버튼 제거 — 헤더 클릭이 그 역할을 대체.
+- 기본값은 모두 접힌 상태 (`expandedTeamIds` 초기값 `new Set()` 유지).
+- 수정하기, 복제, 이름 변경, 삭제 액션 버튼은 항상 노출.
+- API/상태 구조 변경 없음. `npm run typecheck` + `npm run build` 통과.
+
 ## Random Team Slot-Based Type Conditions (Added: 2026-04-21)
 - Replaced the single global `최소 타입` condition with per-slot type conditions for `/teams/random`.
 - Each of the six result slots now has its own type dropdown so the user can independently require a specific type per slot.

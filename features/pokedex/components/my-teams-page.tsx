@@ -405,7 +405,12 @@ export function MyTeamsPage() {
 
           return (
             <article key={team.id} className="rounded-[2rem] border border-border bg-card p-5 shadow-card sm:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
+              <div
+                className="flex flex-wrap items-start justify-between gap-4 cursor-pointer"
+                onClick={() => setExpandedTeamIds((prev) => { const next = new Set(prev); next.has(team.id) ? next.delete(team.id) : next.add(team.id); return next; })}
+                role="button"
+                aria-expanded={isExpanded}
+              >
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     {new Date(team.updatedAt).toLocaleString("ko-KR")}
@@ -420,42 +425,49 @@ export function MyTeamsPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {selectedMembers.length > 0 ? (
-                    selectedMembers.map((member) => (
-                      <div
-                        key={`${team.id}-${member.slot}`}
-                        className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-background"
-                        title={member.pokemon?.name ?? ""}
-                      >
-                        {member.pokemon ? (
-                          <Image
-                            src={member.pokemon.artworkImageUrl}
-                            alt={member.pokemon.name}
-                            width={48}
-                            height={48}
-                            className="h-11 w-11 object-contain"
-                            unoptimized
-                          />
-                        ) : null}
+                <div className="flex flex-col items-end gap-3">
+                  <svg
+                    className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {selectedMembers.length > 0 ? (
+                      selectedMembers.map((member) => (
+                        <div
+                          key={`${team.id}-${member.slot}`}
+                          className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-background"
+                          title={member.pokemon?.name ?? ""}
+                        >
+                          {member.pokemon ? (
+                            <Image
+                              src={member.pokemon.artworkImageUrl}
+                              alt={member.pokemon.name}
+                              width={48}
+                              height={48}
+                              className="h-11 w-11 object-contain"
+                              unoptimized
+                            />
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-full border border-dashed border-border px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Empty Team
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-full border border-dashed border-border px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Empty Team
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setExpandedTeamIds((prev) => { const next = new Set(prev); next.has(team.id) ? next.delete(team.id) : next.add(team.id); return next; })}
-                  className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
-                >
-                  {isExpanded ? "상세 닫기" : "상세 보기"}
-                </button>
                 <Link
                   href={`/teams?teamId=${team.id}`}
                   className="inline-flex items-center rounded-2xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
