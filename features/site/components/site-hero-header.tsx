@@ -187,41 +187,6 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
 
         <div
           className="relative"
-          onMouseEnter={() => setIsDailyMenuOpen(true)}
-          onMouseLeave={() => setIsDailyMenuOpen(false)}
-          onBlur={handleDailyMenuBlur}
-        >
-          <Link
-            href="/daily"
-            aria-current={isDailyActive ? "page" : undefined}
-            onFocus={() => setIsDailyMenuOpen(true)}
-            className={getNavLinkClass(isDailyActive)}
-          >
-            오늘의 포켓몬
-          </Link>
-
-          <div className={getDropdownClass(isDailyMenuOpen)}>
-            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
-              <Link
-                href="/daily"
-                onClick={() => setIsDailyMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                잡으러 가기
-              </Link>
-              <Link
-                href="/my-pokemon"
-                onClick={() => setIsDailyMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                내 포켓몬
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="relative"
           onMouseEnter={() => setIsTeamsMenuOpen(true)}
           onMouseLeave={() => setIsTeamsMenuOpen(false)}
           onBlur={handleTeamsMenuBlur}
@@ -257,6 +222,41 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
                 className={SUBMENU_LINK_CLASS}
               >
                 랜덤 팀 뽑기
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="relative"
+          onMouseEnter={() => setIsDailyMenuOpen(true)}
+          onMouseLeave={() => setIsDailyMenuOpen(false)}
+          onBlur={handleDailyMenuBlur}
+        >
+          <Link
+            href="/daily"
+            aria-current={isDailyActive ? "page" : undefined}
+            onFocus={() => setIsDailyMenuOpen(true)}
+            className={getNavLinkClass(isDailyActive)}
+          >
+            오늘의 포켓몬
+          </Link>
+
+          <div className={getDropdownClass(isDailyMenuOpen)}>
+            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+              <Link
+                href="/daily"
+                onClick={() => setIsDailyMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                잡으러 가기
+              </Link>
+              <Link
+                href="/my-pokemon"
+                onClick={() => setIsDailyMenuOpen(false)}
+                className={SUBMENU_LINK_CLASS}
+              >
+                내 포켓몬
               </Link>
             </div>
           </div>
