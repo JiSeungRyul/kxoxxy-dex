@@ -13,5 +13,6 @@ PROJECT_TASKS.md
 .env.*.local
 data/move-catalog.json
 .serena/
+.claude/
 .codex-temp/
 .codexignore
