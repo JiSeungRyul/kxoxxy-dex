@@ -14,6 +14,24 @@
 - Persisted gameplay features are now account-bound through authenticated `user_id`.
 - The sections below are historical implementation notes grouped by milestone, not a replacement for current runtime docs.
 
+## 모바일 UI 대응 — 백로그 2-1 (Added: 2026-04-28)
+
+**변경 파일:**
+- `app/layout.tsx` — `Viewport` export 추가 (`width: "device-width", initialScale: 1`). Next.js 15에서 `viewport`는 `metadata`와 분리 export 필요.
+- `features/site/components/site-hero-header.tsx` — 모바일 햄버거 메뉴 구현. `sm` 미만에서 hover 드롭다운을 숨기고 클릭 토글 메뉴 패널로 대체. 데스크톱(sm 이상) 동작 보존.
+- `features/pokedex/components/pokedex-controls.tsx` — `ControlRow` base `min-w-[220px]` → `min-w-0 sm:min-w-[220px]`, 검색 컨트롤 `min-w-[320px]` → `w-full sm:min-w-[320px] sm:flex-[1.5]`, 리셋 버튼 `h-12 w-full sm:h-[74px] sm:w-auto`.
+- `features/pokedex/components/daily-encounter.tsx` — 씬 카드 내 absolute 배지 위치값 `*-6` → `*-3 sm:*-6` (모바일에서 겹침 방지).
+- `features/pokedex/components/pokemon-detail-page.tsx` — `AbilityTable` 고정 컬럼 그리드(`120px 180px`)를 `overflow-x-auto + min-w-[480px]`로 감싸 모바일 스크롤 처리.
+
+**변경하지 않은 것:**
+- team-builder-page: 모든 그리드가 이미 모바일에서 1컬럼으로 fallback됨.
+- pokedex-table: `overflow-x-auto` 안에 이미 있음.
+
+**원칙:**
+- 데스크톱 동작 보존 (추가만, 덮어쓰기 없음)
+- 외부 라이브러리 없음
+- 새 컴포넌트 없음
+
 ## Production Deployment — Hetzner VPS (Added: 2026-04-23)
 - Provisioned Hetzner CAX11 ARM64 VPS (Helsinki, Ubuntu 24.04, 2 vCPU / 4 GB RAM) at `135.181.252.56`.
 - Installed Node.js v24 LTS, PostgreSQL 16, Caddy reverse proxy, and PM2 process manager.

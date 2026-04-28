@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "fuser -k 3000/tcp 2>/dev/null; next dev -p 3000",
+    "dev": "fuser -k 3000/tcp 2>/dev/null; next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -20,8 +20,10 @@
     "db:seed:moves": "node scripts/sync-moves.mjs && node scripts/import-moves-to-db.mjs"
   },
   "dependencies": {
+    "@fontsource/do-hyeon": "^5.2.8",
+    "@fontsource/noto-sans-kr": "^5.2.9",
     "drizzle-orm": "^0.45.1",
-    "next": "^15.0.0",
+    "next": "^16.2.4",
     "postgres": "^3.4.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

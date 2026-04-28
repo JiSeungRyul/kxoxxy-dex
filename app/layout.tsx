@@ -1,11 +1,15 @@
-import type { Metadata } from "next";
-import { Do_Hyeon, Noto_Sans_KR } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { AUTH_SESSION_COOKIE_NAME, resolveAuthenticatedUserSessionByToken } from "@/features/pokedex/server/auth-session";
 import { SiteHeroHeader } from "@/features/site/components/site-hero-header";
 
+import "@fontsource/do-hyeon/latin-400.css";
+import "@fontsource/do-hyeon/korean-400.css";
+import "@fontsource/noto-sans-kr/400.css";
+import "@fontsource/noto-sans-kr/500.css";
+import "@fontsource/noto-sans-kr/700.css";
 import "./globals.css";
 
 const themeScript = `
@@ -19,17 +23,10 @@ const themeScript = `
 })();
 `;
 
-const displayFont = Do_Hyeon({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: "400",
-});
-
-const bodyFont = Noto_Sans_KR({
-  variable: "--font-ibm-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://kxoxxydex.com"),
@@ -57,7 +54,7 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${displayFont.variable} ${bodyFont.variable} bg-background text-foreground`}>
+      <body className="bg-background text-foreground">
         <div className="flex min-h-screen flex-col">
           <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
             <SiteHeroHeader initialUser={initialUser} />

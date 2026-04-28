@@ -264,7 +264,8 @@ function AbilityTable({
     ability ? getAbilityDescriptionKo(ability.slug, ability.description) : "-";
 
   return (
-    <div className="overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-card">
+    <div className="overflow-x-auto">
+    <div className="min-w-[480px] overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-card">
       <div className="grid grid-cols-[120px_180px_minmax(0,1fr)] border-b border-border bg-muted/40 px-5 py-3 text-center text-sm font-semibold text-foreground">
         <p>구분</p>
         <p>이름</p>
@@ -287,6 +288,7 @@ function AbilityTable({
         <p className="font-semibold text-foreground">{hiddenAbility?.name ?? "없음"}</p>
         <p className="leading-6 text-muted-foreground">{getAbilityDescription(hiddenAbility)}</p>
       </div>
+    </div>
     </div>
   );
 }
