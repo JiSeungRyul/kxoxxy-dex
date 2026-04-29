@@ -496,12 +496,12 @@ export function DailyEncounter({
                   <div aria-hidden="true" className={`absolute inset-x-0 bottom-0 h-24 wild-grass-sway opacity-95 ${sceneStyle.grass}`} />
                   <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(16,40,19,0),rgba(18,46,22,0.24)_34%,rgba(18,44,22,0.78)_100%)]" />
 
-                  <div className="absolute left-6 top-6 rounded-full bg-black/25 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-white/90 backdrop-blur-md">
+                  <div className="absolute left-3 top-3 rounded-full bg-black/25 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-white/90 backdrop-blur-md sm:left-6 sm:top-6">
                     야생의 {encounter.name}
                   </div>
 
                   {isShiny ? (
-                    <div className="absolute right-6 top-6 rounded-full bg-amber-300/90 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-amber-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)]">
+                    <div className="absolute right-3 top-3 rounded-full bg-amber-300/90 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-amber-950 shadow-[0_10px_20px_rgba(245,158,11,0.25)] sm:right-6 sm:top-6">
                       Shiny
                     </div>
                   ) : null}
@@ -542,12 +542,12 @@ export function DailyEncounter({
                     </div>
                   </div>
 
-                  <div className="absolute bottom-6 left-6 rounded-2xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
+                  <div className="absolute bottom-3 left-3 rounded-2xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md sm:bottom-6 sm:left-6">
                     <p className="font-semibold tracking-[0.12em] text-white/95">조우 체급</p>
                     <p>{encounterScaleLabel}</p>
                   </div>
 
-                  <div className="absolute bottom-6 right-6 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md">
+                  <div className="absolute bottom-3 right-3 rounded-2xl bg-black/25 px-4 py-3 text-xs leading-5 text-white/90 backdrop-blur-md sm:bottom-6 sm:right-6">
                     {isCaptured
                       ? "오늘의 포획 완료"
                       : isTransitioning

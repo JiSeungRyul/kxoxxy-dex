@@ -53,6 +53,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const [isPokedexMenuOpen, setIsPokedexMenuOpen] = useState(false);
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
     initialUser
       ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, displayName: initialUser.displayName, image: initialUser.image, provider: initialUser.provider }
@@ -115,6 +116,7 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   }
 
   return (
+    <>
     <section className="rounded-[2rem] border border-border bg-card p-6 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">
@@ -180,124 +182,170 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
         </div>
       </div>
 
-      <nav
-        aria-label="주요 서비스 이동"
-        className="mt-6 flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-border bg-background p-2"
-      >
-        <div
-          className="relative"
-          onMouseEnter={() => setIsPokedexMenuOpen(true)}
-          onMouseLeave={() => setIsPokedexMenuOpen(false)}
-          onBlur={handlePokedexMenuBlur}
-        >
-          <Link
-            href="/pokedex"
-            aria-current={isPokedexActive ? "page" : undefined}
-            onFocus={() => setIsPokedexMenuOpen(true)}
-            className={getNavLinkClass(isPokedexActive)}
+      <nav aria-label="주요 서비스 이동" className="mt-6">
+        {/* 데스크톱 nav */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-border bg-background p-2">
+          <div
+            className="relative"
+            onMouseEnter={() => setIsPokedexMenuOpen(true)}
+            onMouseLeave={() => setIsPokedexMenuOpen(false)}
+            onBlur={handlePokedexMenuBlur}
           >
-            포켓몬 도감
-          </Link>
+            <Link
+              href="/pokedex"
+              aria-current={isPokedexActive ? "page" : undefined}
+              onFocus={() => setIsPokedexMenuOpen(true)}
+              className={getNavLinkClass(isPokedexActive)}
+            >
+              포켓몬 도감
+            </Link>
 
-          <div className={getDropdownClass(isPokedexMenuOpen)}>
-            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
-              <Link
-                href="/pokedex"
-                onClick={() => setIsPokedexMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                포켓몬 도감
-              </Link>
-              <Link
-                href="/favorites"
-                onClick={() => setIsPokedexMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                즐겨찾기
-              </Link>
+            <div className={getDropdownClass(isPokedexMenuOpen)}>
+              <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+                <Link href="/pokedex" onClick={() => setIsPokedexMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  포켓몬 도감
+                </Link>
+                <Link href="/favorites" onClick={() => setIsPokedexMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  즐겨찾기
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="relative"
+            onMouseEnter={() => setIsTeamsMenuOpen(true)}
+            onMouseLeave={() => setIsTeamsMenuOpen(false)}
+            onBlur={handleTeamsMenuBlur}
+          >
+            <Link
+              href="/teams"
+              aria-current={isTeamsActive ? "page" : undefined}
+              onFocus={() => setIsTeamsMenuOpen(true)}
+              className={getNavLinkClass(isTeamsActive)}
+            >
+              팀빌딩
+            </Link>
+
+            <div className={getDropdownClass(isTeamsMenuOpen)}>
+              <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+                <Link href="/teams" onClick={() => setIsTeamsMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  팀 빌더
+                </Link>
+                <Link href="/my-teams" onClick={() => setIsTeamsMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  내 팀 보기
+                </Link>
+                <Link href="/teams/random" onClick={() => setIsTeamsMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  랜덤 팀 뽑기
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="relative"
+            onMouseEnter={() => setIsDailyMenuOpen(true)}
+            onMouseLeave={() => setIsDailyMenuOpen(false)}
+            onBlur={handleDailyMenuBlur}
+          >
+            <Link
+              href="/daily"
+              aria-current={isDailyActive ? "page" : undefined}
+              onFocus={() => setIsDailyMenuOpen(true)}
+              className={getNavLinkClass(isDailyActive)}
+            >
+              오늘의 포켓몬
+            </Link>
+
+            <div className={getDropdownClass(isDailyMenuOpen)}>
+              <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+                <Link href="/daily" onClick={() => setIsDailyMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  잡으러 가기
+                </Link>
+                <Link href="/my-pokemon" onClick={() => setIsDailyMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                  내 포켓몬
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-
-        <div
-          className="relative"
-          onMouseEnter={() => setIsTeamsMenuOpen(true)}
-          onMouseLeave={() => setIsTeamsMenuOpen(false)}
-          onBlur={handleTeamsMenuBlur}
-        >
-          <Link
-            href="/teams"
-            aria-current={isTeamsActive ? "page" : undefined}
-            onFocus={() => setIsTeamsMenuOpen(true)}
-            className={getNavLinkClass(isTeamsActive)}
-          >
-            팀빌딩
-          </Link>
-
-          <div className={getDropdownClass(isTeamsMenuOpen)}>
-            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
-              <Link
-                href="/teams"
-                onClick={() => setIsTeamsMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                팀 빌더
-              </Link>
-              <Link
-                href="/my-teams"
-                onClick={() => setIsTeamsMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                내 팀 보기
-              </Link>
-              <Link
-                href="/teams/random"
-                onClick={() => setIsTeamsMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                랜덤 팀 뽑기
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="relative"
-          onMouseEnter={() => setIsDailyMenuOpen(true)}
-          onMouseLeave={() => setIsDailyMenuOpen(false)}
-          onBlur={handleDailyMenuBlur}
-        >
-          <Link
-            href="/daily"
-            aria-current={isDailyActive ? "page" : undefined}
-            onFocus={() => setIsDailyMenuOpen(true)}
-            className={getNavLinkClass(isDailyActive)}
-          >
-            오늘의 포켓몬
-          </Link>
-
-          <div className={getDropdownClass(isDailyMenuOpen)}>
-            <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
-              <Link
-                href="/daily"
-                onClick={() => setIsDailyMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                잡으러 가기
-              </Link>
-              <Link
-                href="/my-pokemon"
-                onClick={() => setIsDailyMenuOpen(false)}
-                className={SUBMENU_LINK_CLASS}
-              >
-                내 포켓몬
-              </Link>
-            </div>
-          </div>
-        </div>
-
 
       </nav>
     </section>
+
+    {/* 모바일 플로팅 햄버거 — sm 이상에서 숨김, 스크롤 따라다님 */}
+    <div className="fixed left-4 top-4 z-50 sm:hidden">
+      <button
+        type="button"
+        onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+        className="rounded-[0.75rem] border border-border bg-card p-2.5 text-muted-foreground shadow-card transition hover:bg-muted hover:text-foreground"
+        aria-expanded={isMobileMenuOpen}
+        aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
+      >
+        {isMobileMenuOpen ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        )}
+      </button>
+
+      {isMobileMenuOpen && (
+        <div className="absolute left-0 top-full mt-2 w-52 rounded-[1.5rem] border border-border bg-background p-2 shadow-card">
+          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            포켓몬 도감
+          </p>
+          <Link href="/pokedex" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            도감 보기
+          </Link>
+          <Link href="/favorites" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            즐겨찾기
+          </Link>
+
+          <div className="my-1 border-t border-border" />
+
+          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            팀빌딩
+          </p>
+          <Link href="/teams" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            팀 빌더
+          </Link>
+          <Link href="/my-teams" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            내 팀 보기
+          </Link>
+          <Link href="/teams/random" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            랜덤 팀 뽑기
+          </Link>
+
+          <div className="my-1 border-t border-border" />
+
+          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            오늘의 포켓몬
+          </p>
+          <Link href="/daily" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            잡으러 가기
+          </Link>
+          <Link href="/my-pokemon" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+            내 포켓몬
+          </Link>
+        </div>
+      )}
+    </div>
+
+    {/* 메뉴 열려있을 때 백드롭 — 바깥 클릭 시 닫힘 */}
+    {isMobileMenuOpen && (
+      <div
+        className="fixed inset-0 z-40 sm:hidden"
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+    )}
+    </>
   );
 }

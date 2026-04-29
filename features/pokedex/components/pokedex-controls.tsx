@@ -52,7 +52,7 @@ function handleSelectChange<T extends string>(
 function ControlRow({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label
-      className={`flex min-w-[220px] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 ${className}`}
+      className={`flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 sm:min-w-[220px] ${className}`}
     >
       <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
@@ -92,7 +92,7 @@ export function PokedexControls({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
-        <ControlRow label="이름 검색" className="min-w-[320px] flex-[1.5]">
+        <ControlRow label="이름 검색" className="w-full sm:min-w-[320px] sm:flex-[1.5]">
           <input
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
@@ -163,7 +163,7 @@ export function PokedexControls({
         <button
           type="button"
           onClick={onReset}
-          className="h-[74px] shrink-0 rounded-2xl bg-accent px-6 text-sm font-semibold text-accent-foreground transition hover:opacity-90"
+          className="h-12 w-full shrink-0 rounded-2xl bg-accent px-6 text-sm font-semibold text-accent-foreground transition hover:opacity-90 sm:h-[74px] sm:w-auto"
         >
           필터 초기화
         </button>
