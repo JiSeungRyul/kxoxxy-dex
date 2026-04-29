@@ -69,7 +69,7 @@ export function PokedexTable({
                 <span className="sr-only">Favorites</span>
               </th>
               {TABLE_COLUMNS.map((column) => (
-                <th key={column.key} className={column.key === "name" ? "px-6 pb-3 pt-2" : "px-5 pb-3 pt-2"}>
+                <th key={column.key} className={`${column.key === "name" ? "px-6 pb-3 pt-2" : "px-5 pb-3 pt-2"}${["hp", "attack", "defense", "specialAttack", "specialDefense", "speed"].includes(column.key) ? " hidden sm:table-cell" : ""}`}>
                   {column.sortable && column.sortKey ? (
                     <button
                       type="button"
@@ -143,19 +143,19 @@ export function PokedexTable({
                   </td>
                   <td className="border-y border-border px-6 py-5 transition-colors group-hover:bg-muted/70">
                     <div className="flex min-w-0 items-center gap-4 lg:gap-5">
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] bg-card sm:h-24 sm:w-24">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] bg-card sm:h-24 sm:w-24">
                         <Image
                           src={entry.imageUrl}
                           alt={entry.name}
                           width={84}
                           height={84}
                           sizes="84px"
-                          className="h-[5.25rem] w-[5.25rem] object-contain"
+                          className="h-14 w-14 object-contain sm:h-[5.25rem] sm:w-[5.25rem]"
                           unoptimized
                         />
                       </div>
                       <div className="min-w-0">
-                        <p className="min-w-0 text-lg font-semibold text-foreground">{entry.name}</p>
+                        <p className="whitespace-nowrap text-lg font-semibold text-foreground">{entry.name}</p>
                         {capturedDexNumberSet.has(entry.nationalDexNumber) ? (
                           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
                             포획 완료
@@ -164,8 +164,8 @@ export function PokedexTable({
                       </div>
                     </div>
                   </td>
-                  <td className="border-y border-border px-5 py-5 transition-colors group-hover:bg-muted/70">
-                    <div className="flex min-w-[140px] flex-wrap gap-2.5">
+                  <td className="rounded-r-2xl border-y border-r border-border px-5 py-5 transition-colors group-hover:bg-muted/70 sm:rounded-none sm:border-r-0">
+                    <div className="flex flex-wrap gap-2.5">
                       {entry.types.map((type) => (
                         <TypeBadge
                           key={`${entry.nationalDexNumber}-${type.name}`}
@@ -175,22 +175,22 @@ export function PokedexTable({
                       ))}
                     </div>
                   </td>
-                  <td className="border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="hidden border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 sm:table-cell">
                     {entry.stats.hp}
                   </td>
-                  <td className="border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="hidden border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 sm:table-cell">
                     {entry.stats.attack}
                   </td>
-                  <td className="border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="hidden border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 sm:table-cell">
                     {entry.stats.defense}
                   </td>
-                  <td className="border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="hidden border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 sm:table-cell">
                     {entry.stats.specialAttack}
                   </td>
-                  <td className="border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="hidden border-y border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 sm:table-cell">
                     {entry.stats.specialDefense}
                   </td>
-                  <td className="rounded-r-2xl border-y border-r border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70">
+                  <td className="rounded-r-2xl border-y border-r border-border px-5 py-5 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/70 hidden sm:table-cell">
                     {entry.stats.speed}
                   </td>
                 </tr>
