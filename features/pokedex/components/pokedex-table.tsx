@@ -61,7 +61,7 @@ export function PokedexTable({
 
   return (
     <section className="mx-auto w-full overflow-hidden rounded-[2rem] border border-border bg-card shadow-card">
-      <div className="overflow-x-auto px-5 py-5 sm:px-8">
+      <div className="px-5 py-5 sm:px-8">
         <table className="w-full table-auto border-separate border-spacing-y-4">
           <thead>
             <tr className="text-left text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -155,7 +155,7 @@ export function PokedexTable({
                         />
                       </div>
                       <div className="min-w-0">
-                        <p className="whitespace-nowrap text-lg font-semibold text-foreground">{entry.name}</p>
+                        <p className="text-lg font-semibold text-foreground">{entry.name}</p>
                         {capturedDexNumberSet.has(entry.nationalDexNumber) ? (
                           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
                             포획 완료

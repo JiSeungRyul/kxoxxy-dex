@@ -152,7 +152,18 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
               Account
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {isAuthLoading ? "확인 중..." : authUser ? (authUser.displayName ?? authUser.name ?? authUser.email) : "방문자"}
+              {isAuthLoading
+                ? "확인 중..."
+                : authUser
+                  ? authUser.displayName
+                    ? authUser.displayName
+                    : (
+                      <span className="flex items-center gap-2">
+                        <span className="font-normal text-muted-foreground">닉네임 미설정</span>
+                        <a href="/my" className="text-xs text-ember underline">설정하기</a>
+                      </span>
+                    )
+                  : "방문자"}
             </p>
             {!authUser ? (
               <p className="mt-1 text-xs text-muted-foreground">
