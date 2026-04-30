@@ -53,17 +53,14 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
   const [isPokedexMenuOpen, setIsPokedexMenuOpen] = useState(false);
   const [isDailyMenuOpen, setIsDailyMenuOpen] = useState(false);
   const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthSessionResponse["user"]>(
     initialUser
       ? { id: initialUser.userId, email: initialUser.email, name: initialUser.name, displayName: initialUser.displayName, image: initialUser.image, provider: initialUser.provider }
       : null,
   );
-  const [authMode, setAuthMode] = useState<AuthSessionResponse["authMode"]>("provider");
-  const [authProvider, setAuthProvider] = useState<AuthSessionResponse["authProvider"]>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isAuthMutating, setIsAuthMutating] = useState(false);
-  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPokedexActive = pathname === "/" || pathname === "/pokedex" || pathname.startsWith("/pokemon/") || pathname === "/favorites";
   const isDailyActive = pathname === "/daily" || pathname === "/my-pokemon";
   const isTeamsActive = pathname === "/teams" || pathname === "/teams/random" || pathname === "/my-teams";
@@ -83,7 +80,11 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
       setIsTeamsMenuOpen(false);
     }
   };
-
+  const handleAccountMenuBlur: FocusEventHandler<HTMLDivElement> = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsAccountMenuOpen(false);
+    }
+  };
 
   function handleSignIn() {
     window.location.assign("/api/auth/sign-in");
@@ -91,26 +92,17 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
 
   async function handleLogout() {
     setIsAuthMutating(true);
-    setAuthErrorMessage(null);
 
     try {
-      const response = await fetch("/api/auth/sign-out", {
-        method: "POST",
-      });
-      const payload = (await response.json()) as AuthSessionResponse;
-      
+      await fetch("/api/auth/sign-out", { method: "POST" });
       setAuthUser(null);
-      setAuthMode(payload.authMode ?? "provider");
-      setAuthProvider(payload.authProvider ?? null);
 
-      // Protected routes should redirect to home after logout
       if (PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(route))) {
         router.push("/");
       }
     } catch (error) {
       console.error("Failed to sign out:", error);
     } finally {
-      setIsAuthLoading(false);
       setIsAuthMutating(false);
     }
   }
@@ -145,51 +137,69 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex items-center gap-3">
           <ThemeToggle />
-          <div className="rounded-[1.25rem] border border-border bg-background px-4 py-3 text-left shadow-card">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Account
-            </p>
-            <p className="mt-2 text-sm font-semibold text-foreground">
-              {isAuthLoading
-                ? "확인 중..."
-                : authUser
-                  ? authUser.displayName
-                    ? authUser.displayName
-                    : (
-                      <span className="flex items-center gap-2">
-                        <span className="font-normal text-muted-foreground">닉네임 미설정</span>
-                        <a href="/my" className="text-xs text-ember underline">설정하기</a>
-                      </span>
-                    )
-                  : "방문자"}
-            </p>
-            {!authUser ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                로그인하고 모든 기능을 사용해 보세요.
-              </p>
-            ) : null}
-            {authErrorMessage ? <p className="mt-2 text-xs text-ember">{authErrorMessage}</p> : null}
-            <div className="mt-3 flex items-center justify-end gap-2">
+
+          {!authUser ? (
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={isAuthMutating}
+              className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {AUTH_UI_COPY.signInButton}
+            </button>
+          ) : (
+            <div
+              className="relative"
+              onMouseEnter={() => setIsAccountMenuOpen(true)}
+              onMouseLeave={() => setIsAccountMenuOpen(false)}
+              onBlur={handleAccountMenuBlur}
+            >
               <button
                 type="button"
-                onClick={authUser ? handleLogout : handleSignIn}
-                disabled={isAuthMutating}
-                className="inline-flex rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                onFocus={() => setIsAccountMenuOpen(true)}
+                className="inline-flex items-center gap-2 rounded-[0.9rem] border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
               >
-                {isAuthMutating ? "처리 중..." : authUser ? "로그아웃" : AUTH_UI_COPY.signInButton}
-              </button>
-              {authUser ? (
-                <Link
-                  href="/my"
-                  className="inline-flex rounded-[0.9rem] bg-foreground px-3 py-2 text-xs font-semibold text-background transition hover:opacity-85"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  마이 페이지
-                </Link>
-              ) : null}
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+                <span>{authUser.displayName ?? "닉네임 미설정"}</span>
+              </button>
+
+              <div className={getDropdownClass(isAccountMenuOpen)}>
+                <div className="rounded-[1.25rem] border border-border bg-card p-2 shadow-card">
+                  <Link
+                    href="/my"
+                    onClick={() => setIsAccountMenuOpen(false)}
+                    className={SUBMENU_LINK_CLASS}
+                  >
+                    마이 페이지
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={isAuthMutating}
+                    className={`w-full text-left ${SUBMENU_LINK_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {isAuthMutating ? "처리 중..." : "로그아웃"}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -345,6 +355,32 @@ export function SiteHeroHeader({ initialUser }: SiteHeroHeaderProps) {
           <Link href="/my-pokemon" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
             내 포켓몬
           </Link>
+
+          <div className="my-1 border-t border-border" />
+
+          {authUser ? (
+            <>
+              <Link href="/my" onClick={() => setIsMobileMenuOpen(false)} className={SUBMENU_LINK_CLASS}>
+                마이 페이지
+              </Link>
+              <button
+                type="button"
+                onClick={() => { setIsMobileMenuOpen(false); void handleLogout(); }}
+                disabled={isAuthMutating}
+                className={`w-full text-left ${SUBMENU_LINK_CLASS} disabled:opacity-60`}
+              >
+                {isAuthMutating ? "처리 중..." : "로그아웃"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setIsMobileMenuOpen(false); handleSignIn(); }}
+              className={`w-full text-left ${SUBMENU_LINK_CLASS}`}
+            >
+              {AUTH_UI_COPY.signInButton}
+            </button>
+          )}
         </div>
       )}
     </div>
