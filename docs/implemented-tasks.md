@@ -14,6 +14,24 @@
 - Persisted gameplay features are now account-bound through authenticated `user_id`.
 - The sections below are historical implementation notes grouped by milestone, not a replacement for current runtime docs.
 
+## CI/CD 자동 배포 파이프라인 — 백로그 1-1 (Added: 2026-04-30)
+
+**변경 파일:**
+- `.github/workflows/deploy.yml` — GitHub Actions 워크플로우 신규 생성
+- `next.config.ts` — `turbopack: {}` 추가 (Next.js 16 Turbopack 기본 활성화 대응)
+
+**동작:**
+- `main` 브랜치 push 시 자동 트리거
+- `typecheck` job: GitHub runner에서 `npm ci → npm run typecheck` 실행, 실패 시 배포 차단
+- `deploy` job: SSH로 Hetzner 서버 접속 → `git pull → npm ci → npm run build → npm run db:migrate → pm2 restart kxoxxy-dex`
+- GitHub Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `APP_DIR` (`/var/www/kxoxxy-dex`)
+
+**참고:**
+- 롤백은 자동화되지 않음 — 오류 시 수동 SSH 롤백 필요
+- DB 마이그레이션은 매 배포마다 실행 (idempotent)
+
+---
+
 ## 모바일 UI 대응 — 백로그 2-1 (Added: 2026-04-28)
 
 **변경 파일:**
