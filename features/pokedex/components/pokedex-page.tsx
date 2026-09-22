@@ -557,10 +557,14 @@ export function PokedexPage({
   }, [serverListState]);
 
   useEffect(() => {
+    if (isServerDrivenPokedex) {
+      return;
+    }
+
     if (currentPage !== normalizedCurrentPage) {
       setCurrentPage(normalizedCurrentPage);
     }
-  }, [currentPage, normalizedCurrentPage]);
+  }, [currentPage, isServerDrivenPokedex, normalizedCurrentPage]);
 
   useEffect(() => {
     if (!isServerDrivenPokedex) {

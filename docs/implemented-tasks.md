@@ -337,6 +337,12 @@ The sections below record intermediate migration steps that are no longer the ac
 ### 개발 환경 개선
 - Updated `package.json` `dev` script to `fuser -k 3000/tcp 2>/dev/null; next dev -p 3000` so the dev server always starts on port 3000, killing any existing process on that port first.
 
+## /pokedex Page Navigation Flicker Fix (Added: 2026-09-22)
+- Symptom: on `/pokedex`, clicking a page number (e.g. page 5) caused the page indicator to flicker back and forth between the clicked page and the previous page instead of settling.
+- Root cause: `features/pokedex/components/pokedex-page.tsx` had a `currentPage` normalization effect (`if (currentPage !== normalizedCurrentPage) setCurrentPage(normalizedCurrentPage)`) that ran unconditionally. For server-driven pagination (`isServerDrivenPokedex`), `normalizedCurrentPage` is `serverListState.query.page`, which only updates after the server round trip completes. Between the click (`setCurrentPage(next)`) and that round trip, this effect saw a mismatch and snapped `currentPage` back to the stale server value, which in turn caused the URL-sync effect to re-issue `router.replace` back to the old page — racing with the in-flight navigation to the new page and producing the flicker.
+- Fix: guarded the normalization effect with `if (isServerDrivenPokedex) return;`, matching the existing guard already present on the adjacent URL-sync effect. This effect's clamping purpose (keep `currentPage` in range after `totalPages` shrinks) is still needed for the client-side-paginated views (`daily`, `favorites`, `my-pokemon`), where it is unchanged. Server-driven `/pokedex` pagination is already clamped server-side in `repository.ts` (`page = Math.min(query.page, totalPages)`), so no client-side reclamp was needed there.
+- Verified: `npm run typecheck` passed; `npm run build` compiled/type-checked successfully (page-data collection failed only due to missing local `DATABASE_URL`, unrelated to this change). `npm run lint` could not run — `next lint` was removed in the installed Next.js 16.2.4 and no standalone `eslint` binary is installed; this is a pre-existing environment gap, not introduced by this change.
+
 ## Auth Gate, Header UX, and Ops Fixes (Added: 2026-04-24)
 
 ### 보호 라우트 서버 사이드 auth gate
