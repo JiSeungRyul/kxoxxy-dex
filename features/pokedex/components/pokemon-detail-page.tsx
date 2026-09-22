@@ -217,7 +217,7 @@ function DetailImageItem({
           alt={alt}
           width={40}
           height={40}
-          className="h-8 w-8 object-contain"
+          className="h-8 w-8 object-contain [.dark_&]:invert"
           unoptimized
         />
       </div>
