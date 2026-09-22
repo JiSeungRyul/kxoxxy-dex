@@ -264,7 +264,7 @@ function AbilityTable({
     ability ? getAbilityDescriptionKo(ability.slug, ability.description) : "-";
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
     <div className="min-w-[480px] overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-card">
       <div className="grid grid-cols-[120px_180px_minmax(0,1fr)] border-b border-border bg-muted/40 px-5 py-3 text-center text-sm font-semibold text-foreground">
         <p>구분</p>
@@ -468,7 +468,7 @@ function EvolutionPathRow({
   selectedFormKey: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
       <div className="flex min-w-max items-center justify-center gap-3 pb-2">
         {path.map((node, index) => (
           <div key={`${node.stage.nationalDexNumber}-${index}`} className="flex items-center gap-3">
@@ -535,7 +535,7 @@ function EvolutionBranchGroup({
   selectedFormKey: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
       <div className="grid min-w-max justify-center gap-4 lg:grid-cols-[180px_minmax(220px,1fr)] lg:items-center">
         <div className="flex justify-center">
           <EvolutionStageCard
@@ -589,7 +589,7 @@ function SpecialEvolutionSection({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
       <div className="flex min-w-max justify-center gap-4 pb-2">
         <div className="flex shrink-0 items-center justify-center">
           <EvolutionStageCard stage={stage} isCurrent={false} selectedFormKey="default" />
@@ -846,7 +846,7 @@ export function PokemonDetailPage({ pokemon, selectedFormKey, previousPokemon, n
               </h2>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
               <div className="flex min-w-max justify-center gap-4 pb-2">
                 <BaseStatItem label="HP" value={selectedForm.stats.hp} />
                 <BaseStatItem label="공격" value={selectedForm.stats.attack} />
