@@ -61,7 +61,7 @@ export function PokedexTable({
 
   return (
     <section className="mx-auto w-full overflow-hidden rounded-[2rem] border border-border bg-card shadow-card">
-      <div className="px-5 py-5 sm:px-8">
+      <div className="overflow-x-auto overscroll-x-contain px-5 py-5 [-webkit-overflow-scrolling:touch] sm:px-8">
         <table className="w-full table-auto border-separate border-spacing-y-4">
           <thead>
             <tr className="text-left text-xs uppercase tracking-[0.18em] text-muted-foreground">
